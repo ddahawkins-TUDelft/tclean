@@ -185,3 +185,74 @@ SOURCE_PERIODS_SCHEMA = pa.DataFrameSchema(
     unique_column_names=True,
     name="source_periods",
 )
+
+CLEANING_METHOD_SCHEMA = pa.DataFrameSchema(
+    {r".+": pa.Column("string", nullable=True, coerce=True, regex=True)},
+    strict=True,
+    unique_column_names=True,
+    name="cleaning_method",
+)
+
+
+def _advanced_method_is_supported(series: pd.Series) -> pd.Series:
+    """Check that advanced-fill methods are supported."""
+    return series.isin(["construct_from_sources", "external_profile", "leave_missing"])
+
+
+def _advanced_scope_is_supported(series: pd.Series) -> pd.Series:
+    """Check that advanced-fill scopes are supported."""
+    return series.isin(["fill_gaps", "overwrite"])
+
+
+ADVANCED_FILL_RULES_SCHEMA = pa.DataFrameSchema(
+    {
+        "rule_name": pa.Column(str, nullable=False),
+        "method": pa.Column(
+            str,
+            checks=pa.Check(
+                _advanced_method_is_supported, error="Unsupported advanced-fill method."
+            ),
+            nullable=False,
+        ),
+        "country": pa.Column(str, nullable=False),
+        "start": pa.Column(
+            DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
+            checks=pa.Check(
+                _timestamps_are_on_hour,
+                error="Advanced-fill start timestamps must align to whole hours.",
+            ),
+            nullable=False,
+            coerce=True,
+        ),
+        "end": pa.Column(
+            DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
+            checks=pa.Check(
+                _timestamps_are_on_hour,
+                error="Advanced-fill end timestamps must align to whole hours.",
+            ),
+            nullable=False,
+            coerce=True,
+        ),
+        "scope": pa.Column(
+            str,
+            checks=pa.Check(
+                _advanced_scope_is_supported, error="Unsupported advanced-fill scope."
+            ),
+            nullable=False,
+        ),
+    },
+    checks=[
+        pa.Check(
+            lambda data: data["rule_name"].is_unique,
+            error="Advanced-fill rule names must be unique.",
+        ),
+        pa.Check(
+            lambda data: data["end"] > data["start"],
+            error="Advanced-fill rules must end later than they start.",
+        ),
+    ],
+    strict=True,
+    ordered=True,
+    unique_column_names=True,
+    name="advanced_fill_rules",
+)

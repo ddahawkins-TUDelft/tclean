@@ -16,7 +16,11 @@ from tclean.basic.methods.linear_interpolation import (
     METHOD_NAME as LINEAR_INTERPOLATION,
 )
 from tclean.basic.methods.linear_interpolation import apply_linear_interpolation
-from tclean.validation import infer_regular_timestep, validate_load
+from tclean.validation import (
+    infer_regular_timestep,
+    validate_cleaning_method,
+    validate_load,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +56,7 @@ def fill_basic_gaps(
     """
     load = validate_load(load)
 
-    _validate_cleaning_method(load=load, cleaning_method=cleaning_method)
+    cleaning_method = validate_cleaning_method(cleaning_method, load=load)
 
     filled = load.copy()
     cleaning_method = cleaning_method.copy()
@@ -157,18 +161,3 @@ def _log_rule_results(
             logger.info(
                 "%s: %s values filled using rule '%s'.", region, count, rule_name
             )
-
-
-def _validate_cleaning_method(
-    *, load: pd.DataFrame, cleaning_method: pd.DataFrame
-) -> None:
-    """Validate that provenance data align with the demand data."""
-    if not cleaning_method.index.equals(load.index):
-        raise ValueError(
-            "Cleaning-method provenance must use the same index as the load data."
-        )
-
-    if not cleaning_method.columns.equals(load.columns):
-        raise ValueError(
-            "Cleaning-method provenance must use the same columns as the load data."
-        )

@@ -142,19 +142,3 @@ def test_fill_basic_gaps_rejects_unknown_method():
 
     with pytest.raises(ValueError, match="Unsupported gap-filling method"):
         fill_basic_gaps(load, cleaning_method=cleaning_method, rules=rules)
-
-
-def test_fill_basic_gaps_rejects_misaligned_provenance():
-    """Reject provenance whose index differs from the demand data."""
-    index = pd.date_range(
-        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
-    )
-
-    load = pd.DataFrame({"ALB": [10.0, 11.0, 12.0]}, index=index)
-
-    cleaning_method = pd.DataFrame(
-        {"ALB": ["observed_entsoe"] * 2}, index=index[:2], dtype="string"
-    )
-
-    with pytest.raises(ValueError, match="same index"):
-        fill_basic_gaps(load, cleaning_method=cleaning_method, rules=[])

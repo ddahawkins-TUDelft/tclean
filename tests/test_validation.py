@@ -4,7 +4,12 @@ import pandas as pd
 import pandera.errors
 import pytest
 
-from tclean.validation import infer_regular_timestep, validate_load
+from tclean.validation import (
+    infer_regular_timestep,
+    validate_advanced_fill_rules,
+    validate_cleaning_method,
+    validate_load,
+)
 
 
 def test_validate_load_accepts_hourly_numeric_dataframe():
@@ -166,3 +171,115 @@ def test_validate_load_rejects_unnamed_timestamp_index():
 
     with pytest.raises(pandera.errors.SchemaErrors):
         validate_load(load)
+
+
+def test_validate_cleaning_method_accepts_aligned_data():
+    """Accept cleaning-method data aligned with canonical demand."""
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    load = pd.DataFrame({"GBR": [10.0, 11.0, 12.0]}, index=index)
+
+    cleaning_method = pd.DataFrame(
+        {"GBR": ["observed_entsoe", pd.NA, "observed_entsoe"]},
+        index=index,
+        dtype="string",
+    )
+
+    result = validate_cleaning_method(cleaning_method, load=load)
+
+    pd.testing.assert_index_equal(result.index, cleaning_method.index, exact=False)
+
+    pd.testing.assert_index_equal(result.columns, cleaning_method.columns)
+
+    assert result.loc[index[0], "GBR"] == "observed_entsoe"
+    assert pd.isna(result.loc[index[1], "GBR"])
+    assert result.loc[index[2], "GBR"] == "observed_entsoe"
+
+
+def test_validate_cleaning_method_rejects_misaligned_index():
+    """Reject provenance whose index differs from demand."""
+    load_index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    method_index = pd.date_range(
+        "2026-01-02 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    load = pd.DataFrame({"GBR": [10.0, 11.0, 12.0]}, index=load_index)
+
+    cleaning_method = pd.DataFrame(
+        {"GBR": ["a", "b", "c"]}, index=method_index, dtype="string"
+    )
+
+    with pytest.raises(ValueError, match="index must exactly match"):
+        validate_cleaning_method(cleaning_method, load=load)
+
+
+def test_validate_cleaning_method_rejects_misaligned_columns():
+    """Reject provenance whose columns differ from demand."""
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    load = pd.DataFrame({"GBR": [10.0, 11.0, 12.0]}, index=index)
+
+    cleaning_method = pd.DataFrame(
+        {"FRA": ["a", "b", "c"]}, index=index, dtype="string"
+    )
+
+    with pytest.raises(ValueError, match="columns must exactly match"):
+        validate_cleaning_method(cleaning_method, load=load)
+
+
+def test_validate_advanced_fill_rules_rejects_unknown_method():
+    """Reject unsupported advanced-fill methods."""
+    rules = pd.DataFrame(
+        {
+            "rule_name": ["rule"],
+            "method": ["magic"],
+            "country": ["GBR"],
+            "start": ["2026-01-01T00:00:00Z"],
+            "end": ["2026-01-02T00:00:00Z"],
+            "scope": ["fill_gaps"],
+        }
+    )
+
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_advanced_fill_rules(rules)
+
+
+def test_validate_advanced_fill_rules_rejects_unknown_scope():
+    """Reject unsupported advanced-fill scopes."""
+    rules = pd.DataFrame(
+        {
+            "rule_name": ["rule"],
+            "method": ["external_profile"],
+            "country": ["GBR"],
+            "start": ["2026-01-01T00:00:00Z"],
+            "end": ["2026-01-02T00:00:00Z"],
+            "scope": ["sometimes"],
+        }
+    )
+
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_advanced_fill_rules(rules)
+
+
+def test_validate_advanced_fill_rules_rejects_duplicate_names():
+    """Reject duplicate advanced-fill rule names."""
+    rules = pd.DataFrame(
+        {
+            "rule_name": ["rule", "rule"],
+            "method": ["external_profile", "external_profile"],
+            "country": ["GBR", "GBR"],
+            "start": ["2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"],
+            "end": ["2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"],
+            "scope": ["fill_gaps", "fill_gaps"],
+        }
+    )
+
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_advanced_fill_rules(rules)
