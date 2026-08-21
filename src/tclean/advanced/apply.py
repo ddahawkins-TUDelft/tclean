@@ -11,7 +11,7 @@ from tclean.advanced.methods.external_profile import METHOD_NAME as EXTERNAL_PRO
 from tclean.validation import (
     validate_advanced_fill_rules,
     validate_cleaning_method,
-    validate_load,
+    validate_time_series,
 )
 
 LEAVE_MISSING = "leave_missing"
@@ -26,7 +26,7 @@ _SOURCE_ALIGNMENT = {
 
 
 def _apply_advanced_source(
-    load: pd.DataFrame,
+    data: pd.DataFrame,
     cleaning_method: pd.DataFrame,
     source: pd.Series,
     *,
@@ -38,10 +38,10 @@ def _apply_advanced_source(
     alignment: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Apply an advanced source to the target time series."""
-    if country not in load.columns:
-        raise ValueError(f"Target country {country!r} is not present in load data.")
+    if country not in data.columns:
+        raise ValueError(f"Target country {country!r} is not present in data data.")
 
-    target_index = load.index[(load.index >= start) & (load.index < end)]
+    target_index = data.index[(data.index >= start) & (data.index < end)]
 
     if alignment == _EXACT_ALIGNMENT:
         if not source.index.equals(target_index):
@@ -54,13 +54,13 @@ def _apply_advanced_source(
     elif alignment == _OVERLAP_ALIGNMENT:
         candidate = source.loc[(source.index >= start) & (source.index < end)]
 
-        candidate = candidate.loc[candidate.index.intersection(load.index)]
+        candidate = candidate.loc[candidate.index.intersection(data.index)]
 
     else:
         raise ValueError(f"Unsupported source alignment {alignment!r}.")
 
     if scope == "fill_gaps":
-        replace_index = candidate.index[load.loc[candidate.index, country].isna()]
+        replace_index = candidate.index[data.loc[candidate.index, country].isna()]
 
     elif scope == "overwrite":
         replace_index = candidate.index
@@ -68,7 +68,7 @@ def _apply_advanced_source(
     else:
         raise ValueError(f"Unsupported advanced fill scope: {scope!r}")
 
-    filled = load.copy()
+    filled = data.copy()
     methods = cleaning_method.copy()
 
     filled.loc[replace_index, country] = candidate.loc[replace_index]
@@ -99,7 +99,7 @@ def _validate_advanced_sources(
 
 
 def apply_auxiliary_fill_rule(
-    load: pd.DataFrame,
+    data: pd.DataFrame,
     cleaning_method: pd.DataFrame,
     *,
     rule: pd.Series,
@@ -108,8 +108,8 @@ def apply_auxiliary_fill_rule(
     """Apply one validated advanced-fill rule.
 
     Args:
-        load: Canonical hourly time-series data.
-        cleaning_method: Provenance labels aligned with ``load``.
+        data: Canonical hourly time-series data.
+        cleaning_method: Provenance labels aligned with ``data``.
         rule: One validated advanced-fill rule.
         source: Advanced time-series source referenced by the rule,
             if required.
@@ -125,7 +125,7 @@ def apply_auxiliary_fill_rule(
     rule_name = rule["rule_name"]
 
     if method == LEAVE_MISSING:
-        return (load.copy(), cleaning_method.copy())
+        return (data.copy(), cleaning_method.copy())
 
     if method not in _SOURCE_ALIGNMENT:
         raise ValueError(f"Unsupported advanced-fill method {method!r}.")
@@ -136,7 +136,7 @@ def apply_auxiliary_fill_rule(
         )
 
     return _apply_advanced_source(
-        load,
+        data,
         cleaning_method,
         source,
         country=rule["country"],
@@ -149,7 +149,7 @@ def apply_auxiliary_fill_rule(
 
 
 def apply_auxiliary_fill_rules(
-    load: pd.DataFrame,
+    data: pd.DataFrame,
     cleaning_method: pd.DataFrame,
     *,
     rules: pd.DataFrame,
@@ -158,8 +158,8 @@ def apply_auxiliary_fill_rules(
     """Apply validated advanced-fill rules in table order.
 
     Args:
-        load: Canonical hourly time-series data.
-        cleaning_method: Provenance labels aligned with ``load``.
+        data: Canonical hourly time-series data.
+        cleaning_method: Provenance labels aligned with ``data``.
         rules: Advanced-fill rules in the order they should be applied.
         advanced_sources: Advanced time-series sources keyed by source name.
 
@@ -170,9 +170,9 @@ def apply_auxiliary_fill_rules(
         ValueError: If supplied advanced sources do not exactly match
             the sources referenced by the rules.
     """
-    filled = validate_load(load)
+    filled = validate_time_series(data)
 
-    methods = validate_cleaning_method(cleaning_method, load=filled)
+    methods = validate_cleaning_method(cleaning_method, data=filled)
 
     rules = validate_advanced_fill_rules(rules)
 

@@ -7,7 +7,7 @@ import pandas as pd
 from tclean.validation import (
     validate_cleaning_method,
     validate_data_source,
-    validate_load,
+    validate_time_series,
 )
 
 
@@ -57,7 +57,9 @@ def combine_sources(
     if not sources:
         raise ValueError("At least one time-series source must be supplied.")
 
-    validated_sources = {name: validate_load(load) for name, load in sources.items()}
+    validated_sources = {
+        name: validate_time_series(data) for name, data in sources.items()
+    }
 
     _validate_source_alignment(validated_sources)
 
@@ -95,17 +97,17 @@ def combine_sources(
             newly_supplied, f"observed_{source_name}"
         )
 
-    combined = validate_load(combined)
+    combined = validate_time_series(combined)
 
-    data_source = validate_data_source(data_source, load=combined)
+    data_source = validate_data_source(data_source, data=combined)
 
-    cleaning_method = validate_cleaning_method(cleaning_method, load=combined)
+    cleaning_method = validate_cleaning_method(cleaning_method, data=combined)
 
     return (combined, data_source, cleaning_method)
 
 
 def combine_auxiliary_sources(
-    loads: Mapping[str, pd.DataFrame],
+    datas: Mapping[str, pd.DataFrame],
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Combine available auxiliary sources in mapping order.
 
@@ -113,27 +115,27 @@ def combine_auxiliary_sources(
     between auxiliary sources.
 
     Args:
-        loads: Available prepared auxiliary time-series data keyed by source
+        datas: Available prepared auxiliary time-series data keyed by source
             name. Mapping insertion order defines source priority.
 
     Returns:
         Combined auxiliary data, source provenance, and cleaning-method
         provenance.
     """
-    if not loads:
+    if not datas:
         empty = pd.DataFrame()
 
         return (empty, empty.copy(), empty.copy())
 
-    validated_loads = {name: validate_load(load) for name, load in loads.items()}
+    validated_datas = {name: validate_time_series(data) for name, data in datas.items()}
 
     columns = sorted(
-        {column for load in validated_loads.values() for column in load.columns}
+        {column for data in validated_datas.values() for column in data.columns}
     )
 
     aligned = {
-        source: load.reindex(columns=columns)
-        for source, load in validated_loads.items()
+        source: data.reindex(columns=columns)
+        for source, data in validated_datas.items()
     }
 
     return combine_sources(aligned)

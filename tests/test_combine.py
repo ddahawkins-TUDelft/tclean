@@ -85,7 +85,7 @@ def test_combine_auxiliary_sources_skips_unavailable_configured_source():
     assert combined["GBR"].tolist() == [1.0, 2.0, 3.0]
 
 
-def test_combine_auxiliary_sources_returns_empty_without_loads():
+def test_combine_auxiliary_sources_returns_empty_without_datas():
     """Return empty outputs when no auxiliary sources are available."""
     combined, data_source, cleaning_method = combine_auxiliary_sources({})
 

@@ -4,8 +4,8 @@ import pandas as pd
 
 from tclean.validation import (
     validate_hourly_timestamp_index,
-    validate_load,
     validate_source_periods,
+    validate_time_series,
 )
 
 METHOD_NAME = "construct_from_sources"
@@ -133,7 +133,7 @@ def construct_from_sources(
         pandera.errors.SchemaErrors: If any input violates its
             T-Clean data contract.
     """
-    auxiliary = validate_load(auxiliary)
+    auxiliary = validate_time_series(auxiliary)
 
     target_index = validate_hourly_timestamp_index(target_index)
 

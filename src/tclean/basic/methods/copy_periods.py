@@ -8,7 +8,7 @@ METHOD_NAME = "copy_periods"
 
 
 def apply_copy_periods(
-    load: pd.DataFrame,
+    data: pd.DataFrame,
     *,
     max_gap: str | pd.Timedelta,
     source_offset: str | pd.Timedelta,
@@ -23,7 +23,7 @@ def apply_copy_periods(
 
     Parameters
     ----------
-    load:
+    data:
         Demand data indexed by timestamp.
     max_gap:
         Maximum original gap duration eligible for filling.
@@ -45,12 +45,12 @@ def apply_copy_periods(
     source_offset = pd.Timedelta(source_offset)
 
     eligible = (
-        load.isna()
+        data.isna()
         & original_gap_duration.gt(pd.Timedelta(0))
         & original_gap_duration.le(max_gap)
     )
 
-    source = _values_at_offset(load, source_offset=source_offset)
+    source = _values_at_offset(data, source_offset=source_offset)
 
     if require_complete_source:
         eligible = _require_complete_source_for_each_gap(
@@ -59,20 +59,20 @@ def apply_copy_periods(
     else:
         eligible &= source.notna()
 
-    filled = load.mask(eligible, source)
-    newly_filled = load.isna() & filled.notna()
+    filled = data.mask(eligible, source)
+    newly_filled = data.isna() & filled.notna()
 
     return filled, newly_filled
 
 
 def _values_at_offset(
-    load: pd.DataFrame, *, source_offset: pd.Timedelta
+    data: pd.DataFrame, *, source_offset: pd.Timedelta
 ) -> pd.DataFrame:
     """Align values at a temporal offset to each target timestamp."""
-    source_timestamps = load.index + source_offset
+    source_timestamps = data.index + source_offset
 
-    source = load.reindex(source_timestamps)
-    source.index = load.index
+    source = data.reindex(source_timestamps)
+    source.index = data.index
 
     return source
 

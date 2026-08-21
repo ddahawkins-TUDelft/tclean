@@ -12,11 +12,11 @@ def test_calculate_missing_run_durations_labels_complete_gap():
         "2026-01-01 00:00", periods=5, freq="h", tz="UTC", name="timestamp"
     )
 
-    load = pd.DataFrame(
+    data = pd.DataFrame(
         {"ALB": [10.0, float("nan"), float("nan"), 13.0, 14.0]}, index=index
     )
 
-    result = calculate_missing_run_durations(load)
+    result = calculate_missing_run_durations(data)
 
     expected = pd.DataFrame(
         {
@@ -44,7 +44,7 @@ def test_fill_basic_gaps_applies_rules_in_order():
         "2026-01-01 00:00", periods=4, freq="h", tz="UTC", name="timestamp"
     )
 
-    load = pd.DataFrame({"ALB": [10.0, float("nan"), 14.0, 16.0]}, index=index)
+    data = pd.DataFrame({"ALB": [10.0, float("nan"), 14.0, 16.0]}, index=index)
 
     cleaning_method = pd.DataFrame(
         {"ALB": ["observed_entsoe", pd.NA, "observed_entsoe", "observed_entsoe"]},
@@ -61,7 +61,7 @@ def test_fill_basic_gaps_applies_rules_in_order():
     ]
 
     filled, provenance = fill_basic_gaps(
-        load, cleaning_method=cleaning_method, rules=rules
+        data, cleaning_method=cleaning_method, rules=rules
     )
 
     assert filled.loc[index[1], "ALB"] == 12.0
@@ -74,7 +74,7 @@ def test_fill_basic_gaps_marks_unresolved_values_missing():
         "2026-01-01 00:00", periods=4, freq="h", tz="UTC", name="timestamp"
     )
 
-    load = pd.DataFrame({"ALB": [10.0, float("nan"), float("nan"), 16.0]}, index=index)
+    data = pd.DataFrame({"ALB": [10.0, float("nan"), float("nan"), 16.0]}, index=index)
 
     cleaning_method = pd.DataFrame(
         {"ALB": ["observed_entsoe", pd.NA, pd.NA, "observed_entsoe"]},
@@ -91,20 +91,20 @@ def test_fill_basic_gaps_marks_unresolved_values_missing():
     ]
 
     filled, provenance = fill_basic_gaps(
-        load, cleaning_method=cleaning_method, rules=rules
+        data, cleaning_method=cleaning_method, rules=rules
     )
 
     assert filled.loc[index[1:3], "ALB"].isna().all()
     assert (provenance.loc[index[1:3], "ALB"] == "missing").all()
 
 
-def test_fill_basic_gaps_disabled_preserves_load():
+def test_fill_basic_gaps_disabled_preserves_data():
     """Leave demand unchanged when basic cleaning is disabled."""
     index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
 
-    load = pd.DataFrame({"ALB": [10.0, float("nan"), 14.0]}, index=index)
+    data = pd.DataFrame({"ALB": [10.0, float("nan"), 14.0]}, index=index)
 
     cleaning_method = pd.DataFrame(
         {"ALB": ["observed_entsoe", pd.NA, "observed_entsoe"]},
@@ -113,13 +113,13 @@ def test_fill_basic_gaps_disabled_preserves_load():
     )
 
     filled, provenance = fill_basic_gaps(
-        load, cleaning_method=cleaning_method, rules=[], enabled=False
+        data, cleaning_method=cleaning_method, rules=[], enabled=False
     )
 
-    pd.testing.assert_index_equal(filled.index, load.index, exact=False)
+    pd.testing.assert_index_equal(filled.index, data.index, exact=False)
 
     pd.testing.assert_frame_equal(
-        filled.reset_index(drop=True), load.reset_index(drop=True)
+        filled.reset_index(drop=True), data.reset_index(drop=True)
     )
     assert provenance.loc[index[1], "ALB"] == "missing"
 
@@ -130,7 +130,7 @@ def test_fill_basic_gaps_rejects_unknown_method():
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
 
-    load = pd.DataFrame({"ALB": [10.0, float("nan"), 14.0]}, index=index)
+    data = pd.DataFrame({"ALB": [10.0, float("nan"), 14.0]}, index=index)
 
     cleaning_method = pd.DataFrame(
         {"ALB": ["observed_entsoe", pd.NA, "observed_entsoe"]},
@@ -141,4 +141,4 @@ def test_fill_basic_gaps_rejects_unknown_method():
     rules = [{"name": "mystery_rule", "method": "not_a_method", "max_gap": "1h"}]
 
     with pytest.raises(ValueError, match="Unsupported gap-filling method"):
-        fill_basic_gaps(load, cleaning_method=cleaning_method, rules=rules)
+        fill_basic_gaps(data, cleaning_method=cleaning_method, rules=rules)

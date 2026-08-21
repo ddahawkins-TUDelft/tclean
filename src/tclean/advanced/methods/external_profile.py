@@ -1,4 +1,4 @@
-"""Load and validate user-supplied external demand profiles."""
+"""data and validate user-supplied external demand profiles."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from tclean._schemas import EXTERNAL_PROFILE_SCHEMA
 METHOD_NAME = "external_profile"
 
 
-def load_external_profile(path: str | Path) -> pd.Series:
-    """Load and validate an external electricity-demand profile.
+def data_external_profile(path: str | Path) -> pd.Series:
+    """Data and validate an external electricity-demand profile.
 
     The CSV is read once and validated against the strict T-Clean
     external-profile schema.

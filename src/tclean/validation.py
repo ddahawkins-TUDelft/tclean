@@ -6,31 +6,30 @@ from tclean._schemas import (
     ADVANCED_FILL_RULES_SCHEMA,
     AUXILIARY_REQUIREMENTS_SCHEMA,
     AUXILIARY_SOURCE_REQUESTS_SCHEMA,
-    DEMAND_SCHEMA,
     HOURLY_TIMESTAMP_INDEX_SCHEMA,
     PROVENANCE_SCHEMA,
     SOURCE_CAPABILITIES_SCHEMA,
     SOURCE_PERIODS_SCHEMA,
     TEMPORAL_RANGE_SCHEMA,
+    TIME_SERIES_SCHEMA,
 )
 
 
-def validate_load(load: pd.DataFrame) -> pd.DataFrame:
-    """Validate and normalize canonical electricity-demand data.
+def validate_time_series(data: pd.DataFrame) -> pd.DataFrame:
+    """Validate canonical time-series data.
 
     Args:
-        load: Electricity-demand data with timestamps as the index and
-            one demand column per region.
+        data: Time-series data with timestamps on the index and one or
+            more contexts in the columns.
 
     Returns:
-        Validated demand data with a UTC ``timestamp`` index and
-        floating-point demand columns.
+        Validated canonical time-series data.
 
     Raises:
-        pandera.errors.SchemaErrors: If the demand data violate the
-            canonical T-Clean demand contract.
+        pandera.errors.SchemaErrors: If the data violate the canonical
+            T-Clean time-series contract.
     """
-    return DEMAND_SCHEMA.validate(load, lazy=True)
+    return TIME_SERIES_SCHEMA.validate(data, lazy=True)
 
 
 def validate_temporal_range(
@@ -110,45 +109,45 @@ def validate_source_periods(source_periods: pd.DataFrame) -> pd.DataFrame:
 
 
 def validate_provenance(
-    provenance: pd.DataFrame, *, load: pd.DataFrame
+    provenance: pd.DataFrame, *, data: pd.DataFrame
 ) -> pd.DataFrame:
     """Validate and normalize cleaning-method provenance data.
 
     Args:
         provenance: Provenance labels corresponding to demand values.
-        load: Canonical demand data whose shape and axes must be matched.
+        data: Canonical demand data whose shape and axes must be matched.
 
     Returns:
-        Validated cleaning-method data aligned exactly with ``load``.
+        Validated cleaning-method data aligned exactly with ``data``.
 
     Raises:
         pandera.errors.SchemaErrors: If provenance values violate the
             provenance schema.
-        ValueError: If provenance index or columns do not exactly match load.
+        ValueError: If provenance index or columns do not exactly match data.
     """
     validated = PROVENANCE_SCHEMA.validate(provenance, lazy=True)
 
-    if not validated.index.equals(load.index):
-        raise ValueError("Cleaning-method index must exactly match load index.")
+    if not validated.index.equals(data.index):
+        raise ValueError("Cleaning-method index must exactly match data index.")
 
-    if not validated.columns.equals(load.columns):
-        raise ValueError("Cleaning-method columns must exactly match load columns.")
+    if not validated.columns.equals(data.columns):
+        raise ValueError("Cleaning-method columns must exactly match data columns.")
 
     return validated
 
 
 def validate_cleaning_method(
-    cleaning_method: pd.DataFrame, *, load: pd.DataFrame
+    cleaning_method: pd.DataFrame, *, data: pd.DataFrame
 ) -> pd.DataFrame:
     """Validate cleaning-method provenance aligned with demand."""
-    return validate_provenance(cleaning_method, load=load)
+    return validate_provenance(cleaning_method, data=data)
 
 
 def validate_data_source(
-    data_source: pd.DataFrame, *, load: pd.DataFrame
+    data_source: pd.DataFrame, *, data: pd.DataFrame
 ) -> pd.DataFrame:
     """Validate data-source provenance aligned with demand."""
-    return validate_provenance(data_source, load=load)
+    return validate_provenance(data_source, data=data)
 
 
 def validate_advanced_fill_rules(rules: pd.DataFrame) -> pd.DataFrame:

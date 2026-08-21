@@ -50,7 +50,7 @@ def test_clean_applies_basic_rules_after_combination():
     """Apply basic cleaning after combining primary sources."""
     index = _index()
 
-    load = pd.DataFrame({"GBR": [10.0, float("nan"), 30.0, 40.0, 50.0]}, index=index)
+    data = pd.DataFrame({"GBR": [10.0, float("nan"), 30.0, 40.0, 50.0]}, index=index)
 
     basic_rules = [
         {
@@ -60,7 +60,7 @@ def test_clean_applies_basic_rules_after_combination():
         }
     ]
 
-    cleaned, _, cleaning_method = clean({"primary": load}, basic_rules=basic_rules)
+    cleaned, _, cleaning_method = clean({"primary": data}, basic_rules=basic_rules)
 
     assert cleaned.loc[index[1], "GBR"] == pytest.approx(20.0)
 
@@ -71,7 +71,7 @@ def test_clean_applies_advanced_rules_after_basic_rules():
     """Apply advanced cleaning after the basic cleaning stage."""
     index = _index()
 
-    load = pd.DataFrame(
+    data = pd.DataFrame(
         {"GBR": [10.0, float("nan"), float("nan"), 40.0, 50.0]}, index=index
     )
 
@@ -100,7 +100,7 @@ def test_clean_applies_advanced_rules_after_basic_rules():
     )
 
     cleaned, _, cleaning_method = clean(
-        {"primary": load},
+        {"primary": data},
         basic_rules=basic_rules,
         advanced_rules=advanced_rules,
         advanced_sources={"fallback": fallback},
@@ -119,19 +119,19 @@ def test_clean_rejects_advanced_sources_without_rules():
     """Reject supplied advanced sources when no advanced rules exist."""
     index = _index()
 
-    load = pd.DataFrame({"GBR": [10.0, 20.0, 30.0, 40.0, 50.0]}, index=index)
+    data = pd.DataFrame({"GBR": [10.0, 20.0, 30.0, 40.0, 50.0]}, index=index)
 
     source = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0], index=index)
 
     with pytest.raises(ValueError, match="without advanced rules"):
-        clean({"primary": load}, advanced_sources={"unused": source})
+        clean({"primary": data}, advanced_sources={"unused": source})
 
 
 def test_clean_allows_leave_missing_without_advanced_sources():
     """Allow source-free advanced rules such as leave_missing."""
     index = _index()
 
-    load = pd.DataFrame({"GBR": [10.0, float("nan"), 30.0, 40.0, 50.0]}, index=index)
+    data = pd.DataFrame({"GBR": [10.0, float("nan"), 30.0, 40.0, 50.0]}, index=index)
 
     advanced_rules = pd.DataFrame(
         {
@@ -145,7 +145,7 @@ def test_clean_allows_leave_missing_without_advanced_sources():
         }
     )
 
-    cleaned, _, _ = clean({"primary": load}, advanced_rules=advanced_rules)
+    cleaned, _, _ = clean({"primary": data}, advanced_rules=advanced_rules)
 
     assert pd.isna(cleaned.loc[index[1], "GBR"])
 
@@ -154,7 +154,7 @@ def test_clean_rejects_unused_advanced_source():
     """Reject advanced sources not referenced by any rule."""
     index = _index()
 
-    load = pd.DataFrame({"GBR": [10.0, 20.0, 30.0, 40.0, 50.0]}, index=index)
+    data = pd.DataFrame({"GBR": [10.0, 20.0, 30.0, 40.0, 50.0]}, index=index)
 
     advanced_rules = pd.DataFrame(
         {
@@ -172,7 +172,7 @@ def test_clean_rejects_unused_advanced_source():
 
     with pytest.raises(ValueError, match="Advanced sources must exactly match"):
         clean(
-            {"primary": load},
+            {"primary": data},
             advanced_rules=advanced_rules,
             advanced_sources={"unused": unused},
         )

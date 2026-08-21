@@ -19,14 +19,14 @@ from tclean.basic.methods.linear_interpolation import apply_linear_interpolation
 from tclean.validation import (
     infer_regular_timestep,
     validate_cleaning_method,
-    validate_load,
+    validate_time_series,
 )
 
 logger = logging.getLogger(__name__)
 
 
 def fill_basic_gaps(
-    load: pd.DataFrame,
+    data: pd.DataFrame,
     *,
     cleaning_method: pd.DataFrame,
     rules: Sequence[Mapping[str, Any]],
@@ -36,7 +36,7 @@ def fill_basic_gaps(
 
     Parameters
     ----------
-    load:
+    data:
         Hourly demand data indexed by timestamp, with one column per region.
     cleaning_method:
         Per-cell cleaning-method provenance for the observed input values.
@@ -54,11 +54,11 @@ def fill_basic_gaps(
         Per-cell provenance containing the observed-source identifier,
         configured cleaning-rule name, or ``"missing"``.
     """
-    load = validate_load(load)
+    data = validate_time_series(data)
 
-    cleaning_method = validate_cleaning_method(cleaning_method, load=load)
+    cleaning_method = validate_cleaning_method(cleaning_method, data=data)
 
-    filled = load.copy()
+    filled = data.copy()
     cleaning_method = cleaning_method.copy()
 
     if not enabled:
@@ -66,7 +66,7 @@ def fill_basic_gaps(
         cleaning_method = cleaning_method.fillna("missing")
         return filled, cleaning_method
 
-    original_gap_duration = calculate_missing_run_durations(load)
+    original_gap_duration = calculate_missing_run_durations(data)
 
     for rule in rules:
         method = str(rule["method"])
@@ -111,14 +111,14 @@ def fill_basic_gaps(
     return filled, cleaning_method
 
 
-def calculate_missing_run_durations(load: pd.DataFrame) -> pd.DataFrame:
+def calculate_missing_run_durations(data: pd.DataFrame) -> pd.DataFrame:
     """Return the original duration of each contiguous missing run.
 
     Observed values receive a duration of zero.
 
     Parameters
     ----------
-    load:
+    data:
         Regularly indexed electricity-demand data.
 
     Returns:
@@ -126,12 +126,12 @@ def calculate_missing_run_durations(load: pd.DataFrame) -> pd.DataFrame:
     pandas.DataFrame
         Per-cell durations of the original contiguous missing runs.
     """
-    load = validate_load(load)
-    timestep = infer_regular_timestep(load.index)
-    durations = pd.DataFrame(pd.Timedelta(0), index=load.index, columns=load.columns)
+    data = validate_time_series(data)
+    timestep = infer_regular_timestep(data.index)
+    durations = pd.DataFrame(pd.Timedelta(0), index=data.index, columns=data.columns)
 
-    for column in load.columns:
-        missing = load[column].isna()
+    for column in data.columns:
+        missing = data[column].isna()
         group_ids = missing.ne(missing.shift()).cumsum()
 
         run_lengths = missing.groupby(group_ids).transform("sum").where(missing, 0)

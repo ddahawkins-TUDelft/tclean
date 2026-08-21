@@ -6,10 +6,10 @@ from typing import Any
 
 import pandas as pd
 
-from tclean.validation import validate_load
+from tclean.validation import validate_time_series
 
 
-def build_gap_report(load: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
+def build_gap_report(data: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
     """Describe contiguous unresolved gaps in cleaned demand data.
 
     An empty report with the expected columns is returned when reporting
@@ -17,7 +17,7 @@ def build_gap_report(load: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
 
     Parameters
     ----------
-    load:
+    data:
         Hourly electricity-demand data indexed by timestamp.
     enabled:
         Whether unresolved-gap reporting should be performed.
@@ -41,15 +41,15 @@ def build_gap_report(load: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
     if not enabled:
         return pd.DataFrame(columns=columns)
 
-    load = validate_load(load)
+    data = validate_time_series(data)
 
     records: list[dict[str, Any]] = []
 
-    first_timestamp = load.index[0]
-    last_timestamp = load.index[-1]
+    first_timestamp = data.index[0]
+    last_timestamp = data.index[-1]
 
-    for country in load.columns:
-        missing = load[country].isna()
+    for country in data.columns:
+        missing = data[country].isna()
 
         if not missing.any():
             continue

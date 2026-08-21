@@ -5,13 +5,13 @@ import pandera.pandas as pa
 from pandera.engines.pandas_engine import DateTime
 
 
-def _has_demand_columns(data: pd.DataFrame) -> bool:
-    """Check that demand data contain at least one demand column."""
+def _has_data_columns(data: pd.DataFrame) -> bool:
+    """Check that time series data contain at least one data column."""
     return data.shape[1] > 0
 
 
 def _has_multiple_timestamps(data: pd.DataFrame) -> bool:
-    """Check that demand data contain enough timestamps to infer a timestep."""
+    """Check that time series data contain enough timestamps to infer a timestep."""
     return len(data.index) >= 2
 
 
@@ -42,7 +42,7 @@ def _has_rows(data: pd.DataFrame) -> bool:
     return not data.empty
 
 
-DEMAND_SCHEMA = pa.DataFrameSchema(
+TIME_SERIES_SCHEMA = pa.DataFrameSchema(
     {r".+": pa.Column(float, nullable=True, coerce=True, regex=True)},
     index=pa.Index(
         DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
@@ -53,25 +53,24 @@ DEMAND_SCHEMA = pa.DataFrameSchema(
     ),
     checks=[
         pa.Check(
-            _has_demand_columns,
-            error="Demand data must contain at least one demand column.",
+            _has_data_columns, error="Timeseries must contain at least one data column."
         ),
         pa.Check(
             _has_multiple_timestamps,
-            error="Demand data must contain at least two timestamps.",
+            error="Timeseries must contain at least two timestamps.",
         ),
         pa.Check(
             _timestamps_are_sorted,
-            error="Demand timestamps must be sorted in increasing order.",
+            error="Timestamps must be sorted in increasing order.",
         ),
         pa.Check(
             _timestamps_are_hourly,
-            error="Demand data must use a complete hourly time index.",
+            error="Timestamps must use a complete hourly time index.",
         ),
     ],
     strict=True,
     unique_column_names=True,
-    name="demand",
+    name="time_series",
 )
 
 
