@@ -387,3 +387,20 @@ AUXILIARY_SOURCE_REQUESTS_SCHEMA = pa.DataFrameSchema(
     unique_column_names=True,
     name="auxiliary_source_requests",
 )
+
+ADVANCED_SOURCE_SCHEMA = pa.SeriesSchema(
+    float,
+    index=pa.Index(
+        DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
+        name="timestamp",
+        nullable=False,
+        coerce=True,
+        unique=True,
+        checks=pa.Check(
+            _timestamps_are_on_hour,
+            error="Advanced source timestamps must align to whole hours.",
+        ),
+    ),
+    nullable=False,
+    coerce=True,
+)

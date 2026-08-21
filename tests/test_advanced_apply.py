@@ -1,6 +1,7 @@
 """Tests for applying advanced auxiliary-fill rules."""
 
 import pandas as pd
+import pandera as pa
 import pytest
 
 from tclean.advanced.apply import apply_advanced_rules
@@ -391,3 +392,63 @@ def test_apply_advanced_rule_overwrite_replaces_data_source():
     assert result_sources.loc[data.index[0], "GBR"] == "replacement"
 
     assert methods.loc[data.index[0], "GBR"] == "overwrite"
+
+
+def test_apply_advanced_rules_rejects_invalid_advanced_source():
+    """Validate advanced-source data before applying rules."""
+    data = _data()
+    data_source = _data_source(data)
+    methods = _methods(data)
+
+    rules = pd.DataFrame(
+        {
+            "rule_name": ["fill"],
+            "method": ["external_profile"],
+            "source": ["fallback"],
+            "context": ["GBR"],
+            "start": ["2026-01-01T00:00:00Z"],
+            "end": ["2026-01-01T04:00:00Z"],
+            "scope": ["fill_gaps"],
+        }
+    )
+
+    invalid_source = pd.Series(
+        [100.0], index=pd.DatetimeIndex(["2026-01-01T00:30:00Z"], name="timestamp")
+    )
+
+    with pytest.raises(pa.errors.SchemaErrors):
+        apply_advanced_rules(
+            data,
+            data_source,
+            methods,
+            rules=rules,
+            advanced_sources={"fallback": invalid_source},
+        )
+
+
+def test_apply_advanced_rules_rejects_non_series_source():
+    """Reject advanced sources that are not pandas Series."""
+    data = _data()
+    data_source = _data_source(data)
+    methods = _methods(data)
+
+    rules = pd.DataFrame(
+        {
+            "rule_name": ["fill"],
+            "method": ["external_profile"],
+            "source": ["fallback"],
+            "context": ["GBR"],
+            "start": ["2026-01-01T00:00:00Z"],
+            "end": ["2026-01-01T04:00:00Z"],
+            "scope": ["fill_gaps"],
+        }
+    )
+
+    with pytest.raises(TypeError, match="must be a pandas Series"):
+        apply_advanced_rules(
+            data,
+            data_source,
+            methods,
+            rules=rules,
+            advanced_sources={"fallback": [1.0, 2.0, 3.0]},
+        )

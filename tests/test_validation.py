@@ -7,6 +7,7 @@ import pytest
 from tclean.validation import (
     infer_regular_timestep,
     validate_advanced_fill_rules,
+    validate_advanced_source,
     validate_cleaning_method,
     validate_time_series,
 )
@@ -341,3 +342,87 @@ def test_validate_advanced_fill_rules_allows_source_reuse():
     result = validate_advanced_fill_rules(rules)
 
     assert result["source"].tolist() == ["winter_profile", "winter_profile"]
+
+
+def test_validate_advanced_source_accepts_valid_series():
+    """Accept a valid advanced time-series source."""
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    source = pd.Series([10.0, 20.0, 30.0], index=index)
+
+    result = validate_advanced_source(source)
+
+    pd.testing.assert_series_equal(result, source, check_dtype=False)
+
+
+def test_validate_advanced_source_coerces_numeric_values():
+    """Coerce numeric advanced-source values to floating point."""
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    source = pd.Series(["10", "20", "30"], index=index)
+
+    result = validate_advanced_source(source)
+
+    assert result.tolist() == [10.0, 20.0, 30.0]
+
+
+def test_validate_advanced_source_rejects_missing_values():
+    """Reject missing values in an advanced source."""
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    source = pd.Series([10.0, float("nan"), 30.0], index=index)
+
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_advanced_source(source)
+
+
+def test_validate_advanced_source_rejects_duplicate_timestamps():
+    """Reject duplicate advanced-source timestamps."""
+    index = pd.DatetimeIndex(
+        ["2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"], name="timestamp"
+    )
+
+    source = pd.Series([10.0, 20.0], index=index)
+
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_advanced_source(source)
+
+
+def test_validate_advanced_source_rejects_non_hourly_timestamp():
+    """Reject advanced-source timestamps that are not on whole hours."""
+    index = pd.DatetimeIndex(["2026-01-01T00:30:00Z"], name="timestamp")
+
+    source = pd.Series([10.0], index=index)
+
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_advanced_source(source)
+
+
+def test_validate_advanced_source_rejects_non_numeric_values():
+    """Reject advanced-source values that cannot be converted to numbers."""
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=2, freq="h", tz="UTC", name="timestamp"
+    )
+
+    source = pd.Series(["10", "not-a-number"], index=index)
+
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_advanced_source(source)
+
+
+def test_validate_advanced_source_rejects_unsorted_timestamps():
+    """Reject advanced-source timestamps that are not sorted."""
+    index = pd.DatetimeIndex(
+        ["2026-01-01T01:00:00Z", "2026-01-01T00:00:00Z"], name="timestamp"
+    )
+
+    source = pd.Series([20.0, 10.0], index=index)
+
+    with pytest.raises(ValueError, match="must be sorted"):
+        validate_advanced_source(source)

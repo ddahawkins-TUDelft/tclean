@@ -10,6 +10,7 @@ from tclean.advanced.methods.construct_from_sources import (
 from tclean.advanced.methods.external_profile import METHOD_NAME as EXTERNAL_PROFILE
 from tclean.validation import (
     validate_advanced_fill_rules,
+    validate_advanced_source,
     validate_cleaning_method,
     validate_data_source,
     validate_time_series,
@@ -86,8 +87,23 @@ def _apply_advanced_source(
 
 def _validate_advanced_sources(
     rules: pd.DataFrame, advanced_sources: Mapping[str, pd.Series]
-) -> None:
-    """Require exact agreement between rules and supplied sources."""
+) -> dict[str, pd.Series]:
+    """Validate advanced-source references and source data.
+
+    Args:
+        rules: Validated advanced cleaning rules.
+        advanced_sources: Advanced time-series sources keyed by source name.
+
+    Returns:
+        Validated advanced sources keyed by source name.
+
+    Raises:
+        TypeError: If an advanced source is not a pandas Series.
+        ValueError: If supplied sources do not exactly match those referenced
+            by the advanced rules.
+        pandera.errors.SchemaErrors: If a source violates the advanced-source
+            data contract.
+    """
     required_sources = set(rules.loc[rules["source"].notna(), "source"])
 
     supplied_sources = set(advanced_sources)
@@ -102,6 +118,16 @@ def _validate_advanced_sources(
             "by advanced rules. "
             f"Missing: {missing!r}; unused: {unused!r}."
         )
+
+    validated_sources: dict[str, pd.Series] = {}
+
+    for name, source in advanced_sources.items():
+        if not isinstance(source, pd.Series):
+            raise TypeError(f"Advanced source {name!r} must be a pandas Series.")
+
+        validated_sources[name] = validate_advanced_source(source)
+
+    return validated_sources
 
 
 def apply_advanced_rule(
@@ -192,7 +218,7 @@ def apply_advanced_rules(
 
     rules = validate_advanced_fill_rules(rules)
 
-    _validate_advanced_sources(rules, advanced_sources)
+    advanced_sources = _validate_advanced_sources(rules, advanced_sources)
 
     filled = filled.copy()
     sources = sources.copy()

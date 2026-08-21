@@ -4,6 +4,7 @@ import pandas as pd
 
 from tclean._schemas import (
     ADVANCED_FILL_RULES_SCHEMA,
+    ADVANCED_SOURCE_SCHEMA,
     AUXILIARY_REQUIREMENTS_SCHEMA,
     AUXILIARY_SOURCE_REQUESTS_SCHEMA,
     HOURLY_TIMESTAMP_INDEX_SCHEMA,
@@ -214,3 +215,25 @@ def validate_auxiliary_source_requests(requests: pd.DataFrame) -> pd.DataFrame:
             T-Clean auxiliary-source-request contract.
     """
     return AUXILIARY_SOURCE_REQUESTS_SCHEMA.validate(requests, lazy=True)
+
+
+def validate_advanced_source(source: pd.Series) -> pd.Series:
+    """Validate and normalise advanced time-series source.
+
+    Args:
+        source: Time-series values indexed by UTC timestamps.
+
+    Returns:
+        Validated numeric source with canonical UTC timestamps.
+
+    Raises:
+        pandera.errors.SchemaErrors: If the source violates the
+            T-Clean advanced-source contract.
+    """
+    validated = ADVANCED_SOURCE_SCHEMA.validate(source, lazy=True)
+
+    if not validated.index.is_monotonic_increasing:
+        raise ValueError("Advanced source timestamps must be sorted.")
+
+    # pandera is not coercing despite coerce=True, so forcing coersion here.
+    return validated.astype(float)
