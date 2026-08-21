@@ -32,7 +32,7 @@ def apply_average_periods(
     original_gap_duration:
         Per-cell duration of the original missing run.
 
-    Returns
+    Returns:
     -------
     filled:
         Demand data after applying the averaging rule.
@@ -48,10 +48,7 @@ def apply_average_periods(
         & original_gap_duration.le(max_gap)
     )
 
-    sources = [
-        _values_at_offset(load, source_offset=offset)
-        for offset in offsets
-    ]
+    sources = [_values_at_offset(load, source_offset=offset) for offset in offsets]
 
     candidate = _mean_complete_sources(sources=sources)
     eligible &= candidate.notna()
@@ -63,9 +60,7 @@ def apply_average_periods(
 
 
 def _values_at_offset(
-    load: pd.DataFrame,
-    *,
-    source_offset: pd.Timedelta,
+    load: pd.DataFrame, *, source_offset: pd.Timedelta
 ) -> pd.DataFrame:
     """Align values at a temporal offset to each target timestamp."""
     source_timestamps = load.index + source_offset
@@ -76,10 +71,7 @@ def _values_at_offset(
     return source
 
 
-def _mean_complete_sources(
-    *,
-    sources: Sequence[pd.DataFrame],
-) -> pd.DataFrame:
+def _mean_complete_sources(*, sources: Sequence[pd.DataFrame]) -> pd.DataFrame:
     """Calculate a mean only where every configured source exists."""
     source_sum = sources[0].copy()
     complete = sources[0].notna()

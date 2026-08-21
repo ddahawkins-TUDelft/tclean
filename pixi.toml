@@ -22,3 +22,6 @@ default = { features = ["dev"] }
 
 [tasks]
 test = "pytest"
+lint = "ruff check ."
+format = "ruff format ."
+format-check = "ruff format --check ."

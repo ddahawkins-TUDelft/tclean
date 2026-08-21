@@ -1,0 +1,24 @@
+target-version = "py312"
+
+[format]
+skip-magic-trailing-comma = true
+
+[lint]
+select = ["E", "F", "I", "Q", "W", "D", "PT", "UP"]
+ignore = ["E501"]
+
+[lint.isort]
+split-on-trailing-comma = false
+
+[lint.mccabe]
+max-complexity = 10
+
+[lint.per-file-ignores]
+"__init__.py" = ["E402", "F401", "D104"]
+"*.ipynb" = ["E402"]
+
+[lint.flake8-quotes]
+docstring-quotes = "double"
+
+[lint.pydocstyle]
+convention = "google"

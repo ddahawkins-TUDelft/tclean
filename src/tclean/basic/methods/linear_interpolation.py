@@ -27,7 +27,7 @@ def apply_linear_interpolation(
     original_gap_duration:
         Per-cell duration of the original missing run.
 
-    Returns
+    Returns:
     -------
     filled:
         Demand data after applying interpolation.

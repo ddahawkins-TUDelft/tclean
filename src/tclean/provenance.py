@@ -9,9 +9,7 @@ import pandas as pd
 
 
 def build_cleaning_method_ranks(
-    *,
-    source_priority: Sequence[str],
-    rules: Sequence[Mapping[str, Any]],
+    *, source_priority: Sequence[str], rules: Sequence[Mapping[str, Any]]
 ) -> dict[str, int]:
     """Build cleaning-method ranks from source and rule priority order."""
     ranks: dict[str, int] = {}
@@ -30,18 +28,14 @@ def build_cleaning_method_ranks(
 
 
 def derive_cleaning_method_rank(
-    *,
-    cleaning_method: pd.DataFrame,
-    ranks: Mapping[str, int],
+    *, cleaning_method: pd.DataFrame, ranks: Mapping[str, int]
 ) -> pd.DataFrame:
     """Translate cleaning-method names to integer provenance ranks."""
     present_methods = set(cleaning_method.stack().astype(str).unique())
     unknown_methods = sorted(present_methods - set(ranks))
 
     if unknown_methods:
-        raise ValueError(
-            f"No cleaning-method rank is defined for: {unknown_methods}"
-        )
+        raise ValueError(f"No cleaning-method rank is defined for: {unknown_methods}")
 
     cleaning_method_rank = cleaning_method.replace(ranks)
 
