@@ -4,9 +4,12 @@ import pandas as pd
 
 from tclean._schemas import (
     ADVANCED_FILL_RULES_SCHEMA,
+    AUXILIARY_REQUIREMENTS_SCHEMA,
+    AUXILIARY_SOURCE_REQUESTS_SCHEMA,
     CLEANING_METHOD_SCHEMA,
     DEMAND_SCHEMA,
     HOURLY_TIMESTAMP_INDEX_SCHEMA,
+    SOURCE_CAPABILITIES_SCHEMA,
     SOURCE_PERIODS_SCHEMA,
     TEMPORAL_RANGE_SCHEMA,
 )
@@ -149,3 +152,52 @@ def validate_advanced_fill_rules(rules: pd.DataFrame) -> pd.DataFrame:
             T-Clean advanced-fill contract.
     """
     return ADVANCED_FILL_RULES_SCHEMA.validate(rules, lazy=True)
+
+
+def validate_auxiliary_requirements(requirements: pd.DataFrame) -> pd.DataFrame:
+    """Validate and normalize auxiliary data requirements.
+
+    Args:
+        requirements: Auxiliary country-period requirements.
+
+    Returns:
+        Validated requirements with canonical UTC timestamps.
+
+    Raises:
+        pandera.errors.SchemaErrors: If requirements violate the
+            T-Clean auxiliary-requirements contract.
+    """
+    return AUXILIARY_REQUIREMENTS_SCHEMA.validate(requirements, lazy=True)
+
+
+def validate_source_capabilities(capabilities: pd.DataFrame) -> pd.DataFrame:
+    """Validate source-country capability definitions.
+
+    Args:
+        capabilities: Explicit source-country capability pairs. A missing
+            country means that the source supports all countries.
+
+    Returns:
+        Validated source capabilities.
+
+    Raises:
+        pandera.errors.SchemaErrors: If the capabilities violate the
+            T-Clean source-capability contract.
+    """
+    return SOURCE_CAPABILITIES_SCHEMA.validate(capabilities, lazy=True)
+
+
+def validate_auxiliary_source_requests(requests: pd.DataFrame) -> pd.DataFrame:
+    """Validate and normalize auxiliary source requests.
+
+    Args:
+        requests: Source-country-period acquisition requests.
+
+    Returns:
+        Validated source requests with canonical UTC timestamps.
+
+    Raises:
+        pandera.errors.SchemaErrors: If the requests violate the
+            T-Clean auxiliary-source-request contract.
+    """
+    return AUXILIARY_SOURCE_REQUESTS_SCHEMA.validate(requests, lazy=True)

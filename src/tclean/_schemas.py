@@ -37,9 +37,9 @@ def _source_period_ends_after_start(data: pd.DataFrame) -> pd.Series:
     return data["end"] > data["start"]
 
 
-def _has_source_periods(data: pd.DataFrame) -> bool:
-    """Check that at least one source period is configured."""
-    return len(data) > 0
+def _has_rows(data: pd.DataFrame) -> bool:
+    """Check that a tabular contract contains at least one row."""
+    return not data.empty
 
 
 DEMAND_SCHEMA = pa.DataFrameSchema(
@@ -172,9 +172,7 @@ SOURCE_PERIODS_SCHEMA = pa.DataFrameSchema(
         "weight": pa.Column(float, checks=pa.Check.gt(0), nullable=False, coerce=True),
     },
     checks=[
-        pa.Check(
-            _has_source_periods, error="At least one source period must be configured."
-        ),
+        pa.Check(_has_rows, error="At least one source period must be configured."),
         pa.Check(
             _source_period_ends_after_start,
             error="Each source period must end later than it starts.",
@@ -255,4 +253,115 @@ ADVANCED_FILL_RULES_SCHEMA = pa.DataFrameSchema(
     ordered=True,
     unique_column_names=True,
     name="advanced_fill_rules",
+)
+
+AUXILIARY_REQUIREMENTS_SCHEMA = pa.DataFrameSchema(
+    {
+        "country": pa.Column(str, nullable=False),
+        "start": pa.Column(
+            DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
+            checks=pa.Check(
+                _timestamps_are_on_hour,
+                error="Auxiliary requirement start timestamps must align to whole hours.",
+            ),
+            nullable=False,
+            coerce=True,
+        ),
+        "end": pa.Column(
+            DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
+            checks=pa.Check(
+                _timestamps_are_on_hour,
+                error="Auxiliary requirement end timestamps must align to whole hours.",
+            ),
+            nullable=False,
+            coerce=True,
+        ),
+    },
+    checks=[
+        pa.Check(
+            lambda data: data["end"] > data["start"],
+            error="Auxiliary requirements must end later than they start.",
+        )
+    ],
+    strict=True,
+    ordered=True,
+    unique_column_names=True,
+    name="auxiliary_requirements",
+)
+
+
+def _source_capabilities_do_not_mix_wildcard_and_explicit(data: pd.DataFrame) -> bool:
+    """Check that each source uses wildcard or explicit country coverage."""
+    for _, group in data.groupby("source"):
+        has_wildcard = group["country"].isna().any()
+        has_explicit = group["country"].notna().any()
+
+        if has_wildcard and has_explicit:
+            return False
+
+    return True
+
+
+SOURCE_CAPABILITIES_SCHEMA = pa.DataFrameSchema(
+    {
+        "source": pa.Column(str, nullable=False),
+        "country": pa.Column(str, nullable=True),
+    },
+    checks=[
+        pa.Check(_has_rows, error="At least one source capability must be configured."),
+        pa.Check(
+            lambda data: ~data.duplicated(subset=["source", "country"]).any(),
+            error="Source capabilities must be unique.",
+        ),
+        pa.Check(
+            _source_capabilities_do_not_mix_wildcard_and_explicit,
+            error=(
+                "A source must use either wildcard country coverage "
+                "or explicit country coverage, not both."
+            ),
+        ),
+    ],
+    strict=True,
+    ordered=True,
+    unique_column_names=True,
+    name="source_capabilities",
+)
+
+AUXILIARY_SOURCE_REQUESTS_SCHEMA = pa.DataFrameSchema(
+    {
+        "source": pa.Column(str, nullable=False),
+        "country": pa.Column(str, nullable=False),
+        "start": pa.Column(
+            DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
+            checks=pa.Check(
+                _timestamps_are_on_hour,
+                error="Source-request start timestamps must align to whole hours.",
+            ),
+            nullable=False,
+            coerce=True,
+        ),
+        "end": pa.Column(
+            DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
+            checks=pa.Check(
+                _timestamps_are_on_hour,
+                error="Source-request end timestamps must align to whole hours.",
+            ),
+            nullable=False,
+            coerce=True,
+        ),
+    },
+    checks=[
+        pa.Check(
+            lambda data: data["end"] > data["start"],
+            error="Source requests must end later than they start.",
+        ),
+        pa.Check(
+            lambda data: ~data.duplicated().any(),
+            error="Auxiliary source requests must be unique.",
+        ),
+    ],
+    strict=True,
+    ordered=True,
+    unique_column_names=True,
+    name="auxiliary_source_requests",
 )
