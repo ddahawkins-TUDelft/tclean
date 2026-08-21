@@ -16,6 +16,7 @@ from tclean.basic.methods.linear_interpolation import (
     METHOD_NAME as LINEAR_INTERPOLATION,
 )
 from tclean.basic.methods.linear_interpolation import apply_linear_interpolation
+from tclean.basic.rule_validation import validate_basic_rules
 from tclean.validation import (
     infer_regular_timestep,
     validate_cleaning_method,
@@ -57,6 +58,8 @@ def fill_basic_gaps(
     data = validate_time_series(data)
 
     cleaning_method = validate_cleaning_method(cleaning_method, data=data)
+
+    rules = validate_basic_rules(rules)
 
     filled = data.copy()
     cleaning_method = cleaning_method.copy()

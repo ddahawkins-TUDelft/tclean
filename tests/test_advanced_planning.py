@@ -157,7 +157,7 @@ def test_get_basic_cleaning_context_returns_zero_without_rules():
 
 def test_get_basic_cleaning_context_for_linear_interpolation():
     """Include gap-classification context for linear interpolation."""
-    rules = [{"method": "linear_interpolation", "max_gap": "3h"}]
+    rules = [{"name": "linop", "method": "linear_interpolation", "max_gap": "3h"}]
 
     left, right = get_basic_cleaning_context(rules)
 
@@ -167,7 +167,15 @@ def test_get_basic_cleaning_context_for_linear_interpolation():
 
 def test_get_basic_cleaning_context_for_previous_period_copy():
     """Include backward source context required by a copy rule."""
-    rules = [{"method": "copy_periods", "max_gap": "2h", "source_offset": "-24h"}]
+    rules = [
+        {
+            "name": "copy",
+            "method": "copy_periods",
+            "max_gap": "2h",
+            "source_offset": "-24h",
+            "require_complete_source": True,
+        }
+    ]
 
     left, right = get_basic_cleaning_context(rules)
 
@@ -177,7 +185,15 @@ def test_get_basic_cleaning_context_for_previous_period_copy():
 
 def test_get_basic_cleaning_context_for_following_period_copy():
     """Include forward source context required by a copy rule."""
-    rules = [{"method": "copy_periods", "max_gap": "2h", "source_offset": "24h"}]
+    rules = [
+        {
+            "name": "copy",
+            "method": "copy_periods",
+            "max_gap": "2h",
+            "source_offset": "24h",
+            "require_complete_source": True,
+        }
+    ]
 
     left, right = get_basic_cleaning_context(rules)
 
@@ -189,6 +205,7 @@ def test_get_basic_cleaning_context_for_average_periods():
     """Include context for all offsets used by an averaging rule."""
     rules = [
         {
+            "name": "avg",
             "method": "average_periods",
             "max_gap": "3h",
             "source_offsets": ["-24h", "24h"],
@@ -204,8 +221,20 @@ def test_get_basic_cleaning_context_for_average_periods():
 def test_get_basic_cleaning_context_accumulates_across_rules():
     """Accumulate context through ordered basic cleaning rules."""
     rules = [
-        {"method": "copy_periods", "max_gap": "2h", "source_offset": "-24h"},
-        {"method": "copy_periods", "max_gap": "2h", "source_offset": "-168h"},
+        {
+            "name": "copy_1",
+            "method": "copy_periods",
+            "max_gap": "2h",
+            "source_offset": "-24h",
+            "require_complete_source": True,
+        },
+        {
+            "name": "copy_2",
+            "method": "copy_periods",
+            "max_gap": "2h",
+            "source_offset": "-168h",
+            "require_complete_source": True,
+        },
     ]
 
     left, right = get_basic_cleaning_context(rules)
@@ -216,9 +245,9 @@ def test_get_basic_cleaning_context_accumulates_across_rules():
 
 def test_get_basic_cleaning_context_rejects_unknown_method():
     """Reject unsupported basic cleaning methods."""
-    rules = [{"method": "unknown", "max_gap": "2h"}]
+    rules = [{"name": "fake", "method": "unknown", "max_gap": "2h"}]
 
-    with pytest.raises(ValueError, match="Unsupported basic gap-filling method"):
+    with pytest.raises(ValueError, match="Unsupported basic cleaning method"):
         get_basic_cleaning_context(rules)
 
 
@@ -232,7 +261,15 @@ def test_expand_auxiliary_requirements_adds_context():
         }
     )
 
-    rules = [{"method": "copy_periods", "max_gap": "2h", "source_offset": "-24h"}]
+    rules = [
+        {
+            "name": "copy",
+            "method": "copy_periods",
+            "max_gap": "2h",
+            "source_offset": "-24h",
+            "require_complete_source": True,
+        }
+    ]
 
     result = expand_auxiliary_requirements(requirements, rules=rules)
 
@@ -251,7 +288,15 @@ def test_expand_auxiliary_requirements_preserves_exact_period_when_disabled():
         }
     )
 
-    rules = [{"method": "copy_periods", "max_gap": "2h", "source_offset": "-24h"}]
+    rules = [
+        {
+            "name": "copy",
+            "method": "copy_periods",
+            "max_gap": "2h",
+            "source_offset": "-24h",
+            "require_complete_source": True,
+        }
+    ]
 
     result = expand_auxiliary_requirements(requirements, rules=rules, enabled=False)
 
@@ -276,6 +321,7 @@ def test_expand_auxiliary_requirements_merges_after_expansion():
 
     rules = [
         {
+            "name": "avg",
             "method": "average_periods",
             "max_gap": "1h",
             "source_offsets": ["-24h", "24h"],

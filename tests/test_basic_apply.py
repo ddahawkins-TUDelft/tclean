@@ -140,5 +140,5 @@ def test_fill_basic_gaps_rejects_unknown_method():
 
     rules = [{"name": "mystery_rule", "method": "not_a_method", "max_gap": "1h"}]
 
-    with pytest.raises(ValueError, match="Unsupported gap-filling method"):
+    with pytest.raises(ValueError, match="Unsupported basic cleaning method"):
         fill_basic_gaps(data, cleaning_method=cleaning_method, rules=rules)

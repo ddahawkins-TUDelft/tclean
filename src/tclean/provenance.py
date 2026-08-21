@@ -13,7 +13,6 @@ def build_cleaning_method_ranks(
 ) -> dict[str, int]:
     """Build cleaning-method ranks from source and rule priority order."""
     ranks: dict[str, int] = {}
-
     for rank, source_name in enumerate(source_priority):
         ranks[f"observed_{source_name}"] = rank
 

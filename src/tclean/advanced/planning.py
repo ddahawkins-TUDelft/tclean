@@ -10,6 +10,7 @@ from tclean.basic.methods.copy_periods import METHOD_NAME as COPY_PERIODS
 from tclean.basic.methods.linear_interpolation import (
     METHOD_NAME as LINEAR_INTERPOLATION,
 )
+from tclean.basic.rule_validation import validate_basic_rules
 from tclean.validation import (
     validate_advanced_fill_rules,
     validate_auxiliary_requirements,
@@ -110,12 +111,13 @@ def get_basic_cleaning_context(
     Raises:
         ValueError: If a rule uses an unsupported basic cleaning method.
     """
+    rules = validate_basic_rules(rules)
     left_context = pd.Timedelta(0)
     right_context = pd.Timedelta(0)
 
     for rule in rules:
         method = rule["method"]
-        max_gap = pd.Timedelta(rule["max_gap"])
+        max_gap = rule["max_gap"]
 
         # Context is required on both sides to classify complete missing
         # runs correctly at the boundary of the requested period.
@@ -126,10 +128,10 @@ def get_basic_cleaning_context(
             offsets = (-pd.Timedelta(hours=1), pd.Timedelta(hours=1))
 
         elif method == COPY_PERIODS:
-            offsets = (pd.Timedelta(rule["source_offset"]),)
+            offsets = (rule["source_offset"],)
 
         elif method == AVERAGE_PERIODS:
-            offsets = tuple(pd.Timedelta(offset) for offset in rule["source_offsets"])
+            offsets = tuple(offset for offset in rule["source_offsets"])
 
         else:
             raise ValueError(f"Unsupported basic gap-filling method: {method!r}")
