@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from tclean.advanced.apply import apply_auxiliary_fill_rules
+from tclean.advanced.apply import apply_advanced_rules
 
 
 def _data() -> pd.DataFrame:
@@ -43,7 +43,7 @@ def test_apply_constructed_profile_fills_only_gaps():
 
     profile = pd.Series([100.0, 110.0, 120.0, 130.0], index=data.index, dtype=float)
 
-    filled, provenance = apply_auxiliary_fill_rules(
+    filled, provenance = apply_advanced_rules(
         data, methods, rules=rules, advanced_sources={"constructed": profile}
     )
 
@@ -73,7 +73,7 @@ def test_apply_constructed_profile_overwrites_values():
 
     profile = pd.Series([100.0, 110.0, 120.0, 130.0], index=data.index, dtype=float)
 
-    filled, provenance = apply_auxiliary_fill_rules(
+    filled, provenance = apply_advanced_rules(
         data, methods, rules=rules, advanced_sources={"constructed": profile}
     )
 
@@ -107,7 +107,7 @@ def test_apply_constructed_profile_requires_exact_index():
     profile = pd.Series([100.0, 110.0], index=data.index[:2], dtype=float)
 
     with pytest.raises(ValueError, match="must exactly match"):
-        apply_auxiliary_fill_rules(
+        apply_advanced_rules(
             data, methods, rules=rules, advanced_sources={"constructed": profile}
         )
 
@@ -135,7 +135,7 @@ def test_apply_external_profile_uses_overlap():
 
     profile = pd.Series([110.0, 120.0], index=profile_index, dtype=float)
 
-    filled, provenance = apply_auxiliary_fill_rules(
+    filled, provenance = apply_advanced_rules(
         data, methods, rules=rules, advanced_sources={"external": profile}
     )
 
@@ -169,7 +169,7 @@ def test_apply_external_profile_can_overwrite_overlap():
 
     profile = pd.Series([110.0, 120.0], index=profile_index, dtype=float)
 
-    filled, provenance = apply_auxiliary_fill_rules(
+    filled, provenance = apply_advanced_rules(
         data, methods, rules=rules, advanced_sources={"external": profile}
     )
 
@@ -200,7 +200,7 @@ def test_apply_rules_rejects_missing_advanced_source():
     )
 
     with pytest.raises(ValueError, match="Advanced sources must exactly match"):
-        apply_auxiliary_fill_rules(data, methods, rules=rules, advanced_sources={})
+        apply_advanced_rules(data, methods, rules=rules, advanced_sources={})
 
 
 def test_apply_rule_rejects_unknown_target_context():
@@ -223,7 +223,7 @@ def test_apply_rule_rejects_unknown_target_context():
     profile = pd.Series([1.0, 2.0, 3.0, 4.0], index=data.index, dtype=float)
 
     with pytest.raises(ValueError, match="Target context 'FRA' is not present"):
-        apply_auxiliary_fill_rules(
+        apply_advanced_rules(
             data, methods, rules=rules, advanced_sources={"external": profile}
         )
 
@@ -245,7 +245,7 @@ def test_leave_missing_changes_nothing():
         }
     )
 
-    filled, provenance = apply_auxiliary_fill_rules(
+    filled, provenance = apply_advanced_rules(
         data, methods, rules=rules, advanced_sources={}
     )
 
@@ -281,7 +281,7 @@ def test_advanced_rules_are_applied_sequentially():
 
     second = pd.Series([200.0, 200.0, 200.0, 200.0], index=data.index, dtype=float)
 
-    filled, provenance = apply_auxiliary_fill_rules(
+    filled, provenance = apply_advanced_rules(
         data, methods, rules=rules, advanced_sources={"first": first, "second": second}
     )
 

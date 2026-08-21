@@ -5,7 +5,7 @@ from typing import Any
 
 import pandas as pd
 
-from tclean.advanced.apply import apply_auxiliary_fill_rules
+from tclean.advanced.apply import apply_advanced_rules
 from tclean.basic.apply import fill_basic_gaps
 from tclean.combine import combine_sources
 
@@ -55,7 +55,7 @@ def clean(
     if advanced_sources is None:
         advanced_sources = {}
 
-    cleaned, cleaning_method = apply_auxiliary_fill_rules(
+    cleaned, cleaning_method = apply_advanced_rules(
         cleaned,
         cleaning_method,
         rules=advanced_rules,

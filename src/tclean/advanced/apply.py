@@ -1,4 +1,4 @@
-"""Apply validated advanced auxiliary-fill rules."""
+"""Apply validated advanced fill rules."""
 
 from collections.abc import Mapping
 
@@ -98,7 +98,7 @@ def _validate_advanced_sources(
         )
 
 
-def apply_auxiliary_fill_rule(
+def apply_advanced_rule(
     data: pd.DataFrame,
     cleaning_method: pd.DataFrame,
     *,
@@ -148,7 +148,7 @@ def apply_auxiliary_fill_rule(
     )
 
 
-def apply_auxiliary_fill_rules(
+def apply_advanced_rules(
     data: pd.DataFrame,
     cleaning_method: pd.DataFrame,
     *,
@@ -184,7 +184,7 @@ def apply_auxiliary_fill_rules(
     for _, rule in rules.iterrows():
         source = None if pd.isna(rule["source"]) else advanced_sources[rule["source"]]
 
-        filled, methods = apply_auxiliary_fill_rule(
+        filled, methods = apply_advanced_rule(
             filled, methods, rule=rule, source=source
         )
 
