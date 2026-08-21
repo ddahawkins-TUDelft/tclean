@@ -114,8 +114,8 @@ def validate_provenance(
     """Validate and normalize cleaning-method provenance data.
 
     Args:
-        provenance: Provenance labels corresponding to demand values.
-        data: Canonical demand data whose shape and axes must be matched.
+        provenance: Provenance labels corresponding to values.
+        data: Canonical data whose shape and axes must be matched.
 
     Returns:
         Validated cleaning-method data aligned exactly with ``data``.
@@ -139,14 +139,14 @@ def validate_provenance(
 def validate_cleaning_method(
     cleaning_method: pd.DataFrame, *, data: pd.DataFrame
 ) -> pd.DataFrame:
-    """Validate cleaning-method provenance aligned with demand."""
+    """Validate cleaning-method provenance aligned with values."""
     return validate_provenance(cleaning_method, data=data)
 
 
 def validate_data_source(
     data_source: pd.DataFrame, *, data: pd.DataFrame
 ) -> pd.DataFrame:
-    """Validate data-source provenance aligned with demand."""
+    """Validate data-source provenance aligned with values."""
     return validate_provenance(data_source, data=data)
 
 

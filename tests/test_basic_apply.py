@@ -1,4 +1,4 @@
-"""Tests for orchestration of basic demand cleaning."""
+"""Tests for orchestration of basic cleaning."""
 
 import pandas as pd
 import pytest
@@ -99,7 +99,7 @@ def test_fill_basic_gaps_marks_unresolved_values_missing():
 
 
 def test_fill_basic_gaps_disabled_preserves_data():
-    """Leave demand unchanged when basic cleaning is disabled."""
+    """Leave data unchanged when basic cleaning is disabled."""
     index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )

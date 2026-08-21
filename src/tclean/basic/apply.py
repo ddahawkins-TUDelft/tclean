@@ -1,4 +1,4 @@
-"""Coordinate deterministic basic electricity-demand cleaning methods."""
+"""Coordinate deterministic basic time series cleaning methods."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def fill_basic_gaps(
     Parameters
     ----------
     data:
-        Hourly demand data indexed by timestamp, with one column per region.
+        Hourly data indexed by timestamp, with one column per region.
     cleaning_method:
         Per-cell cleaning-method provenance for the observed input values.
         Missing input values should contain ``pd.NA``.
@@ -49,7 +49,7 @@ def fill_basic_gaps(
     Returns:
     -------
     filled:
-        Demand data after applying the configured rules.
+        Data after applying the configured rules.
     cleaning_method:
         Per-cell provenance containing the observed-source identifier,
         configured cleaning-rule name, or ``"missing"``.
@@ -119,7 +119,7 @@ def calculate_missing_run_durations(data: pd.DataFrame) -> pd.DataFrame:
     Parameters
     ----------
     data:
-        Regularly indexed electricity-demand data.
+        Regularly indexed data.
 
     Returns:
     -------

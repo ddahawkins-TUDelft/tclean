@@ -1,4 +1,4 @@
-"""Construct demand profiles from configured source periods."""
+"""Construct profiles from configured source periods."""
 
 import pandas as pd
 
@@ -12,14 +12,16 @@ METHOD_NAME = "construct_from_sources"
 
 
 def _align_leap_day(
-    auxiliary: pd.Series,
+    source_data: pd.Series,
     *,
     start: pd.Timestamp,
     end: pd.Timestamp,
     target_index: pd.DatetimeIndex,
 ) -> pd.Series:
     """Align source values with the target calendar around February 29."""
-    source_values = auxiliary.loc[(auxiliary.index >= start) & (auxiliary.index < end)]
+    source_values = source_data.loc[
+        (source_data.index >= start) & (source_data.index < end)
+    ]
 
     source_has_leap_day = (
         (source_values.index.month == 2) & (source_values.index.day == 29)
@@ -33,16 +35,16 @@ def _align_leap_day(
         return source_values.loc[~leap_day]
 
     if target_has_leap_day and not source_has_leap_day:
-        feb_28 = auxiliary.loc[
-            (auxiliary.index.year == start.year)
-            & (auxiliary.index.month == 2)
-            & (auxiliary.index.day == 28)
+        feb_28 = source_data.loc[
+            (source_data.index.year == start.year)
+            & (source_data.index.month == 2)
+            & (source_data.index.day == 28)
         ]
 
-        march_1 = auxiliary.loc[
-            (auxiliary.index.year == start.year)
-            & (auxiliary.index.month == 3)
-            & (auxiliary.index.day == 1)
+        march_1 = source_data.loc[
+            (source_data.index.year == start.year)
+            & (source_data.index.month == 3)
+            & (source_data.index.day == 1)
         ]
 
         leap_values = (feb_28.to_numpy(dtype=float) + march_1.to_numpy(dtype=float)) / 2
@@ -59,22 +61,22 @@ def _align_leap_day(
     return source_values
 
 
-def _match_energy(
-    profile: pd.Series, *, auxiliary: pd.DataFrame, reference_sources: pd.DataFrame
+def _scale_to_reference_total(
+    profile: pd.Series, *, source_data: pd.DataFrame, reference_sources: pd.DataFrame
 ) -> pd.Series:
-    """Scale a profile to weighted mean energy of reference periods."""
-    weighted_energy = 0.0
+    """Scale a profile to weighted mean quantity of reference periods."""
+    weighted_value = 0.0
     total_weight = 0.0
 
     for source in reference_sources.itertuples(index=False):
-        if source.context not in auxiliary.columns:
+        if source.context not in source_data.columns:
             raise ValueError(
-                "Auxiliary data do not contain requested scaling context "
+                "source_data data do not contain requested scaling context "
                 f"{source.context!r}."
             )
 
-        source_values = auxiliary.loc[
-            (auxiliary.index >= source.start) & (auxiliary.index < source.end),
+        source_values = source_data.loc[
+            (source_data.index >= source.start) & (source_data.index < source.end),
             source.context,
         ]
 
@@ -92,48 +94,48 @@ def _match_energy(
                 f"{source.start} to {source.end}."
             )
 
-        weighted_energy += float(source_values.sum()) * source.weight
+        weighted_value += float(source_values.sum()) * source.weight
         total_weight += source.weight
 
-    target_energy = weighted_energy / total_weight
-    profile_energy = float(profile.sum())
+    target_value = weighted_value / total_weight
+    profile_value = float(profile.sum())
 
-    if profile_energy == 0:
+    if profile_value == 0:
         raise ValueError(
-            "Cannot match energy for a constructed profile with zero total energy."
+            "Cannot match value for a constructed profile with zero total value."
         )
 
-    return profile * (target_energy / profile_energy)
+    return profile * (target_value / profile_value)
 
 
 def construct_from_sources(
-    auxiliary: pd.DataFrame,
+    source_data: pd.DataFrame,
     *,
     target_index: pd.DatetimeIndex,
     sources: pd.DataFrame,
     scaling_sources: pd.DataFrame | None = None,
 ) -> pd.Series:
-    """Construct a target demand profile from weighted source periods.
+    """Construct a target profile from weighted source periods.
 
     Args:
-        auxiliary: Canonical hourly auxiliary demand data.
+        source_data: Canonical hourly source_data data.
         target_index: Hourly timestamps for the constructed profile.
         sources: Explicit weighted source-period definitions.
         scaling_sources: Optional explicit weighted reference periods
-            whose mean energy the constructed profile should match.
+            whose mean value the constructed profile should match.
 
     Returns:
-        Constructed floating-point demand profile indexed by
+        Constructed floating-point profile indexed by
         ``target_index``.
 
     Raises:
         ValueError: If a source period does not match the target length,
             contains missing values, refers to an unavailable context,
-            or energy matching cannot be performed.
+            or value matching cannot be performed.
         pandera.errors.SchemaErrors: If any input violates its
             T-Clean data contract.
     """
-    auxiliary = validate_time_series(auxiliary)
+    source_data = validate_time_series(source_data)
 
     target_index = validate_hourly_timestamp_index(target_index)
 
@@ -146,13 +148,13 @@ def construct_from_sources(
     weights: list[float] = []
 
     for source in sources.itertuples(index=False):
-        if source.context not in auxiliary.columns:
+        if source.context not in source_data.columns:
             raise ValueError(
-                f"Auxiliary data do not contain requested context {source.context!r}."
+                f"source_data data do not contain requested context {source.context!r}."
             )
 
         source_values = _align_leap_day(
-            auxiliary[source.context],
+            source_data[source.context],
             start=source.start,
             end=source.end,
             target_index=target_index,
@@ -160,7 +162,7 @@ def construct_from_sources(
 
         if len(source_values) != len(target_index):
             raise ValueError(
-                "Auxiliary source period must contain "
+                "source_data source period must contain "
                 "the same number of values as the target "
                 f"period. Source {source.context!r} contains "
                 f"{len(source_values)} values; target "
@@ -169,7 +171,7 @@ def construct_from_sources(
 
         if source_values.isna().any():
             raise ValueError(
-                "Auxiliary source period contains missing values. "
+                "source_data source period contains missing values. "
                 f"Source {source.context!r}: "
                 f"{source.start} to {source.end}."
             )
@@ -184,8 +186,8 @@ def construct_from_sources(
     profile = weighted_sum / sum(weights)
 
     if scaling_sources is not None:
-        profile = _match_energy(
-            profile, auxiliary=auxiliary, reference_sources=scaling_sources
+        profile = _scale_to_reference_total(
+            profile, source_data=source_data, reference_sources=scaling_sources
         )
 
     return profile

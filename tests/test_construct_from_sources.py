@@ -1,4 +1,4 @@
-"""Tests for constructing demand profiles from source periods."""
+"""Tests for constructing profiles from source periods."""
 
 import pandas as pd
 import pytest
@@ -8,10 +8,10 @@ from tclean.advanced.methods.construct_from_sources import construct_from_source
 
 def test_construct_from_sources_remaps_single_source():
     """Remap one complete source period onto the target timestamps."""
-    auxiliary_index = pd.date_range(
+    source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
-    auxiliary = pd.DataFrame({"GBR": [10.0, 20.0, 30.0]}, index=auxiliary_index)
+    source_data = pd.DataFrame({"GBR": [10.0, 20.0, 30.0]}, index=source_data_index)
 
     target_index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
@@ -27,7 +27,7 @@ def test_construct_from_sources_remaps_single_source():
     )
 
     result = construct_from_sources(
-        auxiliary, target_index=target_index, sources=sources
+        source_data, target_index=target_index, sources=sources
     )
 
     expected = pd.Series([10.0, 20.0, 30.0], index=target_index, dtype=float)
@@ -37,11 +37,11 @@ def test_construct_from_sources_remaps_single_source():
 
 def test_construct_from_sources_combines_weighted_sources():
     """Combine multiple source periods according to explicit weights."""
-    auxiliary_index = pd.date_range(
+    source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
-    auxiliary = pd.DataFrame(
-        {"GBR": [10.0, 20.0, 30.0], "FRA": [40.0, 50.0, 60.0]}, index=auxiliary_index
+    source_data = pd.DataFrame(
+        {"GBR": [10.0, 20.0, 30.0], "FRA": [40.0, 50.0, 60.0]}, index=source_data_index
     )
 
     target_index = pd.date_range(
@@ -58,7 +58,7 @@ def test_construct_from_sources_combines_weighted_sources():
     )
 
     result = construct_from_sources(
-        auxiliary, target_index=target_index, sources=sources
+        source_data, target_index=target_index, sources=sources
     )
 
     expected = pd.Series(
@@ -75,11 +75,11 @@ def test_construct_from_sources_combines_weighted_sources():
 
 
 def test_construct_from_sources_rejects_unknown_context():
-    """Reject a source context that is absent from auxiliary data."""
-    auxiliary_index = pd.date_range(
+    """Reject a source context that is absent from source_data data."""
+    source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
-    auxiliary = pd.DataFrame({"GBR": [10.0, 20.0, 30.0]}, index=auxiliary_index)
+    source_data = pd.DataFrame({"GBR": [10.0, 20.0, 30.0]}, index=source_data_index)
 
     target_index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
@@ -95,17 +95,19 @@ def test_construct_from_sources_rejects_unknown_context():
     )
 
     with pytest.raises(
-        ValueError, match="Auxiliary data do not contain requested context"
+        ValueError, match="source_data data do not contain requested context"
     ):
-        construct_from_sources(auxiliary, target_index=target_index, sources=sources)
+        construct_from_sources(source_data, target_index=target_index, sources=sources)
 
 
 def test_construct_from_sources_rejects_missing_source_values():
-    """Reject a source period containing missing auxiliary values."""
-    auxiliary_index = pd.date_range(
+    """Reject a source period containing missing source_data values."""
+    source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
-    auxiliary = pd.DataFrame({"GBR": [10.0, float("nan"), 30.0]}, index=auxiliary_index)
+    source_data = pd.DataFrame(
+        {"GBR": [10.0, float("nan"), 30.0]}, index=source_data_index
+    )
 
     target_index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
@@ -121,17 +123,17 @@ def test_construct_from_sources_rejects_missing_source_values():
     )
 
     with pytest.raises(
-        ValueError, match="Auxiliary source period contains missing values"
+        ValueError, match="source_data source period contains missing values"
     ):
-        construct_from_sources(auxiliary, target_index=target_index, sources=sources)
+        construct_from_sources(source_data, target_index=target_index, sources=sources)
 
 
 def test_construct_from_sources_rejects_length_mismatch():
     """Reject a source period whose aligned length differs from the target."""
-    auxiliary_index = pd.date_range(
+    source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=2, freq="h", tz="UTC", name="timestamp"
     )
-    auxiliary = pd.DataFrame({"GBR": [10.0, 20.0]}, index=auxiliary_index)
+    source_data = pd.DataFrame({"GBR": [10.0, 20.0]}, index=source_data_index)
 
     target_index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
@@ -147,16 +149,16 @@ def test_construct_from_sources_rejects_length_mismatch():
     )
 
     with pytest.raises(ValueError, match="must contain the same number of values"):
-        construct_from_sources(auxiliary, target_index=target_index, sources=sources)
+        construct_from_sources(source_data, target_index=target_index, sources=sources)
 
 
 def test_construct_from_sources_removes_leap_day_for_non_leap_target():
     """Remove February 29 when mapping a leap-year source to a non-leap target."""
-    auxiliary_index = pd.date_range(
+    source_data_index = pd.date_range(
         "2024-02-28 00:00", "2024-03-01 23:00", freq="h", tz="UTC", name="timestamp"
     )
-    auxiliary = pd.DataFrame(
-        {"GBR": range(len(auxiliary_index))}, index=auxiliary_index, dtype=float
+    source_data = pd.DataFrame(
+        {"GBR": range(len(source_data_index))}, index=source_data_index, dtype=float
     )
 
     target_index = pd.date_range(
@@ -173,11 +175,11 @@ def test_construct_from_sources_removes_leap_day_for_non_leap_target():
     )
 
     result = construct_from_sources(
-        auxiliary, target_index=target_index, sources=sources
+        source_data, target_index=target_index, sources=sources
     )
 
     expected_values = pd.concat(
-        [auxiliary.loc["2024-02-28", "GBR"], auxiliary.loc["2024-03-01", "GBR"]]
+        [source_data.loc["2024-02-28", "GBR"], source_data.loc["2024-03-01", "GBR"]]
     ).to_numpy()
 
     expected = pd.Series(expected_values, index=target_index, dtype=float)
@@ -187,14 +189,14 @@ def test_construct_from_sources_removes_leap_day_for_non_leap_target():
 
 def test_construct_from_sources_inserts_leap_day_for_leap_target():
     """Insert an averaged February 29 for a leap target from a non-leap source."""
-    auxiliary_index = pd.date_range(
+    source_data_index = pd.date_range(
         "2025-02-28 00:00", "2025-03-01 23:00", freq="h", tz="UTC", name="timestamp"
     )
 
     feb_28 = [10.0] * 24
     march_1 = [30.0] * 24
 
-    auxiliary = pd.DataFrame({"GBR": [*feb_28, *march_1]}, index=auxiliary_index)
+    source_data = pd.DataFrame({"GBR": [*feb_28, *march_1]}, index=source_data_index)
 
     target_index = pd.date_range(
         "2024-02-28 00:00", "2024-03-01 23:00", freq="h", tz="UTC", name="timestamp"
@@ -210,7 +212,7 @@ def test_construct_from_sources_inserts_leap_day_for_leap_target():
     )
 
     result = construct_from_sources(
-        auxiliary, target_index=target_index, sources=sources
+        source_data, target_index=target_index, sources=sources
     )
 
     expected = pd.Series(
@@ -224,12 +226,12 @@ def test_construct_from_sources_inserts_leap_day_for_leap_target():
 
 def test_construct_from_sources_matches_reference_energy():
     """Scale the constructed profile to weighted reference-period energy."""
-    auxiliary_index = pd.date_range(
+    source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=6, freq="h", tz="UTC", name="timestamp"
     )
 
-    auxiliary = pd.DataFrame(
-        {"GBR": [10.0, 10.0, 10.0, 20.0, 20.0, 20.0]}, index=auxiliary_index
+    source_data = pd.DataFrame(
+        {"GBR": [10.0, 10.0, 10.0, 20.0, 20.0, 20.0]}, index=source_data_index
     )
 
     target_index = pd.date_range(
@@ -255,7 +257,7 @@ def test_construct_from_sources_matches_reference_energy():
     )
 
     result = construct_from_sources(
-        auxiliary,
+        source_data,
         target_index=target_index,
         sources=sources,
         scaling_sources=scaling_sources,
@@ -268,16 +270,16 @@ def test_construct_from_sources_matches_reference_energy():
 
 def test_construct_from_sources_uses_weighted_reference_energy():
     """Use explicit weights when combining scaling reference energies."""
-    auxiliary_index = pd.date_range(
+    source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=6, freq="h", tz="UTC", name="timestamp"
     )
 
-    auxiliary = pd.DataFrame(
+    source_data = pd.DataFrame(
         {
             "GBR": [10.0, 10.0, 10.0, 20.0, 20.0, 20.0],
             "FRA": [10.0, 10.0, 10.0, 40.0, 40.0, 40.0],
         },
-        index=auxiliary_index,
+        index=source_data_index,
     )
 
     target_index = pd.date_range(
@@ -303,7 +305,7 @@ def test_construct_from_sources_uses_weighted_reference_energy():
     )
 
     result = construct_from_sources(
-        auxiliary,
+        source_data,
         target_index=target_index,
         sources=sources,
         scaling_sources=scaling_sources,
@@ -315,11 +317,11 @@ def test_construct_from_sources_uses_weighted_reference_energy():
 
 
 def test_construct_from_sources_rejects_unknown_scaling_context():
-    """Reject a scaling context that is absent from auxiliary data."""
-    auxiliary_index = pd.date_range(
+    """Reject a scaling context that is absent from source_data data."""
+    source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
-    auxiliary = pd.DataFrame({"GBR": [10.0, 20.0, 30.0]}, index=auxiliary_index)
+    source_data = pd.DataFrame({"GBR": [10.0, 20.0, 30.0]}, index=source_data_index)
 
     target_index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
@@ -344,10 +346,10 @@ def test_construct_from_sources_rejects_unknown_scaling_context():
     )
 
     with pytest.raises(
-        ValueError, match="Auxiliary data do not contain requested scaling context"
+        ValueError, match="source_data data do not contain requested scaling context"
     ):
         construct_from_sources(
-            auxiliary,
+            source_data,
             target_index=target_index,
             sources=sources,
             scaling_sources=scaling_sources,
@@ -356,12 +358,12 @@ def test_construct_from_sources_rejects_unknown_scaling_context():
 
 def test_construct_from_sources_rejects_missing_scaling_values():
     """Reject a scaling reference period containing missing values."""
-    auxiliary_index = pd.date_range(
+    source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=6, freq="h", tz="UTC", name="timestamp"
     )
 
-    auxiliary = pd.DataFrame(
-        {"GBR": [10.0, 20.0, 30.0, 40.0, float("nan"), 60.0]}, index=auxiliary_index
+    source_data = pd.DataFrame(
+        {"GBR": [10.0, 20.0, 30.0, 40.0, float("nan"), 60.0]}, index=source_data_index
     )
 
     target_index = pd.date_range(
@@ -390,7 +392,7 @@ def test_construct_from_sources_rejects_missing_scaling_values():
         ValueError, match="Scaling source period contains missing values"
     ):
         construct_from_sources(
-            auxiliary,
+            source_data,
             target_index=target_index,
             sources=sources,
             scaling_sources=scaling_sources,
@@ -398,11 +400,11 @@ def test_construct_from_sources_rejects_missing_scaling_values():
 
 
 def test_construct_from_sources_rejects_empty_scaling_period():
-    """Reject a scaling reference period containing no auxiliary values."""
-    auxiliary_index = pd.date_range(
+    """Reject a scaling reference period containing no source_data values."""
+    source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
-    auxiliary = pd.DataFrame({"GBR": [10.0, 20.0, 30.0]}, index=auxiliary_index)
+    source_data = pd.DataFrame({"GBR": [10.0, 20.0, 30.0]}, index=source_data_index)
 
     target_index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
@@ -428,7 +430,7 @@ def test_construct_from_sources_rejects_empty_scaling_period():
 
     with pytest.raises(ValueError, match="Scaling source period contains no values"):
         construct_from_sources(
-            auxiliary,
+            source_data,
             target_index=target_index,
             sources=sources,
             scaling_sources=scaling_sources,
@@ -436,13 +438,13 @@ def test_construct_from_sources_rejects_empty_scaling_period():
 
 
 def test_construct_from_sources_rejects_zero_energy_profile():
-    """Reject energy matching when the constructed profile has zero energy."""
-    auxiliary_index = pd.date_range(
+    """Reject energy matching when the constructed profile has zero value."""
+    source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=6, freq="h", tz="UTC", name="timestamp"
     )
 
-    auxiliary = pd.DataFrame(
-        {"GBR": [0.0, 0.0, 0.0, 10.0, 10.0, 10.0]}, index=auxiliary_index
+    source_data = pd.DataFrame(
+        {"GBR": [0.0, 0.0, 0.0, 10.0, 10.0, 10.0]}, index=source_data_index
     )
 
     target_index = pd.date_range(
@@ -467,9 +469,9 @@ def test_construct_from_sources_rejects_zero_energy_profile():
         }
     )
 
-    with pytest.raises(ValueError, match="zero total energy"):
+    with pytest.raises(ValueError, match="zero total value"):
         construct_from_sources(
-            auxiliary,
+            source_data,
             target_index=target_index,
             sources=sources,
             scaling_sources=scaling_sources,

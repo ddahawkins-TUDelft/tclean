@@ -1,4 +1,4 @@
-"""Plan auxiliary data required for advanced demand cleaning."""
+"""Plan auxiliary data required for advanced time series cleaning."""
 
 from collections.abc import Mapping, Sequence
 from typing import Any

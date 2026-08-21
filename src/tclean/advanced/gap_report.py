@@ -1,4 +1,4 @@
-"""Build reports for unresolved gaps in electricity-demand data."""
+"""Build reports for unresolved gaps in time series data."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from tclean.validation import validate_time_series
 
 
 def build_gap_report(data: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
-    """Describe contiguous unresolved gaps in cleaned demand data.
+    """Describe contiguous unresolved gaps in cleaned data.
 
     An empty report with the expected columns is returned when reporting
     is disabled or when no unresolved gaps remain.
@@ -18,7 +18,7 @@ def build_gap_report(data: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
     Parameters
     ----------
     data:
-        Hourly electricity-demand data indexed by timestamp.
+        Hourly data indexed by timestamp.
     enabled:
         Whether unresolved-gap reporting should be performed.
 
@@ -27,7 +27,7 @@ def build_gap_report(data: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
     pandas.DataFrame
         One row per contiguous unresolved gap, including its context,
         temporal extent, duration, and whether it touches either boundary
-        of the supplied demand series.
+        of the supplied time series.
     """
     columns = [
         "context",

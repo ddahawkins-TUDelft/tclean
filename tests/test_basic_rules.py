@@ -1,4 +1,4 @@
-"""Tests for basic electricity-demand gap-filling rules."""
+"""Tests for basic gap-filling rules."""
 
 import pandas as pd
 

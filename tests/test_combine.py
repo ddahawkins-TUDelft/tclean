@@ -1,4 +1,4 @@
-"""Tests for combining prepared demand sources."""
+"""Tests for combining prepared sources."""
 
 import pandas as pd
 import pytest

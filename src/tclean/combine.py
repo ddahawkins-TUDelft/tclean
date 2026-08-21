@@ -1,4 +1,4 @@
-"""Combine prepared demand sources in configured priority order."""
+"""Combine prepared sources in configured priority order."""
 
 from collections.abc import Mapping
 
@@ -20,13 +20,13 @@ def _validate_source_alignment(sources: Mapping[str, pd.DataFrame]) -> None:
     for source_name, source in source_items[1:]:
         if not source.index.equals(reference.index):
             raise ValueError(
-                f"Demand source {source_name!r} does not use the "
+                f"Source {source_name!r} does not use the "
                 f"same timestamp index as {reference_name!r}."
             )
 
         if not source.columns.equals(reference.columns):
             raise ValueError(
-                f"Demand source {source_name!r} does not use the "
+                f"Source {source_name!r} does not use the "
                 f"same context columns as {reference_name!r}."
             )
 

@@ -1,4 +1,4 @@
-"""Linear interpolation for bounded gaps in demand time series."""
+"""Linear interpolation for bounded gaps in time series."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def apply_linear_interpolation(
     Parameters
     ----------
     data:
-        Demand data indexed by timestamp.
+        Data indexed by timestamp.
     max_gap:
         Maximum original gap duration eligible for interpolation.
     original_gap_duration:
@@ -30,7 +30,7 @@ def apply_linear_interpolation(
     Returns:
     -------
     filled:
-        Demand data after applying interpolation.
+        Data after applying interpolation.
     newly_filled:
         Boolean DataFrame identifying values filled by this rule.
     """

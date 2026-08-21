@@ -112,7 +112,7 @@ EXTERNAL_PROFILE_SCHEMA = pa.DataFrameSchema(
             unique=True,
             coerce=True,
         ),
-        "demand": pa.Column(float, nullable=False, coerce=True),
+        "value": pa.Column(float, nullable=False, coerce=True),
     },
     strict=True,
     ordered=True,

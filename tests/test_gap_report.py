@@ -1,4 +1,4 @@
-"""Tests for unresolved electricity-demand gap reports."""
+"""Tests for unresolved gap reports."""
 
 import pandas as pd
 

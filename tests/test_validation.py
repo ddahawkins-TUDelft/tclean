@@ -1,4 +1,4 @@
-"""Tests for canonical electricity-demand validation."""
+"""Tests for canonical validation."""
 
 import pandas as pd
 import pandera.errors
@@ -13,7 +13,7 @@ from tclean.validation import (
 
 
 def test_validate_time_series_accepts_hourly_numeric_dataframe():
-    """Accept canonical hourly electricity-demand data."""
+    """Accept canonical hourly data."""
     index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
@@ -30,8 +30,8 @@ def test_validate_time_series_accepts_hourly_numeric_dataframe():
     )
 
 
-def test_validate_time_series_coerces_numeric_demand():
-    """Coerce numeric demand values to floating-point data."""
+def test_validate_time_series_coerces_numeric_value():
+    """Coerce numeric values to floating-point data."""
     index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
@@ -43,8 +43,8 @@ def test_validate_time_series_coerces_numeric_demand():
     assert result["ALB"].tolist() == [100.0, 101.0, 102.0]
 
 
-def test_validate_time_series_allows_missing_demand():
-    """Allow missing demand values for subsequent gap cleaning."""
+def test_validate_time_series_allows_missing_value():
+    """Allow missing values for subsequent gap cleaning."""
     index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
@@ -55,8 +55,8 @@ def test_validate_time_series_allows_missing_demand():
     assert pd.isna(result.loc[index[1], "ALB"])
 
 
-def test_validate_time_series_rejects_non_numeric_demand():
-    """Reject demand values that cannot be coerced to numbers."""
+def test_validate_time_series_rejects_non_numeric_value():
+    """Reject values that cannot be coerced to numbers."""
     index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
@@ -66,8 +66,8 @@ def test_validate_time_series_rejects_non_numeric_demand():
         validate_time_series(data)
 
 
-def test_validate_time_series_rejects_no_demand_columns():
-    """Reject demand data containing no regional demand columns."""
+def test_validate_time_series_rejects_no_value_columns():
+    """Reject data containing no context columns."""
     index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
@@ -78,7 +78,7 @@ def test_validate_time_series_rejects_no_demand_columns():
 
 
 def test_validate_time_series_rejects_single_timestamp():
-    """Reject demand data with fewer than two timestamps."""
+    """Reject data with fewer than two timestamps."""
     index = pd.DatetimeIndex(["2026-01-01T00:00:00Z"], name="timestamp")
     data = pd.DataFrame({"ALB": [100.0]}, index=index)
 
@@ -87,7 +87,7 @@ def test_validate_time_series_rejects_single_timestamp():
 
 
 def test_validate_time_series_rejects_unsorted_timestamps():
-    """Reject demand data whose timestamps are not sorted."""
+    """Reject data whose timestamps are not sorted."""
     index = pd.DatetimeIndex(
         ["2026-01-01T01:00:00Z", "2026-01-01T00:00:00Z"], name="timestamp"
     )
@@ -98,7 +98,7 @@ def test_validate_time_series_rejects_unsorted_timestamps():
 
 
 def test_validate_time_series_rejects_duplicate_timestamps():
-    """Reject demand data containing duplicate timestamps."""
+    """Reject data containing duplicate timestamps."""
     index = pd.DatetimeIndex(
         ["2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"], name="timestamp"
     )
@@ -109,7 +109,7 @@ def test_validate_time_series_rejects_duplicate_timestamps():
 
 
 def test_validate_time_series_rejects_non_hourly_timestamps():
-    """Reject otherwise regular demand data that are not hourly."""
+    """Reject otherwise regular data that are not hourly."""
     index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="30min", tz="UTC", name="timestamp"
     )
@@ -120,7 +120,7 @@ def test_validate_time_series_rejects_non_hourly_timestamps():
 
 
 def test_validate_time_series_rejects_missing_hour():
-    """Reject an hourly demand index containing a missing timestamp."""
+    """Reject an hourly index containing a missing timestamp."""
     index = pd.DatetimeIndex(
         ["2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z", "2026-01-01T03:00:00Z"],
         name="timestamp",
@@ -165,7 +165,7 @@ def test_infer_regular_timestep_returns_hourly_timestep():
 
 
 def test_validate_time_series_rejects_unnamed_timestamp_index():
-    """Reject demand data whose timestamp index is unnamed."""
+    """Reject data whose timestamp index is unnamed."""
     index = pd.date_range("2026-01-01 00:00", periods=3, freq="h", tz="UTC")
     data = pd.DataFrame({"ALB": [100.0, 101.0, 102.0]}, index=index)
 
@@ -174,7 +174,7 @@ def test_validate_time_series_rejects_unnamed_timestamp_index():
 
 
 def test_validate_cleaning_method_accepts_aligned_data():
-    """Accept cleaning-method data aligned with canonical demand."""
+    """Accept cleaning-method data aligned with canonical values."""
     index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
@@ -199,7 +199,7 @@ def test_validate_cleaning_method_accepts_aligned_data():
 
 
 def test_validate_cleaning_method_rejects_misaligned_index():
-    """Reject provenance whose index differs from demand."""
+    """Reject provenance whose index differs from values."""
     data_index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
@@ -219,7 +219,7 @@ def test_validate_cleaning_method_rejects_misaligned_index():
 
 
 def test_validate_cleaning_method_rejects_misaligned_columns():
-    """Reject provenance whose columns differ from demand."""
+    """Reject provenance whose columns differ from values."""
     index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )

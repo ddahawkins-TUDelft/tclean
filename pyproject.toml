@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "tclean"
 version = "0.0.0"
-description = "Tools for cleaning, validating, and reconstructing electricity-demand time series."
+description = "Tools for cleaning, validating, and reconstructing time series."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }

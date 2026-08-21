@@ -7,7 +7,7 @@ from tclean.advanced.apply import apply_auxiliary_fill_rules
 
 
 def _data() -> pd.DataFrame:
-    """Return canonical test demand data."""
+    """Return canonical test data."""
     index = pd.date_range(
         "2026-01-01 00:00", periods=4, freq="h", tz="UTC", name="timestamp"
     )
@@ -16,7 +16,7 @@ def _data() -> pd.DataFrame:
 
 
 def _methods(data: pd.DataFrame) -> pd.DataFrame:
-    """Return provenance aligned with test demand."""
+    """Return provenance aligned with test data."""
     return pd.DataFrame(
         {"GBR": ["observed", pd.NA, "observed", pd.NA]},
         index=data.index,
@@ -204,7 +204,7 @@ def test_apply_rules_rejects_missing_advanced_source():
 
 
 def test_apply_rule_rejects_unknown_target_context():
-    """Reject a rule targeting a context absent from demand data."""
+    """Reject a rule targeting a context absent from data."""
     data = _data()
     methods = _methods(data)
 
@@ -229,7 +229,7 @@ def test_apply_rule_rejects_unknown_target_context():
 
 
 def test_leave_missing_changes_nothing():
-    """Leave demand and provenance unchanged for a leave-missing rule."""
+    """Leave data and provenance unchanged for a leave-missing rule."""
     data = _data()
     methods = _methods(data)
 

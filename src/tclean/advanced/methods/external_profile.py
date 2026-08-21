@@ -1,4 +1,4 @@
-"""data and validate user-supplied external demand profiles."""
+"""data and validate user-supplied external profiles."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ METHOD_NAME = "external_profile"
 
 
 def data_external_profile(path: str | Path) -> pd.Series:
-    """Data and validate an external electricity-demand profile.
+    """Data and validate an external profile.
 
     The CSV is read once and validated against the strict T-Clean
     external-profile schema.
@@ -21,7 +21,7 @@ def data_external_profile(path: str | Path) -> pd.Series:
         path: Path to the external profile CSV file.
 
     Returns:
-        Validated demand indexed by sorted UTC timestamps named
+        Validated time series indexed by sorted UTC timestamps named
         ``timestamp``.
 
     Raises:
@@ -33,8 +33,8 @@ def data_external_profile(path: str | Path) -> pd.Series:
     validated = EXTERNAL_PROFILE_SCHEMA.validate(profile, lazy=True)
 
     return pd.Series(
-        validated["demand"].to_numpy(),
+        validated["value"].to_numpy(),
         index=pd.DatetimeIndex(validated["timestamp"], name="timestamp"),
         dtype=float,
-        name="demand",
+        name="value",
     ).sort_index()
