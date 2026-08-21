@@ -5,6 +5,10 @@ platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
 
 [dependencies]
 python = ">=3.12"
+pandas = ">=3.0.3"
+pytest = ">=8.3.5"
+ruff = ">=0.9.9"
+mypy = ">=1.15.0"
 
 [feature.dev.dependencies]
 pytest = "*"

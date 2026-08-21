@@ -10,9 +10,11 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [
-    { name = "Elyan Aarts" }
+    { name = "Dano Hawkins" }
 ]
-dependencies = []
+dependencies = [
+    "pandas",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tclean"]
