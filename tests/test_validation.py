@@ -240,6 +240,7 @@ def test_validate_advanced_fill_rules_rejects_unknown_method():
         {
             "rule_name": ["rule"],
             "method": ["magic"],
+            "source": ["test_source"],
             "country": ["GBR"],
             "start": ["2026-01-01T00:00:00Z"],
             "end": ["2026-01-02T00:00:00Z"],
@@ -257,6 +258,7 @@ def test_validate_advanced_fill_rules_rejects_unknown_scope():
         {
             "rule_name": ["rule"],
             "method": ["external_profile"],
+            "source": ["test_source"],
             "country": ["GBR"],
             "start": ["2026-01-01T00:00:00Z"],
             "end": ["2026-01-02T00:00:00Z"],
@@ -274,6 +276,7 @@ def test_validate_advanced_fill_rules_rejects_duplicate_names():
         {
             "rule_name": ["rule", "rule"],
             "method": ["external_profile", "external_profile"],
+            "source": ["test_source", "test_source_2"],
             "country": ["GBR", "GBR"],
             "start": ["2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"],
             "end": ["2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"],
@@ -283,3 +286,58 @@ def test_validate_advanced_fill_rules_rejects_duplicate_names():
 
     with pytest.raises(pandera.errors.SchemaErrors):
         validate_advanced_fill_rules(rules)
+
+
+def test_validate_advanced_fill_rules_requires_source_for_profile_method():
+    """Require a source for advanced methods that consume external data."""
+    rules = pd.DataFrame(
+        {
+            "rule_name": ["fill"],
+            "method": ["external_profile"],
+            "source": [None],
+            "country": ["GBR"],
+            "start": ["2026-01-01T00:00:00Z"],
+            "end": ["2026-01-02T00:00:00Z"],
+            "scope": ["fill_gaps"],
+        }
+    )
+
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_advanced_fill_rules(rules)
+
+
+def test_validate_advanced_fill_rules_rejects_source_for_leave_missing():
+    """Reject a source on a leave-missing rule."""
+    rules = pd.DataFrame(
+        {
+            "rule_name": ["leave"],
+            "method": ["leave_missing"],
+            "source": ["unused"],
+            "country": ["GBR"],
+            "start": ["2026-01-01T00:00:00Z"],
+            "end": ["2026-01-02T00:00:00Z"],
+            "scope": ["fill_gaps"],
+        }
+    )
+
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_advanced_fill_rules(rules)
+
+
+def test_validate_advanced_fill_rules_allows_source_reuse():
+    """Allow multiple advanced rules to reference the same source."""
+    rules = pd.DataFrame(
+        {
+            "rule_name": ["first", "second"],
+            "method": ["external_profile", "external_profile"],
+            "source": ["winter_profile", "winter_profile"],
+            "country": ["GBR", "GBR"],
+            "start": ["2026-01-01T00:00:00Z", "2026-02-01T00:00:00Z"],
+            "end": ["2026-01-02T00:00:00Z", "2026-02-02T00:00:00Z"],
+            "scope": ["fill_gaps", "overwrite"],
+        }
+    )
+
+    result = validate_advanced_fill_rules(rules)
+
+    assert result["source"].tolist() == ["winter_profile", "winter_profile"]

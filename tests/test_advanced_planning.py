@@ -452,6 +452,7 @@ def test_select_active_advanced_rules_keeps_intersecting_rules():
         {
             "rule_name": ["inside", "wrong_country", "wrong_period"],
             "method": ["external_profile", "external_profile", "external_profile"],
+            "source": ["test_source", "test_source", "test_source"],
             "country": ["GBR", "FRA", "GBR"],
             "start": [
                 "2026-01-01T00:00:00Z",
@@ -483,6 +484,7 @@ def test_select_active_advanced_rules_accepts_partial_period_overlap():
         {
             "rule_name": ["partial"],
             "method": ["external_profile"],
+            "source": ["test_source"],
             "country": ["GBR"],
             "start": ["2025-12-31T00:00:00Z"],
             "end": ["2026-01-02T00:00:00Z"],
@@ -506,6 +508,7 @@ def test_select_active_advanced_rules_excludes_rule_ending_at_target_start():
         {
             "rule_name": ["before"],
             "method": ["external_profile"],
+            "source": ["test_source"],
             "country": ["GBR"],
             "start": ["2025-12-01T00:00:00Z"],
             "end": ["2026-01-01T00:00:00Z"],
@@ -529,6 +532,7 @@ def test_select_active_advanced_rules_preserves_rule_order():
         {
             "rule_name": ["second_chronologically", "first_chronologically"],
             "method": ["external_profile", "external_profile"],
+            "source": ["test_source", "test_source"],
             "country": ["GBR", "GBR"],
             "start": ["2026-01-10T00:00:00Z", "2026-01-01T00:00:00Z"],
             "end": ["2026-01-11T00:00:00Z", "2026-01-02T00:00:00Z"],

@@ -13,8 +13,8 @@ def _index() -> pd.DatetimeIndex:
     )
 
 
-def test_combine_sources_uses_priority_order():
-    """Use lower-priority values only where higher-priority data are missing."""
+def test_combine_sources_uses_mapping_order_as_priority():
+    """Use source mapping order to determine precedence."""
     index = _index()
 
     primary = pd.DataFrame({"GBR": [10.0, float("nan"), 30.0]}, index=index)
@@ -22,7 +22,7 @@ def test_combine_sources_uses_priority_order():
     secondary = pd.DataFrame({"GBR": [100.0, 200.0, 300.0]}, index=index)
 
     combined, data_source, cleaning_method = combine_sources(
-        {"entsoe": primary, "opsd": secondary}, priority=["entsoe", "opsd"]
+        {"entsoe": primary, "opsd": secondary}
     )
 
     assert combined["GBR"].tolist() == [10.0, 200.0, 30.0]
@@ -36,83 +36,23 @@ def test_combine_sources_uses_priority_order():
     ]
 
 
-def test_combine_sources_preserves_unresolved_missing_values():
-    """Leave values missing when no supplied source can provide them."""
+def test_combine_sources_changes_priority_when_mapping_order_changes():
+    """Treat earlier mapping entries as higher-priority sources."""
     index = _index()
 
-    first = pd.DataFrame({"GBR": [10.0, float("nan"), 30.0]}, index=index)
+    first = pd.DataFrame({"GBR": [10.0, 20.0, 30.0]}, index=index)
 
-    second = pd.DataFrame({"GBR": [100.0, float("nan"), 300.0]}, index=index)
+    second = pd.DataFrame({"GBR": [100.0, 200.0, 300.0]}, index=index)
 
-    combined, data_source, cleaning_method = combine_sources(
-        {"first": first, "second": second}, priority=["first", "second"]
-    )
+    combined, _, _ = combine_sources({"second": second, "first": first})
 
-    assert pd.isna(combined.loc[index[1], "GBR"])
-    assert pd.isna(data_source.loc[index[1], "GBR"])
-    assert pd.isna(cleaning_method.loc[index[1], "GBR"])
+    assert combined["GBR"].tolist() == [100.0, 200.0, 300.0]
 
 
-def test_combine_sources_rejects_missing_priority_source():
-    """Reject a priority that omits a supplied source."""
-    index = _index()
-
-    load = pd.DataFrame({"GBR": [1.0, 2.0, 3.0]}, index=index)
-
-    with pytest.raises(ValueError, match="must contain every supplied source"):
-        combine_sources({"entsoe": load, "opsd": load.copy()}, priority=["entsoe"])
-
-
-def test_combine_sources_rejects_unknown_priority_source():
-    """Reject a priority containing a source that was not supplied."""
-    index = _index()
-
-    load = pd.DataFrame({"GBR": [1.0, 2.0, 3.0]}, index=index)
-
-    with pytest.raises(ValueError, match="must contain every supplied source"):
-        combine_sources({"entsoe": load}, priority=["entsoe", "opsd"])
-
-
-def test_combine_sources_rejects_duplicate_priority():
-    """Reject duplicate entries in source priority."""
-    index = _index()
-
-    load = pd.DataFrame({"GBR": [1.0, 2.0, 3.0]}, index=index)
-
-    with pytest.raises(ValueError, match="must not contain duplicate"):
-        combine_sources({"entsoe": load}, priority=["entsoe", "entsoe"])
-
-
-def test_combine_sources_rejects_misaligned_index():
-    """Reject prepared sources with different timestamp grids."""
-    first_index = _index()
-
-    second_index = pd.date_range(
-        "2026-01-02 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
-    )
-
-    first = pd.DataFrame({"GBR": [1.0, 2.0, 3.0]}, index=first_index)
-
-    second = pd.DataFrame({"GBR": [4.0, 5.0, 6.0]}, index=second_index)
-
-    with pytest.raises(ValueError, match="same timestamp index"):
-        combine_sources(
-            {"first": first, "second": second}, priority=["first", "second"]
-        )
-
-
-def test_combine_sources_rejects_misaligned_columns():
-    """Reject primary sources with different target country columns."""
-    index = _index()
-
-    first = pd.DataFrame({"GBR": [1.0, 2.0, 3.0]}, index=index)
-
-    second = pd.DataFrame({"FRA": [4.0, 5.0, 6.0]}, index=index)
-
-    with pytest.raises(ValueError, match="same country columns"):
-        combine_sources(
-            {"first": first, "second": second}, priority=["first", "second"]
-        )
+def test_combine_sources_rejects_empty_sources():
+    """Reject combination when no sources are supplied."""
+    with pytest.raises(ValueError, match="At least one time-series source"):
+        combine_sources({})
 
 
 def test_combine_auxiliary_sources_aligns_country_columns():
@@ -124,7 +64,7 @@ def test_combine_auxiliary_sources_aligns_country_columns():
     opsd = pd.DataFrame({"FRA": [20.0, 21.0, 22.0]}, index=index)
 
     combined, data_source, _ = combine_auxiliary_sources(
-        {"entsoe": entsoe, "opsd": opsd}, priority=["entsoe", "opsd"]
+        {"entsoe": entsoe, "opsd": opsd}
     )
 
     assert combined.columns.tolist() == ["FRA", "GBR"]
@@ -140,18 +80,14 @@ def test_combine_auxiliary_sources_skips_unavailable_configured_source():
 
     entsoe = pd.DataFrame({"GBR": [1.0, 2.0, 3.0]}, index=index)
 
-    combined, _, _ = combine_auxiliary_sources(
-        {"entsoe": entsoe}, priority=["neso", "entsoe", "opsd"]
-    )
+    combined, _, _ = combine_auxiliary_sources({"entsoe": entsoe})
 
     assert combined["GBR"].tolist() == [1.0, 2.0, 3.0]
 
 
 def test_combine_auxiliary_sources_returns_empty_without_loads():
     """Return empty outputs when no auxiliary sources are available."""
-    combined, data_source, cleaning_method = combine_auxiliary_sources(
-        {}, priority=["entsoe", "opsd"]
-    )
+    combined, data_source, cleaning_method = combine_auxiliary_sources({})
 
     assert combined.empty
     assert data_source.empty

@@ -202,6 +202,20 @@ def _advanced_scope_is_supported(series: pd.Series) -> pd.Series:
     return series.isin(["fill_gaps", "overwrite"])
 
 
+def _advanced_rule_sources_match_methods(data: pd.DataFrame) -> bool:
+    """Check that advanced-rule source usage matches the method."""
+    source_required = data["method"].isin(
+        ["external_profile", "construct_from_sources"]
+    )
+
+    leave_missing = data["method"].eq("leave_missing")
+
+    return bool(
+        data.loc[source_required, "source"].notna().all()
+        and data.loc[leave_missing, "source"].isna().all()
+    )
+
+
 ADVANCED_FILL_RULES_SCHEMA = pa.DataFrameSchema(
     {
         "rule_name": pa.Column(str, nullable=False),
@@ -212,6 +226,7 @@ ADVANCED_FILL_RULES_SCHEMA = pa.DataFrameSchema(
             ),
             nullable=False,
         ),
+        "source": pa.Column(str, nullable=True),
         "country": pa.Column(str, nullable=False),
         "start": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
@@ -247,6 +262,14 @@ ADVANCED_FILL_RULES_SCHEMA = pa.DataFrameSchema(
         pa.Check(
             lambda data: data["end"] > data["start"],
             error="Advanced-fill rules must end later than they start.",
+        ),
+        pa.Check(
+            _advanced_rule_sources_match_methods,
+            error=(
+                "Advanced rules using external_profile or "
+                "construct_from_sources must define a source, while "
+                "leave_missing rules must not define one."
+            ),
         ),
     ],
     strict=True,

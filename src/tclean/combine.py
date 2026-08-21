@@ -1,6 +1,6 @@
 """Combine prepared demand sources in configured priority order."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 
 import pandas as pd
 
@@ -9,34 +9,6 @@ from tclean.validation import (
     validate_data_source,
     validate_load,
 )
-
-
-def _validate_source_priority(
-    sources: Mapping[str, pd.DataFrame], priority: Sequence[str]
-) -> None:
-    """Require an explicit unique priority for every supplied source."""
-    if not sources:
-        raise ValueError("At least one demand source must be supplied.")
-
-    if not priority:
-        raise ValueError("Source priority must contain at least one source.")
-
-    if len(priority) != len(set(priority)):
-        raise ValueError("Source priority must not contain duplicate sources.")
-
-    source_names = set(sources)
-    priority_names = set(priority)
-
-    if source_names != priority_names:
-        missing = sorted(source_names - priority_names)
-        unknown = sorted(priority_names - source_names)
-
-        raise ValueError(
-            "Source priority must contain every supplied source "
-            "exactly once. "
-            f"Missing from priority: {missing!r}; "
-            f"not supplied: {unknown!r}."
-        )
 
 
 def _validate_source_alignment(sources: Mapping[str, pd.DataFrame]) -> None:
@@ -60,37 +32,39 @@ def _validate_source_alignment(sources: Mapping[str, pd.DataFrame]) -> None:
 
 
 def combine_sources(
-    sources: Mapping[str, pd.DataFrame], *, priority: Sequence[str]
+    sources: Mapping[str, pd.DataFrame],
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Combine prepared demand sources in explicit priority order.
+    """Combine prepared time-series sources in mapping order.
 
-    Higher-priority sources supply values first. Lower-priority sources
-    contribute only where all higher-priority sources are missing.
+    Earlier sources have higher priority. Later sources contribute only
+    where all earlier sources are missing.
 
     Args:
-        sources: Prepared canonical demand frames keyed by source name.
-        priority: Source names from highest to lowest priority. Every
-            supplied source must appear exactly once.
+        sources: Prepared canonical time-series frames keyed by source name.
+            Mapping insertion order defines source priority from highest to
+            lowest.
 
     Returns:
-        Combined demand, data-source provenance, and cleaning-method
+        Combined data, data-source provenance, and cleaning-method
         provenance.
 
     Raises:
-        ValueError: If source priority or source alignment is invalid.
+        ValueError: If no sources are supplied or source grids are not
+            aligned.
         pandera.errors.SchemaErrors: If any source violates the canonical
-            demand contract.
+            time-series contract.
     """
-    _validate_source_priority(sources, priority)
+    if not sources:
+        raise ValueError("At least one time-series source must be supplied.")
 
     validated_sources = {name: validate_load(load) for name, load in sources.items()}
 
-    selected = {source: validated_sources[source] for source in priority}
+    _validate_source_alignment(validated_sources)
 
-    _validate_source_alignment(selected)
+    source_names = list(validated_sources)
 
-    first_source = priority[0]
-    combined = selected[first_source].copy()
+    first_source = source_names[0]
+    combined = validated_sources[first_source].copy()
 
     data_source = pd.DataFrame(
         pd.NA, index=combined.index, columns=combined.columns, dtype="string"
@@ -108,8 +82,8 @@ def combine_sources(
         first_source_values, f"observed_{first_source}"
     )
 
-    for source_name in priority[1:]:
-        candidate = selected[source_name]
+    for source_name in source_names[1:]:
+        candidate = validated_sources[source_name]
 
         newly_supplied = combined.isna() & candidate.notna()
 
@@ -131,44 +105,27 @@ def combine_sources(
 
 
 def combine_auxiliary_sources(
-    loads: Mapping[str, pd.DataFrame], *, priority: Sequence[str]
+    loads: Mapping[str, pd.DataFrame],
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Combine available auxiliary sources using configured priority.
+    """Combine available auxiliary sources in mapping order.
 
-    Configured sources that did not supply auxiliary data are skipped.
-    Every supplied auxiliary source must nevertheless occur in the
-    configured priority.
+    Earlier sources have higher priority. Country coverage may differ
+    between auxiliary sources.
 
     Args:
-        loads: Available prepared auxiliary demand by source.
-        priority: Complete configured source priority.
+        loads: Available prepared auxiliary time-series data keyed by source
+            name. Mapping insertion order defines source priority.
 
     Returns:
-        Combined auxiliary demand, source provenance, and cleaning-method
+        Combined auxiliary data, source provenance, and cleaning-method
         provenance.
-
-    Raises:
-        ValueError: If a supplied auxiliary source is absent from the
-            configured priority.
     """
     if not loads:
         empty = pd.DataFrame()
+
         return (empty, empty.copy(), empty.copy())
 
-    if len(priority) != len(set(priority)):
-        raise ValueError("Source priority must not contain duplicate sources.")
-
-    unconfigured = sorted(set(loads) - set(priority))
-
-    if unconfigured:
-        raise ValueError(
-            "Auxiliary data were supplied by sources absent from "
-            f"the configured priority: {unconfigured!r}."
-        )
-
     validated_loads = {name: validate_load(load) for name, load in loads.items()}
-
-    available_priority = [source for source in priority if source in validated_loads]
 
     columns = sorted(
         {column for load in validated_loads.values() for column in load.columns}
@@ -179,4 +136,4 @@ def combine_auxiliary_sources(
         for source, load in validated_loads.items()
     }
 
-    return combine_sources(aligned, priority=available_priority)
+    return combine_sources(aligned)

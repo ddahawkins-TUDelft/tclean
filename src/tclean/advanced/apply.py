@@ -19,16 +19,16 @@ LEAVE_MISSING = "leave_missing"
 _EXACT_ALIGNMENT = "exact"
 _OVERLAP_ALIGNMENT = "overlap"
 
-_PROFILE_ALIGNMENT = {
+_SOURCE_ALIGNMENT = {
     CONSTRUCT_FROM_SOURCES: _EXACT_ALIGNMENT,
     EXTERNAL_PROFILE: _OVERLAP_ALIGNMENT,
 }
 
 
-def _apply_profile(
+def _apply_advanced_source(
     load: pd.DataFrame,
     cleaning_method: pd.DataFrame,
-    profile: pd.Series,
+    source: pd.Series,
     *,
     country: str,
     start: pd.Timestamp,
@@ -37,27 +37,27 @@ def _apply_profile(
     rule_name: str,
     alignment: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Apply a validated auxiliary profile to target demand."""
+    """Apply an advanced source to the target time series."""
     if country not in load.columns:
         raise ValueError(f"Target country {country!r} is not present in load data.")
 
     target_index = load.index[(load.index >= start) & (load.index < end)]
 
     if alignment == _EXACT_ALIGNMENT:
-        if not profile.index.equals(target_index):
+        if not source.index.equals(target_index):
             raise ValueError(
-                "Constructed profile index must exactly match the target period."
+                "Constructed source index must exactly match the target period."
             )
 
-        candidate = profile
+        candidate = source
 
     elif alignment == _OVERLAP_ALIGNMENT:
-        candidate = profile.loc[(profile.index >= start) & (profile.index < end)]
+        candidate = source.loc[(source.index >= start) & (source.index < end)]
 
         candidate = candidate.loc[candidate.index.intersection(load.index)]
 
     else:
-        raise ValueError(f"Unsupported profile alignment {alignment!r}.")
+        raise ValueError(f"Unsupported source alignment {alignment!r}.")
 
     if scope == "fill_gaps":
         replace_index = candidate.index[load.loc[candidate.index, country].isna()]
@@ -78,52 +78,73 @@ def _apply_profile(
     return filled, methods
 
 
+def _validate_advanced_sources(
+    rules: pd.DataFrame, advanced_sources: Mapping[str, pd.Series]
+) -> None:
+    """Require exact agreement between rules and supplied sources."""
+    required_sources = set(rules.loc[rules["source"].notna(), "source"])
+
+    supplied_sources = set(advanced_sources)
+
+    missing = sorted(required_sources - supplied_sources)
+
+    unused = sorted(supplied_sources - required_sources)
+
+    if missing or unused:
+        raise ValueError(
+            "Advanced sources must exactly match the sources referenced "
+            "by advanced rules. "
+            f"Missing: {missing!r}; unused: {unused!r}."
+        )
+
+
 def apply_auxiliary_fill_rule(
     load: pd.DataFrame,
     cleaning_method: pd.DataFrame,
     *,
     rule: pd.Series,
-    profile: pd.Series | None = None,
+    source: pd.Series | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Apply one validated advanced-fill rule.
 
     Args:
-        load: Canonical hourly demand data.
+        load: Canonical hourly time-series data.
         cleaning_method: Provenance labels aligned with ``load``.
         rule: One validated advanced-fill rule.
-        profile: Auxiliary profile associated with the rule, if required.
+        source: Advanced time-series source referenced by the rule,
+            if required.
 
     Returns:
-        Updated demand and provenance data.
+        Updated time-series and provenance data.
 
     Raises:
-        ValueError: If a required profile is absent or the rule cannot
+        ValueError: If a required source is absent or the rule cannot
             be applied.
     """
     method = rule["method"]
     rule_name = rule["rule_name"]
 
     if method == LEAVE_MISSING:
-        return load.copy(), cleaning_method.copy()
+        return (load.copy(), cleaning_method.copy())
 
-    if method not in _PROFILE_ALIGNMENT:
+    if method not in _SOURCE_ALIGNMENT:
         raise ValueError(f"Unsupported advanced-fill method {method!r}.")
 
-    if profile is None:
+    if source is None:
         raise ValueError(
-            f"Advanced-fill rule {rule_name!r} requires an auxiliary profile."
+            f"Advanced-fill rule {rule_name!r} requires an advanced source."
         )
 
-    return _apply_profile(
+    return _apply_advanced_source(
         load,
         cleaning_method,
-        profile,
+        source,
         country=rule["country"],
         start=rule["start"],
         end=rule["end"],
         scope=rule["scope"],
         rule_name=rule_name,
-        alignment=_PROFILE_ALIGNMENT[method],
+        alignment=_SOURCE_ALIGNMENT[method],
     )
 
 
@@ -132,18 +153,22 @@ def apply_auxiliary_fill_rules(
     cleaning_method: pd.DataFrame,
     *,
     rules: pd.DataFrame,
-    profiles: Mapping[str, pd.Series],
+    advanced_sources: Mapping[str, pd.Series],
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Apply validated advanced-fill rules in table order.
 
     Args:
-        load: Canonical hourly demand data.
+        load: Canonical hourly time-series data.
         cleaning_method: Provenance labels aligned with ``load``.
         rules: Advanced-fill rules in the order they should be applied.
-        profiles: Auxiliary profiles keyed by rule name.
+        advanced_sources: Advanced time-series sources keyed by source name.
 
     Returns:
-        Demand and provenance data after sequential rule application.
+        Time-series and provenance data after sequential rule application.
+
+    Raises:
+        ValueError: If supplied advanced sources do not exactly match
+            the sources referenced by the rules.
     """
     filled = validate_load(load)
 
@@ -151,16 +176,16 @@ def apply_auxiliary_fill_rules(
 
     rules = validate_advanced_fill_rules(rules)
 
+    _validate_advanced_sources(rules, advanced_sources)
+
     filled = filled.copy()
     methods = methods.copy()
 
     for _, rule in rules.iterrows():
-        rule_name = rule["rule_name"]
-
-        profile = profiles.get(rule_name)
+        source = None if pd.isna(rule["source"]) else advanced_sources[rule["source"]]
 
         filled, methods = apply_auxiliary_fill_rule(
-            filled, methods, rule=rule, profile=profile
+            filled, methods, rule=rule, source=source
         )
 
-    return filled, methods
+    return (filled, methods)
