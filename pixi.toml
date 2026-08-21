@@ -1,0 +1,20 @@
+[workspace]
+name = "tclean"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+python = ">=3.12"
+
+[feature.dev.dependencies]
+pytest = "*"
+hatchling = "*"
+
+[feature.dev.pypi-dependencies]
+tclean = { path = ".", editable = true }
+
+[environments]
+default = { features = ["dev"] }
+
+[tasks]
+test = "pytest"

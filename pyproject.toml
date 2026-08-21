@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tclean"
+version = "0.0.0"
+description = "Tools for cleaning, validating, and reconstructing electricity-demand time series."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+    { name = "Elyan Aarts" }
+]
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tclean"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
