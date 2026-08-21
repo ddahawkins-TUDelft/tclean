@@ -27,9 +27,19 @@ def _timestamps_are_hourly(data: pd.DataFrame) -> bool:
     return bool(not differences.empty and differences.eq(pd.Timedelta(hours=1)).all())
 
 
-def _external_timestamps_are_hourly(series: pd.Series) -> pd.Series:
-    """Check that external-profile timestamps align to whole hours."""
+def _timestamps_are_on_hour(series: pd.Series) -> pd.Series:
+    """Check that timestamps are aligned exactly to whole hours."""
     return series.dt.minute.eq(0) & series.dt.second.eq(0) & series.dt.microsecond.eq(0)
+
+
+def _source_period_ends_after_start(data: pd.DataFrame) -> pd.Series:
+    """Check that every source period ends after it starts."""
+    return data["end"] > data["start"]
+
+
+def _has_source_periods(data: pd.DataFrame) -> bool:
+    """Check that at least one source period is configured."""
+    return len(data) > 0
 
 
 DEMAND_SCHEMA = pa.DataFrameSchema(
@@ -96,7 +106,7 @@ EXTERNAL_PROFILE_SCHEMA = pa.DataFrameSchema(
         "timestamp": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
             checks=pa.Check(
-                _external_timestamps_are_hourly,
+                _timestamps_are_on_hour,
                 error="Timestamps must be aligned to whole hours.",
             ),
             nullable=False,
@@ -109,4 +119,69 @@ EXTERNAL_PROFILE_SCHEMA = pa.DataFrameSchema(
     ordered=True,
     unique_column_names=True,
     name="external_profile",
+)
+
+HOURLY_TIMESTAMP_INDEX_SCHEMA = pa.DataFrameSchema(
+    {},
+    index=pa.Index(
+        DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
+        name="timestamp",
+        nullable=False,
+        unique=True,
+        coerce=True,
+    ),
+    checks=[
+        pa.Check(
+            _has_multiple_timestamps,
+            error="Hourly timestamp index must contain at least two timestamps.",
+        ),
+        pa.Check(
+            _timestamps_are_sorted,
+            error="Hourly timestamps must be sorted in increasing order.",
+        ),
+        pa.Check(
+            _timestamps_are_hourly,
+            error="Timestamp index must form a complete hourly sequence.",
+        ),
+    ],
+    strict=True,
+    name="hourly_timestamp_index",
+)
+
+SOURCE_PERIODS_SCHEMA = pa.DataFrameSchema(
+    {
+        "country": pa.Column(str, nullable=False),
+        "start": pa.Column(
+            DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
+            checks=pa.Check(
+                _timestamps_are_on_hour,
+                error="Source-period start timestamps must be aligned to whole hours.",
+            ),
+            nullable=False,
+            coerce=True,
+        ),
+        "end": pa.Column(
+            DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
+            checks=pa.Check(
+                _timestamps_are_on_hour,
+                error="Source-period end timestamps must be aligned to whole hours.",
+            ),
+            nullable=False,
+            coerce=True,
+        ),
+        "weight": pa.Column(float, checks=pa.Check.gt(0), nullable=False, coerce=True),
+    },
+    checks=[
+        pa.Check(
+            _has_source_periods, error="At least one source period must be configured."
+        ),
+        pa.Check(
+            _source_period_ends_after_start,
+            error="Each source period must end later than it starts.",
+        ),
+    ],
+    strict=True,
+    ordered=True,
+    unique_column_names=True,
+    name="source_periods",
 )

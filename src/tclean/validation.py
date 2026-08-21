@@ -2,7 +2,12 @@
 
 import pandas as pd
 
-from tclean._schemas import DEMAND_SCHEMA, TEMPORAL_RANGE_SCHEMA
+from tclean._schemas import (
+    DEMAND_SCHEMA,
+    HOURLY_TIMESTAMP_INDEX_SCHEMA,
+    SOURCE_PERIODS_SCHEMA,
+    TEMPORAL_RANGE_SCHEMA,
+)
 
 
 def validate_load(load: pd.DataFrame) -> pd.DataFrame:
@@ -59,3 +64,41 @@ def infer_regular_timestep(index: pd.Index) -> pd.Timedelta:
         The temporal difference between consecutive timestamps.
     """
     return index[1] - index[0]
+
+
+def validate_hourly_timestamp_index(index: pd.DatetimeIndex) -> pd.DatetimeIndex:
+    """Validate and normalize a canonical hourly timestamp index.
+
+    Args:
+        index: Timestamp index to validate.
+
+    Returns:
+        Validated UTC hourly timestamp index named ``timestamp``.
+
+    Raises:
+        pandera.errors.SchemaErrors: If the index violates the canonical
+            hourly timestamp contract.
+    """
+    frame = pd.DataFrame(index=index)
+
+    validated = HOURLY_TIMESTAMP_INDEX_SCHEMA.validate(frame, lazy=True)
+
+    return validated.index
+
+
+def validate_source_periods(source_periods: pd.DataFrame) -> pd.DataFrame:
+    """Validate and normalize source-period definitions.
+
+    Args:
+        source_periods: Source definitions containing country, start,
+            end, and weight columns.
+
+    Returns:
+        Validated source-period definitions with UTC timestamps and
+        floating-point positive weights.
+
+    Raises:
+        pandera.errors.SchemaErrors: If the source-period definitions
+            violate the T-Clean source-period contract.
+    """
+    return SOURCE_PERIODS_SCHEMA.validate(source_periods, lazy=True)
