@@ -50,7 +50,8 @@ def fill_basic_gaps(
         Per-cell provenance containing the observed-source identifier,
         configured cleaning-rule name, or ``"missing"``.
     """
-    validate_load(load)
+    load = validate_load(load)
+
     _validate_cleaning_method(load=load, cleaning_method=cleaning_method)
 
     filled = load.copy()
@@ -121,8 +122,8 @@ def calculate_missing_run_durations(load: pd.DataFrame) -> pd.DataFrame:
     pandas.DataFrame
         Per-cell durations of the original contiguous missing runs.
     """
+    load = validate_load(load)
     timestep = infer_regular_timestep(load.index)
-
     durations = pd.DataFrame(pd.Timedelta(0), index=load.index, columns=load.columns)
 
     for column in load.columns:

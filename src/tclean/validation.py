@@ -1,51 +1,61 @@
-"""Validation utilities for electricity-demand time series."""
-
-from __future__ import annotations
+"""Validation interfaces for canonical T-Clean data."""
 
 import pandas as pd
 
+from tclean._schemas import DEMAND_SCHEMA, TEMPORAL_RANGE_SCHEMA
 
-def validate_load(load: pd.DataFrame) -> None:
-    """Validate the structure of hourly electricity-demand data."""
-    if not isinstance(load, pd.DataFrame):
-        raise TypeError("Load must be a pandas DataFrame.")
 
-    if load.empty:
-        raise ValueError("Load dataframe is empty.")
+def validate_load(load: pd.DataFrame) -> pd.DataFrame:
+    """Validate and normalize canonical electricity-demand data.
 
-    timestep = infer_regular_timestep(load.index)
+    Args:
+        load: Electricity-demand data with timestamps as the index and
+            one demand column per region.
 
-    if timestep != pd.Timedelta(hours=1):
-        raise ValueError(
-            "Gap filling currently expects hourly load data. "
-            f"Found timestep {timestep}."
-        )
+    Returns:
+        Validated demand data with a UTC ``timestamp`` index and
+        floating-point demand columns.
 
-    if not all(pd.api.types.is_numeric_dtype(dtype) for dtype in load.dtypes):
-        raise TypeError("All load columns must be numeric.")
+    Raises:
+        pandera.errors.SchemaErrors: If the demand data violate the
+            canonical T-Clean demand contract.
+    """
+    return DEMAND_SCHEMA.validate(load, lazy=True)
+
+
+def validate_temporal_range(
+    *, start: object, end: object
+) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """Validate and normalize a temporal range.
+
+    Args:
+        start: Start of the temporal range.
+        end: End of the temporal range.
+
+    Returns:
+        Validated UTC start and end timestamps.
+
+    Raises:
+        pandera.errors.SchemaErrors: If the temporal range violates
+            the T-Clean temporal contract.
+    """
+    temporal_range = pd.DataFrame({"start": [start], "end": [end]})
+
+    validated = TEMPORAL_RANGE_SCHEMA.validate(temporal_range, lazy=True)
+
+    return (
+        pd.Timestamp(validated.loc[0, "start"]),
+        pd.Timestamp(validated.loc[0, "end"]),
+    )
 
 
 def infer_regular_timestep(index: pd.Index) -> pd.Timedelta:
-    """Infer and validate the regular timestep of a datetime index."""
-    if not isinstance(index, pd.DatetimeIndex):
-        raise TypeError("Load data must use a pandas DatetimeIndex.")
+    """Return the timestep of an already validated datetime index.
 
-    if not index.is_monotonic_increasing:
-        raise ValueError("Load timestamps must be sorted in increasing order.")
+    Args:
+        index: Validated regular datetime index.
 
-    if index.has_duplicates:
-        raise ValueError("Load timestamps must not contain duplicates.")
-
-    differences = index.to_series().diff().dropna()
-
-    if differences.empty:
-        raise ValueError("At least two timestamps are required for gap filling.")
-
-    timestep = differences.iloc[0]
-
-    if not differences.eq(timestep).all():
-        raise ValueError(
-            "Load data must have a complete, regular time index before gap filling."
-        )
-
-    return timestep
+    Returns:
+        The temporal difference between consecutive timestamps.
+    """
+    return index[1] - index[0]

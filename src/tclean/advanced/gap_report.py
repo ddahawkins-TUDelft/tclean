@@ -41,7 +41,7 @@ def build_gap_report(load: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
     if not enabled:
         return pd.DataFrame(columns=columns)
 
-    validate_load(load)
+    load = validate_load(load)
 
     records: list[dict[str, Any]] = []
 

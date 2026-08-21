@@ -13,7 +13,8 @@ authors = [
     { name = "Dano Hawkins" }
 ]
 dependencies = [
-    "pandas",
+    "pandas>=3.0.3",
+    "pandera>=0.31.1",
 ]
 
 [tool.hatch.build.targets.wheel]

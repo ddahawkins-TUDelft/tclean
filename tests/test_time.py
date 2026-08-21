@@ -1,49 +1,64 @@
-"""Tests the time.py functionality."""
+"""Tests for canonical time-index construction."""
 
 import pandas as pd
+import pandera.errors
 import pytest
 
-from tclean.time import as_utc_timestamp, build_hourly_index
+from tclean.time import build_hourly_index
+from tclean.validation import validate_temporal_range
 
 
-def test_as_utc_timestamp_localises_naive_timestamp():
-    """Test that timestamps are localised."""
-    result = as_utc_timestamp("2026-01-01 12:00")
+def test_validate_temporal_range_accepts_valid_range():
+    """Validate and normalize a valid temporal range."""
+    start, end = validate_temporal_range(
+        start="2026-01-01T00:00:00Z", end="2026-01-01T03:00:00Z"
+    )
 
-    assert result == pd.Timestamp("2026-01-01 12:00", tz="UTC")
+    assert start == pd.Timestamp("2026-01-01T00:00:00Z")
+    assert end == pd.Timestamp("2026-01-01T03:00:00Z")
 
 
-def test_as_utc_timestamp_converts_timezone_aware_timestamp():
-    """Tests for timezone conversion."""
-    result = as_utc_timestamp("2026-01-01 13:00+01:00")
+def test_validate_temporal_range_converts_offsets_to_utc():
+    """Normalize timezone-offset temporal parameters to UTC."""
+    start, end = validate_temporal_range(
+        start="2026-01-01T01:00:00+01:00", end="2026-01-01T04:00:00+01:00"
+    )
 
-    assert result == pd.Timestamp("2026-01-01 12:00", tz="UTC")
+    assert start == pd.Timestamp("2026-01-01T00:00:00Z")
+    assert end == pd.Timestamp("2026-01-01T03:00:00Z")
+
+
+def test_validate_temporal_range_rejects_invalid_timestamp():
+    """Reject temporal parameters that cannot be parsed."""
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_temporal_range(start="not-a-date", end="2026-01-01T03:00:00Z")
+
+
+def test_validate_temporal_range_rejects_equal_bounds():
+    """Reject a temporal range whose bounds are equal."""
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_temporal_range(
+            start="2026-01-01T00:00:00Z", end="2026-01-01T00:00:00Z"
+        )
+
+
+def test_validate_temporal_range_rejects_reversed_bounds():
+    """Reject a temporal range whose end precedes its start."""
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_temporal_range(
+            start="2026-01-01T03:00:00Z", end="2026-01-01T00:00:00Z"
+        )
 
 
 def test_build_hourly_index_is_end_exclusive():
-    """Tests endstamp exclusivity."""
-    result = build_hourly_index(start="2026-01-01 00:00", end="2026-01-01 03:00")
-
-    expected = pd.DatetimeIndex(
-        ["2026-01-01 00:00", "2026-01-01 01:00", "2026-01-01 02:00"],
-        tz="UTC",
-        name="time",
+    """Build an hourly timestamp index that excludes the end bound."""
+    result = build_hourly_index(
+        start="2026-01-01T00:00:00Z", end="2026-01-01T03:00:00Z"
     )
 
-    pd.testing.assert_index_equal(result, expected)
+    expected = pd.DatetimeIndex(
+        ["2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z", "2026-01-01T02:00:00Z"],
+        name="timestamp",
+    )
 
-
-def test_build_hourly_index_rejects_equal_start_and_end():
-    """Tests end=start rejection."""
-    with pytest.raises(
-        ValueError, match="The temporal end must be later than its start."
-    ):
-        build_hourly_index(start="2026-01-01 00:00", end="2026-01-01 00:00")
-
-
-def test_build_hourly_index_rejects_end_before_start():
-    """Tests end<start rejection."""
-    with pytest.raises(
-        ValueError, match="The temporal end must be later than its start."
-    ):
-        build_hourly_index(start="2026-01-02 00:00", end="2026-01-01 00:00")
+    pd.testing.assert_index_equal(result, expected, exact=False)

@@ -9,6 +9,7 @@ pandas = ">=3.0.3"
 pytest = ">=8.3.5"
 ruff = ">=0.9.9"
 mypy = ">=1.15.0"
+pandera = ">=0.31.1"
 
 [feature.dev.dependencies]
 pytest = "*"

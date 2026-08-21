@@ -8,7 +8,9 @@ from tclean.basic.apply import calculate_missing_run_durations, fill_basic_gaps
 
 def test_calculate_missing_run_durations_labels_complete_gap():
     """Assign the full run duration to every value in a missing run."""
-    index = pd.date_range("2026-01-01 00:00", periods=5, freq="h", tz="UTC")
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=5, freq="h", tz="UTC", name="timestamp"
+    )
 
     load = pd.DataFrame(
         {"ALB": [10.0, float("nan"), float("nan"), 13.0, 14.0]}, index=index
@@ -29,12 +31,18 @@ def test_calculate_missing_run_durations_labels_complete_gap():
         index=index,
     )
 
-    pd.testing.assert_frame_equal(result, expected, check_dtype=False)
+    pd.testing.assert_index_equal(result.index, expected.index, exact=False)
+
+    pd.testing.assert_frame_equal(
+        result.reset_index(drop=True), expected.reset_index(drop=True)
+    )
 
 
 def test_fill_basic_gaps_applies_rules_in_order():
     """Apply configured cleaning rules sequentially."""
-    index = pd.date_range("2026-01-01 00:00", periods=4, freq="h", tz="UTC")
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=4, freq="h", tz="UTC", name="timestamp"
+    )
 
     load = pd.DataFrame({"ALB": [10.0, float("nan"), 14.0, 16.0]}, index=index)
 
@@ -62,7 +70,9 @@ def test_fill_basic_gaps_applies_rules_in_order():
 
 def test_fill_basic_gaps_marks_unresolved_values_missing():
     """Mark unresolved missing values explicitly in provenance."""
-    index = pd.date_range("2026-01-01 00:00", periods=4, freq="h", tz="UTC")
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=4, freq="h", tz="UTC", name="timestamp"
+    )
 
     load = pd.DataFrame({"ALB": [10.0, float("nan"), float("nan"), 16.0]}, index=index)
 
@@ -90,7 +100,9 @@ def test_fill_basic_gaps_marks_unresolved_values_missing():
 
 def test_fill_basic_gaps_disabled_preserves_load():
     """Leave demand unchanged when basic cleaning is disabled."""
-    index = pd.date_range("2026-01-01 00:00", periods=3, freq="h", tz="UTC")
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
 
     load = pd.DataFrame({"ALB": [10.0, float("nan"), 14.0]}, index=index)
 
@@ -104,13 +116,19 @@ def test_fill_basic_gaps_disabled_preserves_load():
         load, cleaning_method=cleaning_method, rules=[], enabled=False
     )
 
-    pd.testing.assert_frame_equal(filled, load)
+    pd.testing.assert_index_equal(filled.index, load.index, exact=False)
+
+    pd.testing.assert_frame_equal(
+        filled.reset_index(drop=True), load.reset_index(drop=True)
+    )
     assert provenance.loc[index[1], "ALB"] == "missing"
 
 
 def test_fill_basic_gaps_rejects_unknown_method():
     """Reject cleaning rules containing unsupported methods."""
-    index = pd.date_range("2026-01-01 00:00", periods=3, freq="h", tz="UTC")
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
 
     load = pd.DataFrame({"ALB": [10.0, float("nan"), 14.0]}, index=index)
 
@@ -128,7 +146,9 @@ def test_fill_basic_gaps_rejects_unknown_method():
 
 def test_fill_basic_gaps_rejects_misaligned_provenance():
     """Reject provenance whose index differs from the demand data."""
-    index = pd.date_range("2026-01-01 00:00", periods=3, freq="h", tz="UTC")
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
 
     load = pd.DataFrame({"ALB": [10.0, 11.0, 12.0]}, index=index)
 
