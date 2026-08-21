@@ -55,8 +55,9 @@ def clean(
     if advanced_sources is None:
         advanced_sources = {}
 
-    cleaned, cleaning_method = apply_advanced_rules(
+    cleaned, data_source, cleaning_method = apply_advanced_rules(
         cleaned,
+        data_source,
         cleaning_method,
         rules=advanced_rules,
         advanced_sources=advanced_sources,

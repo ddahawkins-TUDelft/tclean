@@ -11,6 +11,7 @@ from tclean.advanced.methods.external_profile import METHOD_NAME as EXTERNAL_PRO
 from tclean.validation import (
     validate_advanced_fill_rules,
     validate_cleaning_method,
+    validate_data_source,
     validate_time_series,
 )
 
@@ -27,16 +28,18 @@ _SOURCE_ALIGNMENT = {
 
 def _apply_advanced_source(
     data: pd.DataFrame,
+    data_source: pd.DataFrame,
     cleaning_method: pd.DataFrame,
     source: pd.Series,
     *,
+    source_name: str,
     context: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
     scope: str,
     rule_name: str,
     alignment: str,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Apply an advanced source to the target time series."""
     if context not in data.columns:
         raise ValueError(f"Target context {context!r} is not present in data data.")
@@ -69,13 +72,16 @@ def _apply_advanced_source(
         raise ValueError(f"Unsupported advanced fill scope: {scope!r}")
 
     filled = data.copy()
+    sources = data_source.copy()
     methods = cleaning_method.copy()
 
     filled.loc[replace_index, context] = candidate.loc[replace_index]
 
+    sources.loc[replace_index, context] = source_name
+
     methods.loc[replace_index, context] = rule_name
 
-    return filled, methods
+    return (filled, sources, methods)
 
 
 def _validate_advanced_sources(
@@ -100,15 +106,17 @@ def _validate_advanced_sources(
 
 def apply_advanced_rule(
     data: pd.DataFrame,
+    data_source: pd.DataFrame,
     cleaning_method: pd.DataFrame,
     *,
     rule: pd.Series,
     source: pd.Series | None = None,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Apply one validated advanced-fill rule.
 
     Args:
         data: Canonical hourly time-series data.
+        data_source: Provenance of data values.
         cleaning_method: Provenance labels aligned with ``data``.
         rule: One validated advanced-fill rule.
         source: Advanced time-series source referenced by the rule,
@@ -125,7 +133,7 @@ def apply_advanced_rule(
     rule_name = rule["rule_name"]
 
     if method == LEAVE_MISSING:
-        return (data.copy(), cleaning_method.copy())
+        return (data.copy(), data_source.copy(), cleaning_method.copy())
 
     if method not in _SOURCE_ALIGNMENT:
         raise ValueError(f"Unsupported advanced-fill method {method!r}.")
@@ -135,10 +143,14 @@ def apply_advanced_rule(
             f"Advanced-fill rule {rule_name!r} requires an advanced source."
         )
 
+    source_name = rule["source"]
+
     return _apply_advanced_source(
         data,
+        data_source,
         cleaning_method,
         source,
+        source_name=source_name,
         context=rule["context"],
         start=rule["start"],
         end=rule["end"],
@@ -150,15 +162,17 @@ def apply_advanced_rule(
 
 def apply_advanced_rules(
     data: pd.DataFrame,
+    data_source: pd.DataFrame,
     cleaning_method: pd.DataFrame,
     *,
     rules: pd.DataFrame,
     advanced_sources: Mapping[str, pd.Series],
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Apply validated advanced-fill rules in table order.
 
     Args:
         data: Canonical hourly time-series data.
+        data_source: Data value provenance.
         cleaning_method: Provenance labels aligned with ``data``.
         rules: Advanced-fill rules in the order they should be applied.
         advanced_sources: Advanced time-series sources keyed by source name.
@@ -172,6 +186,8 @@ def apply_advanced_rules(
     """
     filled = validate_time_series(data)
 
+    sources = validate_data_source(data_source, data=filled)
+
     methods = validate_cleaning_method(cleaning_method, data=filled)
 
     rules = validate_advanced_fill_rules(rules)
@@ -179,11 +195,14 @@ def apply_advanced_rules(
     _validate_advanced_sources(rules, advanced_sources)
 
     filled = filled.copy()
+    sources = sources.copy()
     methods = methods.copy()
 
     for _, rule in rules.iterrows():
         source = None if pd.isna(rule["source"]) else advanced_sources[rule["source"]]
 
-        filled, methods = apply_advanced_rule(filled, methods, rule=rule, source=source)
+        filled, sources, methods = apply_advanced_rule(
+            filled, sources, methods, rule=rule, source=source
+        )
 
-    return (filled, methods)
+    return (filled, sources, methods)

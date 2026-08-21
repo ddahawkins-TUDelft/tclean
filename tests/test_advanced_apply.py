@@ -15,6 +15,13 @@ def _data() -> pd.DataFrame:
     return pd.DataFrame({"GBR": [10.0, float("nan"), 30.0, float("nan")]}, index=index)
 
 
+def _data_source(data: pd.DataFrame) -> pd.DataFrame:
+    """Return source provenance aligned with test data."""
+    return pd.DataFrame(
+        {"GBR": ["primary", pd.NA, "primary", pd.NA]}, index=data.index, dtype="string"
+    )
+
+
 def _methods(data: pd.DataFrame) -> pd.DataFrame:
     """Return provenance aligned with test data."""
     return pd.DataFrame(
@@ -43,8 +50,12 @@ def test_apply_constructed_profile_fills_only_gaps():
 
     profile = pd.Series([100.0, 110.0, 120.0, 130.0], index=data.index, dtype=float)
 
-    filled, provenance = apply_advanced_rules(
-        data, methods, rules=rules, advanced_sources={"constructed": profile}
+    filled, sources, provenance = apply_advanced_rules(
+        data,
+        _data_source(data),
+        methods,
+        rules=rules,
+        advanced_sources={"constructed": profile},
     )
 
     assert filled["GBR"].tolist() == [10.0, 110.0, 30.0, 130.0]
@@ -73,8 +84,12 @@ def test_apply_constructed_profile_overwrites_values():
 
     profile = pd.Series([100.0, 110.0, 120.0, 130.0], index=data.index, dtype=float)
 
-    filled, provenance = apply_advanced_rules(
-        data, methods, rules=rules, advanced_sources={"constructed": profile}
+    filled, sources, provenance = apply_advanced_rules(
+        data,
+        _data_source(data),
+        methods,
+        rules=rules,
+        advanced_sources={"constructed": profile},
     )
 
     assert filled["GBR"].tolist() == [100.0, 110.0, 120.0, 130.0]
@@ -107,8 +122,12 @@ def test_apply_constructed_profile_requires_exact_index():
     profile = pd.Series([100.0, 110.0], index=data.index[:2], dtype=float)
 
     with pytest.raises(ValueError, match="must exactly match"):
-        apply_advanced_rules(
-            data, methods, rules=rules, advanced_sources={"constructed": profile}
+        filled, sources, provenance = apply_advanced_rules(
+            data,
+            _data_source(data),
+            methods,
+            rules=rules,
+            advanced_sources={"constructed": profile},
         )
 
 
@@ -135,8 +154,12 @@ def test_apply_external_profile_uses_overlap():
 
     profile = pd.Series([110.0, 120.0], index=profile_index, dtype=float)
 
-    filled, provenance = apply_advanced_rules(
-        data, methods, rules=rules, advanced_sources={"external": profile}
+    filled, sources, provenance = apply_advanced_rules(
+        data,
+        _data_source(data),
+        methods,
+        rules=rules,
+        advanced_sources={"external": profile},
     )
 
     assert filled.loc[data.index[1], "GBR"] == 110.0
@@ -169,8 +192,12 @@ def test_apply_external_profile_can_overwrite_overlap():
 
     profile = pd.Series([110.0, 120.0], index=profile_index, dtype=float)
 
-    filled, provenance = apply_advanced_rules(
-        data, methods, rules=rules, advanced_sources={"external": profile}
+    filled, sources, provenance = apply_advanced_rules(
+        data,
+        _data_source(data),
+        methods,
+        rules=rules,
+        advanced_sources={"external": profile},
     )
 
     assert filled.loc[data.index[1], "GBR"] == 110.0
@@ -200,7 +227,9 @@ def test_apply_rules_rejects_missing_advanced_source():
     )
 
     with pytest.raises(ValueError, match="Advanced sources must exactly match"):
-        apply_advanced_rules(data, methods, rules=rules, advanced_sources={})
+        filled, sources, provenance = apply_advanced_rules(
+            data, _data_source(data), methods, rules=rules, advanced_sources={}
+        )
 
 
 def test_apply_rule_rejects_unknown_target_context():
@@ -223,8 +252,12 @@ def test_apply_rule_rejects_unknown_target_context():
     profile = pd.Series([1.0, 2.0, 3.0, 4.0], index=data.index, dtype=float)
 
     with pytest.raises(ValueError, match="Target context 'FRA' is not present"):
-        apply_advanced_rules(
-            data, methods, rules=rules, advanced_sources={"external": profile}
+        filled, sources, provenance = apply_advanced_rules(
+            data,
+            _data_source(data),
+            methods,
+            rules=rules,
+            advanced_sources={"external": profile},
         )
 
 
@@ -245,8 +278,8 @@ def test_leave_missing_changes_nothing():
         }
     )
 
-    filled, provenance = apply_advanced_rules(
-        data, methods, rules=rules, advanced_sources={}
+    filled, sources, provenance = apply_advanced_rules(
+        data, _data_source(data), methods, rules=rules, advanced_sources={}
     )
 
     pd.testing.assert_index_equal(filled.index, data.index, exact=False)
@@ -281,10 +314,80 @@ def test_advanced_rules_are_applied_sequentially():
 
     second = pd.Series([200.0, 200.0, 200.0, 200.0], index=data.index, dtype=float)
 
-    filled, provenance = apply_advanced_rules(
-        data, methods, rules=rules, advanced_sources={"first": first, "second": second}
+    filled, sources, provenance = apply_advanced_rules(
+        data,
+        _data_source(data),
+        methods,
+        rules=rules,
+        advanced_sources={"first": first, "second": second},
     )
 
     assert filled["GBR"].tolist() == [200.0, 200.0, 200.0, 200.0]
 
     assert provenance["GBR"].tolist() == ["second", "second", "second", "second"]
+
+
+def test_apply_advanced_rule_records_data_source_for_filled_gap():
+    """Record the advanced source that supplies a missing value."""
+    data = _data()
+    methods = _methods(data)
+    sources = _data_source(data)
+
+    rules = pd.DataFrame(
+        {
+            "rule_name": ["fill_gap"],
+            "method": ["external_profile"],
+            "source": ["fallback"],
+            "context": ["GBR"],
+            "start": ["2026-01-01T00:00:00Z"],
+            "end": ["2026-01-01T04:00:00Z"],
+            "scope": ["fill_gaps"],
+        }
+    )
+
+    advanced_source = pd.Series([100.0, 200.0, 300.0, 400.0], index=data.index)
+
+    _, result_sources, _ = apply_advanced_rules(
+        data,
+        sources,
+        methods,
+        rules=rules,
+        advanced_sources={"fallback": advanced_source},
+    )
+
+    assert result_sources.loc[data.index[1], "GBR"] == "fallback"
+
+
+def test_apply_advanced_rule_overwrite_replaces_data_source():
+    """Replace previous source provenance when an advanced rule overwrites."""
+    data = _data()
+    methods = _methods(data)
+    sources = _data_source(data)
+
+    rules = pd.DataFrame(
+        {
+            "rule_name": ["overwrite"],
+            "method": ["external_profile"],
+            "source": ["replacement"],
+            "context": ["GBR"],
+            "start": ["2026-01-01T00:00:00Z"],
+            "end": ["2026-01-01T01:00:00Z"],
+            "scope": ["overwrite"],
+        }
+    )
+
+    advanced_source = pd.Series([999.0], index=data.index[:1])
+
+    filled, result_sources, methods = apply_advanced_rules(
+        data,
+        sources,
+        methods,
+        rules=rules,
+        advanced_sources={"replacement": advanced_source},
+    )
+
+    assert filled.loc[data.index[0], "GBR"] == 999.0
+
+    assert result_sources.loc[data.index[0], "GBR"] == "replacement"
+
+    assert methods.loc[data.index[0], "GBR"] == "overwrite"
