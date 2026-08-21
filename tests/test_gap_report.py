@@ -5,7 +5,7 @@ import pandas as pd
 from tclean.advanced.gap_report import build_gap_report
 
 EXPECTED_COLUMNS = [
-    "country",
+    "context",
     "gap_start",
     "gap_end",
     "gap_hours",
@@ -55,7 +55,7 @@ def test_build_gap_report_describes_internal_gap():
 
     row = result.iloc[0]
 
-    assert row["country"] == "ALB"
+    assert row["context"] == "ALB"
     assert row["gap_start"] == index[1]
     assert row["gap_end"] == index[3]
     assert row["gap_hours"] == 2
@@ -108,8 +108,8 @@ def test_build_gap_report_separates_multiple_gaps():
     assert result["gap_start"].tolist() == [index[1], index[4]]
 
 
-def test_build_gap_report_sorts_by_country_and_gap_start():
-    """Sort gap-report rows consistently across countries."""
+def test_build_gap_report_sorts_by_context_and_gap_start():
+    """Sort gap-report rows consistently across contexts."""
     index = pd.date_range(
         "2026-01-01 00:00", periods=4, freq="h", tz="UTC", name="timestamp"
     )
@@ -123,4 +123,4 @@ def test_build_gap_report_sorts_by_country_and_gap_start():
 
     result = build_gap_report(data, enabled=True)
 
-    assert result["country"].tolist() == ["ALB", "GBR"]
+    assert result["context"].tolist() == ["ALB", "GBR"]

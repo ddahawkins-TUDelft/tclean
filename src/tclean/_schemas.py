@@ -149,7 +149,7 @@ HOURLY_TIMESTAMP_INDEX_SCHEMA = pa.DataFrameSchema(
 
 SOURCE_PERIODS_SCHEMA = pa.DataFrameSchema(
     {
-        "country": pa.Column(str, nullable=False),
+        "context": pa.Column(str, nullable=False),
         "start": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
             checks=pa.Check(
@@ -226,7 +226,7 @@ ADVANCED_FILL_RULES_SCHEMA = pa.DataFrameSchema(
             nullable=False,
         ),
         "source": pa.Column(str, nullable=True),
-        "country": pa.Column(str, nullable=False),
+        "context": pa.Column(str, nullable=False),
         "start": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
             checks=pa.Check(
@@ -279,7 +279,7 @@ ADVANCED_FILL_RULES_SCHEMA = pa.DataFrameSchema(
 
 AUXILIARY_REQUIREMENTS_SCHEMA = pa.DataFrameSchema(
     {
-        "country": pa.Column(str, nullable=False),
+        "context": pa.Column(str, nullable=False),
         "start": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
             checks=pa.Check(
@@ -313,10 +313,10 @@ AUXILIARY_REQUIREMENTS_SCHEMA = pa.DataFrameSchema(
 
 
 def _source_capabilities_do_not_mix_wildcard_and_explicit(data: pd.DataFrame) -> bool:
-    """Check that each source uses wildcard or explicit country coverage."""
+    """Check that each source uses wildcard or explicit context coverage."""
     for _, group in data.groupby("source"):
-        has_wildcard = group["country"].isna().any()
-        has_explicit = group["country"].notna().any()
+        has_wildcard = group["context"].isna().any()
+        has_explicit = group["context"].notna().any()
 
         if has_wildcard and has_explicit:
             return False
@@ -327,19 +327,19 @@ def _source_capabilities_do_not_mix_wildcard_and_explicit(data: pd.DataFrame) ->
 SOURCE_CAPABILITIES_SCHEMA = pa.DataFrameSchema(
     {
         "source": pa.Column(str, nullable=False),
-        "country": pa.Column(str, nullable=True),
+        "context": pa.Column(str, nullable=True),
     },
     checks=[
         pa.Check(_has_rows, error="At least one source capability must be configured."),
         pa.Check(
-            lambda data: ~data.duplicated(subset=["source", "country"]).any(),
+            lambda data: ~data.duplicated(subset=["source", "context"]).any(),
             error="Source capabilities must be unique.",
         ),
         pa.Check(
             _source_capabilities_do_not_mix_wildcard_and_explicit,
             error=(
-                "A source must use either wildcard country coverage "
-                "or explicit country coverage, not both."
+                "A source must use either wildcard context coverage "
+                "or explicit context coverage, not both."
             ),
         ),
     ],
@@ -352,7 +352,7 @@ SOURCE_CAPABILITIES_SCHEMA = pa.DataFrameSchema(
 AUXILIARY_SOURCE_REQUESTS_SCHEMA = pa.DataFrameSchema(
     {
         "source": pa.Column(str, nullable=False),
-        "country": pa.Column(str, nullable=False),
+        "context": pa.Column(str, nullable=False),
         "start": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
             checks=pa.Check(

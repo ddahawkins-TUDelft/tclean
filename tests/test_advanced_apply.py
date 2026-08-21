@@ -34,7 +34,7 @@ def test_apply_constructed_profile_fills_only_gaps():
             "rule_name": ["constructed"],
             "method": ["construct_from_sources"],
             "source": ["constructed"],
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2026-01-01T00:00:00Z"],
             "end": ["2026-01-01T04:00:00Z"],
             "scope": ["fill_gaps"],
@@ -64,7 +64,7 @@ def test_apply_constructed_profile_overwrites_values():
             "rule_name": ["constructed"],
             "method": ["construct_from_sources"],
             "source": ["constructed"],
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2026-01-01T00:00:00Z"],
             "end": ["2026-01-01T04:00:00Z"],
             "scope": ["overwrite"],
@@ -97,7 +97,7 @@ def test_apply_constructed_profile_requires_exact_index():
             "rule_name": ["constructed"],
             "method": ["construct_from_sources"],
             "source": ["constructed"],
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2026-01-01T00:00:00Z"],
             "end": ["2026-01-01T04:00:00Z"],
             "scope": ["fill_gaps"],
@@ -122,7 +122,7 @@ def test_apply_external_profile_uses_overlap():
             "rule_name": ["external"],
             "method": ["external_profile"],
             "source": ["external"],
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2026-01-01T00:00:00Z"],
             "end": ["2026-01-01T04:00:00Z"],
             "scope": ["fill_gaps"],
@@ -156,7 +156,7 @@ def test_apply_external_profile_can_overwrite_overlap():
             "rule_name": ["external"],
             "method": ["external_profile"],
             "source": ["external"],
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2026-01-01T00:00:00Z"],
             "end": ["2026-01-01T04:00:00Z"],
             "scope": ["overwrite"],
@@ -192,7 +192,7 @@ def test_apply_rules_rejects_missing_advanced_source():
             "rule_name": ["constructed"],
             "method": ["construct_from_sources"],
             "source": ["missing_source"],
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2026-01-01T00:00:00Z"],
             "end": ["2026-01-01T04:00:00Z"],
             "scope": ["fill_gaps"],
@@ -203,8 +203,8 @@ def test_apply_rules_rejects_missing_advanced_source():
         apply_auxiliary_fill_rules(data, methods, rules=rules, advanced_sources={})
 
 
-def test_apply_rule_rejects_unknown_target_country():
-    """Reject a rule targeting a country absent from demand data."""
+def test_apply_rule_rejects_unknown_target_context():
+    """Reject a rule targeting a context absent from demand data."""
     data = _data()
     methods = _methods(data)
 
@@ -213,7 +213,7 @@ def test_apply_rule_rejects_unknown_target_country():
             "rule_name": ["external"],
             "method": ["external_profile"],
             "source": ["external"],
-            "country": ["FRA"],
+            "context": ["FRA"],
             "start": ["2026-01-01T00:00:00Z"],
             "end": ["2026-01-01T04:00:00Z"],
             "scope": ["fill_gaps"],
@@ -222,7 +222,7 @@ def test_apply_rule_rejects_unknown_target_country():
 
     profile = pd.Series([1.0, 2.0, 3.0, 4.0], index=data.index, dtype=float)
 
-    with pytest.raises(ValueError, match="Target country 'FRA' is not present"):
+    with pytest.raises(ValueError, match="Target context 'FRA' is not present"):
         apply_auxiliary_fill_rules(
             data, methods, rules=rules, advanced_sources={"external": profile}
         )
@@ -238,7 +238,7 @@ def test_leave_missing_changes_nothing():
             "rule_name": ["leave"],
             "method": ["leave_missing"],
             "source": [None],
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2026-01-01T00:00:00Z"],
             "end": ["2026-01-01T04:00:00Z"],
             "scope": ["fill_gaps"],
@@ -270,7 +270,7 @@ def test_advanced_rules_are_applied_sequentially():
             "rule_name": ["first", "second"],
             "method": ["external_profile", "external_profile"],
             "source": ["first", "second"],
-            "country": ["GBR", "GBR"],
+            "context": ["GBR", "GBR"],
             "start": ["2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"],
             "end": ["2026-01-01T04:00:00Z", "2026-01-01T04:00:00Z"],
             "scope": ["overwrite", "overwrite"],

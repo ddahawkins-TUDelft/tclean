@@ -94,7 +94,7 @@ def validate_source_periods(source_periods: pd.DataFrame) -> pd.DataFrame:
     """Validate and normalize source-period definitions.
 
     Args:
-        source_periods: Source definitions containing country, start,
+        source_periods: Source definitions containing context, start,
             end, and weight columns.
 
     Returns:
@@ -155,7 +155,7 @@ def validate_advanced_fill_rules(rules: pd.DataFrame) -> pd.DataFrame:
 
     Args:
         rules: Advanced-fill rules containing rule name, method,
-            country, start, end, and scope.
+            context, start, end, and scope.
 
     Returns:
         Validated rule definitions with UTC timestamps.
@@ -171,7 +171,7 @@ def validate_auxiliary_requirements(requirements: pd.DataFrame) -> pd.DataFrame:
     """Validate and normalize auxiliary data requirements.
 
     Args:
-        requirements: Auxiliary country-period requirements.
+        requirements: Auxiliary context-period requirements.
 
     Returns:
         Validated requirements with canonical UTC timestamps.
@@ -184,11 +184,11 @@ def validate_auxiliary_requirements(requirements: pd.DataFrame) -> pd.DataFrame:
 
 
 def validate_source_capabilities(capabilities: pd.DataFrame) -> pd.DataFrame:
-    """Validate source-country capability definitions.
+    """Validate source-context capability definitions.
 
     Args:
-        capabilities: Explicit source-country capability pairs. A missing
-            country means that the source supports all countries.
+        capabilities: Explicit source-context capability pairs. A missing
+            context means that the source supports all contexts.
 
     Returns:
         Validated source capabilities.
@@ -204,7 +204,7 @@ def validate_auxiliary_source_requests(requests: pd.DataFrame) -> pd.DataFrame:
     """Validate and normalize auxiliary source requests.
 
     Args:
-        requests: Source-country-period acquisition requests.
+        requests: Source-context-period acquisition requests.
 
     Returns:
         Validated source requests with canonical UTC timestamps.

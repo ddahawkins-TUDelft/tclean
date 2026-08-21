@@ -25,12 +25,12 @@ def build_gap_report(data: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
     Returns:
     -------
     pandas.DataFrame
-        One row per contiguous unresolved gap, including its country,
+        One row per contiguous unresolved gap, including its context,
         temporal extent, duration, and whether it touches either boundary
         of the supplied demand series.
     """
     columns = [
-        "country",
+        "context",
         "gap_start",
         "gap_end",
         "gap_hours",
@@ -48,8 +48,8 @@ def build_gap_report(data: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
     first_timestamp = data.index[0]
     last_timestamp = data.index[-1]
 
-    for country in data.columns:
-        missing = data[country].isna()
+    for context in data.columns:
+        missing = data[context].isna()
 
         if not missing.any():
             continue
@@ -64,7 +64,7 @@ def build_gap_report(data: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
 
             records.append(
                 {
-                    "country": country,
+                    "context": context,
                     "gap_start": timestamps[0],
                     "gap_end": timestamps[-1] + pd.Timedelta(hours=1),
                     "gap_hours": len(timestamps),
@@ -78,4 +78,4 @@ def build_gap_report(data: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
     if report.empty:
         return report
 
-    return report.sort_values(["country", "gap_start"]).reset_index(drop=True)
+    return report.sort_values(["context", "gap_start"]).reset_index(drop=True)

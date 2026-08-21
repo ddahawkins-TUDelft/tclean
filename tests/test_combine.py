@@ -55,8 +55,8 @@ def test_combine_sources_rejects_empty_sources():
         combine_sources({})
 
 
-def test_combine_auxiliary_sources_aligns_country_columns():
-    """Align differing auxiliary country coverage before combination."""
+def test_combine_auxiliary_sources_aligns_context_columns():
+    """Align differing auxiliary context coverage before combination."""
     index = _index()
 
     entsoe = pd.DataFrame({"GBR": [10.0, 11.0, 12.0]}, index=index)

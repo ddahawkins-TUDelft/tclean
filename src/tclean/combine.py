@@ -27,7 +27,7 @@ def _validate_source_alignment(sources: Mapping[str, pd.DataFrame]) -> None:
         if not source.columns.equals(reference.columns):
             raise ValueError(
                 f"Demand source {source_name!r} does not use the "
-                f"same country columns as {reference_name!r}."
+                f"same context columns as {reference_name!r}."
             )
 
 
@@ -111,7 +111,7 @@ def combine_auxiliary_sources(
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Combine available auxiliary sources in mapping order.
 
-    Earlier sources have higher priority. Country coverage may differ
+    Earlier sources have higher priority. context coverage may differ
     between auxiliary sources.
 
     Args:

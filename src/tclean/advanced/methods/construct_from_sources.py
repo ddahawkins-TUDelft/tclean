@@ -67,28 +67,28 @@ def _match_energy(
     total_weight = 0.0
 
     for source in reference_sources.itertuples(index=False):
-        if source.country not in auxiliary.columns:
+        if source.context not in auxiliary.columns:
             raise ValueError(
-                "Auxiliary data do not contain requested scaling country "
-                f"{source.country!r}."
+                "Auxiliary data do not contain requested scaling context "
+                f"{source.context!r}."
             )
 
         source_values = auxiliary.loc[
             (auxiliary.index >= source.start) & (auxiliary.index < source.end),
-            source.country,
+            source.context,
         ]
 
         if source_values.empty:
             raise ValueError(
                 "Scaling source period contains no values. "
-                f"Source {source.country!r}: "
+                f"Source {source.context!r}: "
                 f"{source.start} to {source.end}."
             )
 
         if source_values.isna().any():
             raise ValueError(
                 "Scaling source period contains missing values. "
-                f"Source {source.country!r}: "
+                f"Source {source.context!r}: "
                 f"{source.start} to {source.end}."
             )
 
@@ -128,7 +128,7 @@ def construct_from_sources(
 
     Raises:
         ValueError: If a source period does not match the target length,
-            contains missing values, refers to an unavailable country,
+            contains missing values, refers to an unavailable context,
             or energy matching cannot be performed.
         pandera.errors.SchemaErrors: If any input violates its
             T-Clean data contract.
@@ -146,13 +146,13 @@ def construct_from_sources(
     weights: list[float] = []
 
     for source in sources.itertuples(index=False):
-        if source.country not in auxiliary.columns:
+        if source.context not in auxiliary.columns:
             raise ValueError(
-                f"Auxiliary data do not contain requested country {source.country!r}."
+                f"Auxiliary data do not contain requested context {source.context!r}."
             )
 
         source_values = _align_leap_day(
-            auxiliary[source.country],
+            auxiliary[source.context],
             start=source.start,
             end=source.end,
             target_index=target_index,
@@ -162,7 +162,7 @@ def construct_from_sources(
             raise ValueError(
                 "Auxiliary source period must contain "
                 "the same number of values as the target "
-                f"period. Source {source.country!r} contains "
+                f"period. Source {source.context!r} contains "
                 f"{len(source_values)} values; target "
                 f"contains {len(target_index)}."
             )
@@ -170,7 +170,7 @@ def construct_from_sources(
         if source_values.isna().any():
             raise ValueError(
                 "Auxiliary source period contains missing values. "
-                f"Source {source.country!r}: "
+                f"Source {source.context!r}: "
                 f"{source.start} to {source.end}."
             )
 

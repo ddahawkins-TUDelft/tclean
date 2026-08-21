@@ -19,7 +19,7 @@ def test_construct_from_sources_remaps_single_source():
 
     sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-01T03:00:00Z"],
             "weight": [1.0],
@@ -50,7 +50,7 @@ def test_construct_from_sources_combines_weighted_sources():
 
     sources = pd.DataFrame(
         {
-            "country": ["GBR", "FRA"],
+            "context": ["GBR", "FRA"],
             "start": ["2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z"],
             "end": ["2025-01-01T03:00:00Z", "2025-01-01T03:00:00Z"],
             "weight": [1.0, 3.0],
@@ -74,8 +74,8 @@ def test_construct_from_sources_combines_weighted_sources():
     pd.testing.assert_series_equal(result, expected, check_index_type=False)
 
 
-def test_construct_from_sources_rejects_unknown_country():
-    """Reject a source country that is absent from auxiliary data."""
+def test_construct_from_sources_rejects_unknown_context():
+    """Reject a source context that is absent from auxiliary data."""
     auxiliary_index = pd.date_range(
         "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
@@ -87,7 +87,7 @@ def test_construct_from_sources_rejects_unknown_country():
 
     sources = pd.DataFrame(
         {
-            "country": ["FRA"],
+            "context": ["FRA"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-01T03:00:00Z"],
             "weight": [1.0],
@@ -95,7 +95,7 @@ def test_construct_from_sources_rejects_unknown_country():
     )
 
     with pytest.raises(
-        ValueError, match="Auxiliary data do not contain requested country"
+        ValueError, match="Auxiliary data do not contain requested context"
     ):
         construct_from_sources(auxiliary, target_index=target_index, sources=sources)
 
@@ -113,7 +113,7 @@ def test_construct_from_sources_rejects_missing_source_values():
 
     sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-01T03:00:00Z"],
             "weight": [1.0],
@@ -139,7 +139,7 @@ def test_construct_from_sources_rejects_length_mismatch():
 
     sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-01T02:00:00Z"],
             "weight": [1.0],
@@ -165,7 +165,7 @@ def test_construct_from_sources_removes_leap_day_for_non_leap_target():
 
     sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2024-02-28T00:00:00Z"],
             "end": ["2024-03-02T00:00:00Z"],
             "weight": [1.0],
@@ -202,7 +202,7 @@ def test_construct_from_sources_inserts_leap_day_for_leap_target():
 
     sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-02-28T00:00:00Z"],
             "end": ["2025-03-02T00:00:00Z"],
             "weight": [1.0],
@@ -238,7 +238,7 @@ def test_construct_from_sources_matches_reference_energy():
 
     sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-01T03:00:00Z"],
             "weight": [1.0],
@@ -247,7 +247,7 @@ def test_construct_from_sources_matches_reference_energy():
 
     scaling_sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T03:00:00Z"],
             "end": ["2025-01-01T06:00:00Z"],
             "weight": [1.0],
@@ -286,7 +286,7 @@ def test_construct_from_sources_uses_weighted_reference_energy():
 
     sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-01T03:00:00Z"],
             "weight": [1.0],
@@ -295,7 +295,7 @@ def test_construct_from_sources_uses_weighted_reference_energy():
 
     scaling_sources = pd.DataFrame(
         {
-            "country": ["GBR", "FRA"],
+            "context": ["GBR", "FRA"],
             "start": ["2025-01-01T03:00:00Z", "2025-01-01T03:00:00Z"],
             "end": ["2025-01-01T06:00:00Z", "2025-01-01T06:00:00Z"],
             "weight": [1.0, 3.0],
@@ -314,8 +314,8 @@ def test_construct_from_sources_uses_weighted_reference_energy():
     assert result.sum() == pytest.approx(expected_energy)
 
 
-def test_construct_from_sources_rejects_unknown_scaling_country():
-    """Reject a scaling country that is absent from auxiliary data."""
+def test_construct_from_sources_rejects_unknown_scaling_context():
+    """Reject a scaling context that is absent from auxiliary data."""
     auxiliary_index = pd.date_range(
         "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
     )
@@ -327,7 +327,7 @@ def test_construct_from_sources_rejects_unknown_scaling_country():
 
     sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-01T03:00:00Z"],
             "weight": [1.0],
@@ -336,7 +336,7 @@ def test_construct_from_sources_rejects_unknown_scaling_country():
 
     scaling_sources = pd.DataFrame(
         {
-            "country": ["FRA"],
+            "context": ["FRA"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-01T03:00:00Z"],
             "weight": [1.0],
@@ -344,7 +344,7 @@ def test_construct_from_sources_rejects_unknown_scaling_country():
     )
 
     with pytest.raises(
-        ValueError, match="Auxiliary data do not contain requested scaling country"
+        ValueError, match="Auxiliary data do not contain requested scaling context"
     ):
         construct_from_sources(
             auxiliary,
@@ -370,7 +370,7 @@ def test_construct_from_sources_rejects_missing_scaling_values():
 
     sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-01T03:00:00Z"],
             "weight": [1.0],
@@ -379,7 +379,7 @@ def test_construct_from_sources_rejects_missing_scaling_values():
 
     scaling_sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T03:00:00Z"],
             "end": ["2025-01-01T06:00:00Z"],
             "weight": [1.0],
@@ -410,7 +410,7 @@ def test_construct_from_sources_rejects_empty_scaling_period():
 
     sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-01T03:00:00Z"],
             "weight": [1.0],
@@ -419,7 +419,7 @@ def test_construct_from_sources_rejects_empty_scaling_period():
 
     scaling_sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2024-01-01T00:00:00Z"],
             "end": ["2024-01-01T03:00:00Z"],
             "weight": [1.0],
@@ -451,7 +451,7 @@ def test_construct_from_sources_rejects_zero_energy_profile():
 
     sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-01T03:00:00Z"],
             "weight": [1.0],
@@ -460,7 +460,7 @@ def test_construct_from_sources_rejects_zero_energy_profile():
 
     scaling_sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T03:00:00Z"],
             "end": ["2025-01-01T06:00:00Z"],
             "weight": [1.0],

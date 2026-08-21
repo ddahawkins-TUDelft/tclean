@@ -19,28 +19,28 @@ from tclean.validation import (
     validate_temporal_range,
 )
 
-REQUIREMENT_COLUMNS = ["country", "start", "end"]
+REQUIREMENT_COLUMNS = ["context", "start", "end"]
 
-SOURCE_REQUEST_COLUMNS = ["source", "country", "start", "end"]
+SOURCE_REQUEST_COLUMNS = ["source", "context", "start", "end"]
 
 
 def compile_auxiliary_requirements(
     source_periods: Sequence[pd.DataFrame],
 ) -> pd.DataFrame:
-    """Compile and merge auxiliary country-period requirements."""
+    """Compile and merge auxiliary context-period requirements."""
     if not source_periods:
         return _empty_requirements()
 
     validated_periods = [validate_source_periods(periods) for periods in source_periods]
 
     requirements = pd.concat(
-        [periods[["country", "start", "end"]] for periods in validated_periods],
+        [periods[["context", "start", "end"]] for periods in validated_periods],
         ignore_index=True,
     )
 
     requirements = (
         requirements.drop_duplicates()
-        .sort_values(["country", "start", "end"])
+        .sort_values(["context", "start", "end"])
         .reset_index(drop=True)
     )
 
@@ -53,7 +53,7 @@ def _empty_requirements() -> pd.DataFrame:
     """Return an empty canonical auxiliary-requirements table."""
     return pd.DataFrame(
         {
-            "country": pd.Series(dtype="string"),
+            "context": pd.Series(dtype="string"),
             "start": pd.Series(dtype="datetime64[ns, UTC]"),
             "end": pd.Series(dtype="datetime64[ns, UTC]"),
         }
@@ -61,14 +61,14 @@ def _empty_requirements() -> pd.DataFrame:
 
 
 def _merge_requirements(requirements: pd.DataFrame) -> pd.DataFrame:
-    """Merge overlapping or adjacent country-period requirements."""
+    """Merge overlapping or adjacent context-period requirements."""
     if requirements.empty:
         return requirements.copy()
 
     merged_rows: list[dict[str, object]] = []
 
-    for country, country_requirements in requirements.groupby("country", sort=True):
-        ordered = country_requirements.sort_values(["start", "end"])
+    for context, context_requirements in requirements.groupby("context", sort=True):
+        ordered = context_requirements.sort_values(["start", "end"])
 
         current_start = ordered.iloc[0]["start"]
         current_end = ordered.iloc[0]["end"]
@@ -79,14 +79,14 @@ def _merge_requirements(requirements: pd.DataFrame) -> pd.DataFrame:
                 continue
 
             merged_rows.append(
-                {"country": country, "start": current_start, "end": current_end}
+                {"context": context, "start": current_start, "end": current_end}
             )
 
             current_start = row.start
             current_end = row.end
 
         merged_rows.append(
-            {"country": country, "start": current_start, "end": current_end}
+            {"context": context, "start": current_start, "end": current_end}
         )
 
     return pd.DataFrame(merged_rows, columns=REQUIREMENT_COLUMNS)
@@ -156,7 +156,7 @@ def expand_auxiliary_requirements(
     """Expand auxiliary requirements for basic-cleaning context.
 
     Args:
-        requirements: Exact auxiliary country-period requirements.
+        requirements: Exact auxiliary context-period requirements.
         rules: Ordered basic cleaning rules.
         enabled: Whether basic cleaning will be applied to auxiliary data.
 
@@ -209,7 +209,7 @@ def _empty_source_requests() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "source": pd.Series(dtype="string"),
-            "country": pd.Series(dtype="string"),
+            "context": pd.Series(dtype="string"),
             "start": pd.Series(dtype="datetime64[ns, UTC]"),
             "end": pd.Series(dtype="datetime64[ns, UTC]"),
         }
@@ -221,18 +221,18 @@ def build_auxiliary_source_requests(
 ) -> pd.DataFrame:
     """Map auxiliary requirements onto capable data sources.
 
-    A capability row with a missing country applies to all required
-    countries. Explicit country capabilities apply only to that country.
+    A capability row with a missing context applies to all required
+    contexts. Explicit context capabilities apply only to that context.
 
     Args:
-        requirements: Required auxiliary country-periods.
+        requirements: Required auxiliary context-periods.
         source_capabilities: Explicit source capability definitions.
 
     Returns:
-        Source-country-period acquisition requests.
+        Source-context-period acquisition requests.
 
     Raises:
-        ValueError: If a required country is unsupported by every configured
+        ValueError: If a required context is unsupported by every configured
             source.
         pandera.errors.SchemaErrors: If an input violates its T-Clean
             data contract.
@@ -247,11 +247,11 @@ def build_auxiliary_source_requests(
     request_frames: list[pd.DataFrame] = []
 
     for capability in source_capabilities.itertuples(index=False):
-        if pd.isna(capability.country):
+        if pd.isna(capability.context):
             applicable = requirements.copy()
         else:
             applicable = requirements.loc[
-                requirements["country"] == capability.country
+                requirements["context"] == capability.context
             ].copy()
 
         if applicable.empty:
@@ -262,29 +262,29 @@ def build_auxiliary_source_requests(
         request_frames.append(applicable)
 
     if not request_frames:
-        missing_countries = sorted(requirements["country"].unique().tolist())
+        missing_contexts = sorted(requirements["context"].unique().tolist())
 
         raise ValueError(
             "No configured auxiliary source supports required "
-            f"countries: {missing_countries!r}."
+            f"contexts: {missing_contexts!r}."
         )
 
     requests = pd.concat(request_frames, ignore_index=True)
 
-    covered_countries = set(requests["country"])
-    required_countries = set(requirements["country"])
+    covered_contexts = set(requests["context"])
+    required_contexts = set(requirements["context"])
 
-    missing_countries = sorted(required_countries - covered_countries)
+    missing_contexts = sorted(required_contexts - covered_contexts)
 
-    if missing_countries:
+    if missing_contexts:
         raise ValueError(
             "No configured auxiliary source supports required "
-            f"countries: {missing_countries!r}."
+            f"contexts: {missing_contexts!r}."
         )
 
     requests = (
         requests.drop_duplicates()
-        .sort_values(["source", "country", "start", "end"])
+        .sort_values(["source", "context", "start", "end"])
         .reset_index(drop=True)
     )
 
@@ -294,7 +294,7 @@ def build_auxiliary_source_requests(
 def select_active_advanced_rules(
     rules: pd.DataFrame,
     *,
-    target_countries: Sequence[str],
+    target_contexts: Sequence[str],
     target_start: object,
     target_end: object,
 ) -> pd.DataFrame:
@@ -302,7 +302,7 @@ def select_active_advanced_rules(
 
     Args:
         rules: Canonical advanced-fill rules in execution order.
-        target_countries: Countries included in the target model scope.
+        target_contexts: contexts included in the target model scope.
         target_start: Inclusive start of the target model period.
         target_end: Exclusive end of the target model period.
 
@@ -319,8 +319,8 @@ def select_active_advanced_rules(
         start=target_start, end=target_end
     )
 
-    country_intersects = rules["country"].isin(target_countries)
+    context_intersects = rules["context"].isin(target_contexts)
 
     period_intersects = (rules["start"] < target_end) & (rules["end"] > target_start)
 
-    return rules.loc[country_intersects & period_intersects].reset_index(drop=True)
+    return rules.loc[context_intersects & period_intersects].reset_index(drop=True)

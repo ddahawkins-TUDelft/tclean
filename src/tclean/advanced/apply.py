@@ -30,7 +30,7 @@ def _apply_advanced_source(
     cleaning_method: pd.DataFrame,
     source: pd.Series,
     *,
-    country: str,
+    context: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
     scope: str,
@@ -38,8 +38,8 @@ def _apply_advanced_source(
     alignment: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Apply an advanced source to the target time series."""
-    if country not in data.columns:
-        raise ValueError(f"Target country {country!r} is not present in data data.")
+    if context not in data.columns:
+        raise ValueError(f"Target context {context!r} is not present in data data.")
 
     target_index = data.index[(data.index >= start) & (data.index < end)]
 
@@ -60,7 +60,7 @@ def _apply_advanced_source(
         raise ValueError(f"Unsupported source alignment {alignment!r}.")
 
     if scope == "fill_gaps":
-        replace_index = candidate.index[data.loc[candidate.index, country].isna()]
+        replace_index = candidate.index[data.loc[candidate.index, context].isna()]
 
     elif scope == "overwrite":
         replace_index = candidate.index
@@ -71,9 +71,9 @@ def _apply_advanced_source(
     filled = data.copy()
     methods = cleaning_method.copy()
 
-    filled.loc[replace_index, country] = candidate.loc[replace_index]
+    filled.loc[replace_index, context] = candidate.loc[replace_index]
 
-    methods.loc[replace_index, country] = rule_name
+    methods.loc[replace_index, context] = rule_name
 
     return filled, methods
 
@@ -139,7 +139,7 @@ def apply_auxiliary_fill_rule(
         data,
         cleaning_method,
         source,
-        country=rule["country"],
+        context=rule["context"],
         start=rule["start"],
         end=rule["end"],
         scope=rule["scope"],

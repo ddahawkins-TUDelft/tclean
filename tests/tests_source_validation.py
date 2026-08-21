@@ -64,7 +64,7 @@ def test_validate_source_periods_accepts_valid_sources():
     """Accept complete valid source-period definitions."""
     source_periods = pd.DataFrame(
         {
-            "country": ["GBR", "FRA"],
+            "context": ["GBR", "FRA"],
             "start": ["2025-01-01T00:00:00Z", "2024-01-01T00:00:00Z"],
             "end": ["2026-01-01T00:00:00Z", "2025-01-01T00:00:00Z"],
             "weight": [1, 0.5],
@@ -82,7 +82,7 @@ def test_validate_source_periods_converts_offsets_to_utc():
     """Normalize source-period timestamps to UTC."""
     source_periods = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T01:00:00+01:00"],
             "end": ["2025-01-02T01:00:00+01:00"],
             "weight": [1],
@@ -99,7 +99,7 @@ def test_validate_source_periods_rejects_missing_weight_column():
     """Reject source definitions that omit explicit weights."""
     source_periods = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2026-01-01T00:00:00Z"],
         }
@@ -113,7 +113,7 @@ def test_validate_source_periods_rejects_missing_weight_value():
     """Reject source definitions when any source omits its weight."""
     source_periods = pd.DataFrame(
         {
-            "country": ["GBR", "FRA"],
+            "context": ["GBR", "FRA"],
             "start": ["2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z"],
             "end": ["2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"],
             "weight": [1.0, None],
@@ -128,7 +128,7 @@ def test_validate_source_periods_rejects_zero_weight():
     """Reject source definitions containing a zero weight."""
     source_periods = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2026-01-01T00:00:00Z"],
             "weight": [0],
@@ -143,7 +143,7 @@ def test_validate_source_periods_rejects_negative_weight():
     """Reject source definitions containing a negative weight."""
     source_periods = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2026-01-01T00:00:00Z"],
             "weight": [-1],
@@ -158,7 +158,7 @@ def test_validate_source_periods_rejects_non_numeric_weight():
     """Reject source definitions containing non-numeric weights."""
     source_periods = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2026-01-01T00:00:00Z"],
             "weight": ["high"],
@@ -173,7 +173,7 @@ def test_validate_source_periods_rejects_reversed_period():
     """Reject a source period whose end is not later than its start."""
     source_periods = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2026-01-01T00:00:00Z"],
             "end": ["2025-01-01T00:00:00Z"],
             "weight": [1],
@@ -188,7 +188,7 @@ def test_validate_source_periods_rejects_equal_bounds():
     """Reject a source period with identical start and end timestamps."""
     source_periods = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-01T00:00:00Z"],
             "weight": [1],
@@ -203,7 +203,7 @@ def test_validate_source_periods_rejects_extra_column():
     """Reject source definitions containing unsupported fields."""
     source_periods = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2026-01-01T00:00:00Z"],
             "weight": [1],
@@ -219,7 +219,7 @@ def test_validate_source_periods_rejects_wrong_column_order():
     """Reject source fields supplied in the wrong order."""
     source_periods = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "weight": [1],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2026-01-01T00:00:00Z"],
@@ -230,11 +230,11 @@ def test_validate_source_periods_rejects_wrong_column_order():
         validate_source_periods(source_periods)
 
 
-def test_validate_source_periods_rejects_missing_country():
-    """Reject source definitions containing a missing country."""
+def test_validate_source_periods_rejects_missing_context():
+    """Reject source definitions containing a missing context."""
     source_periods = pd.DataFrame(
         {
-            "country": [None],
+            "context": [None],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2026-01-01T00:00:00Z"],
             "weight": [1],
@@ -247,7 +247,7 @@ def test_validate_source_periods_rejects_missing_country():
 
 def test_validate_source_periods_rejects_empty_sources():
     """Reject an empty source-period configuration."""
-    source_periods = pd.DataFrame(columns=["country", "start", "end", "weight"])
+    source_periods = pd.DataFrame(columns=["context", "start", "end", "weight"])
 
     with pytest.raises(pandera.errors.SchemaErrors):
         validate_source_periods(source_periods)
@@ -257,7 +257,7 @@ def test_validate_source_periods_rejects_subhourly_start():
     """Reject source periods whose start is not aligned to a whole hour."""
     source_periods = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:30:00Z"],
             "end": ["2026-01-01T00:00:00Z"],
             "weight": [1.0],
@@ -272,7 +272,7 @@ def test_validate_source_periods_rejects_subhourly_end():
     """Reject source periods whose end is not aligned to a whole hour."""
     source_periods = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2026-01-01T00:30:00Z"],
             "weight": [1.0],

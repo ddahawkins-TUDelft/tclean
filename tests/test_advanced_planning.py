@@ -19,14 +19,14 @@ def test_compile_auxiliary_requirements_returns_empty_for_no_sources():
     result = compile_auxiliary_requirements([])
 
     assert result.empty
-    assert result.columns.tolist() == ["country", "start", "end"]
+    assert result.columns.tolist() == ["context", "start", "end"]
 
 
 def test_compile_auxiliary_requirements_preserves_distinct_periods():
-    """Preserve non-overlapping requirements for the same country."""
+    """Preserve non-overlapping requirements for the same context."""
     first = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-02T00:00:00Z"],
             "weight": [1.0],
@@ -35,7 +35,7 @@ def test_compile_auxiliary_requirements_preserves_distinct_periods():
 
     second = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-02-01T00:00:00Z"],
             "end": ["2025-02-02T00:00:00Z"],
             "weight": [1.0],
@@ -48,10 +48,10 @@ def test_compile_auxiliary_requirements_preserves_distinct_periods():
 
 
 def test_compile_auxiliary_requirements_merges_overlapping_periods():
-    """Merge overlapping requirements for the same country."""
+    """Merge overlapping requirements for the same context."""
     first = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-03T00:00:00Z"],
             "weight": [1.0],
@@ -60,7 +60,7 @@ def test_compile_auxiliary_requirements_merges_overlapping_periods():
 
     second = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-02T00:00:00Z"],
             "end": ["2025-01-04T00:00:00Z"],
             "weight": [1.0],
@@ -78,7 +78,7 @@ def test_compile_auxiliary_requirements_merges_adjacent_periods():
     """Merge adjacent requirements without an hourly gap."""
     first = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-02T00:00:00Z"],
             "weight": [1.0],
@@ -87,7 +87,7 @@ def test_compile_auxiliary_requirements_merges_adjacent_periods():
 
     second = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-02T00:00:00Z"],
             "end": ["2025-01-03T00:00:00Z"],
             "weight": [1.0],
@@ -101,11 +101,11 @@ def test_compile_auxiliary_requirements_merges_adjacent_periods():
     assert result.loc[0, "end"] == pd.Timestamp("2025-01-03T00:00:00Z")
 
 
-def test_compile_auxiliary_requirements_keeps_countries_separate():
-    """Do not merge periods belonging to different countries."""
+def test_compile_auxiliary_requirements_keeps_contexts_separate():
+    """Do not merge periods belonging to different contexts."""
     sources = pd.DataFrame(
         {
-            "country": ["GBR", "FRA"],
+            "context": ["GBR", "FRA"],
             "start": ["2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z"],
             "end": ["2025-01-03T00:00:00Z", "2025-01-03T00:00:00Z"],
             "weight": [1.0, 1.0],
@@ -114,14 +114,14 @@ def test_compile_auxiliary_requirements_keeps_countries_separate():
 
     result = compile_auxiliary_requirements([sources])
 
-    assert result["country"].tolist() == ["FRA", "GBR"]
+    assert result["context"].tolist() == ["FRA", "GBR"]
 
 
 def test_compile_auxiliary_requirements_deduplicates_periods():
     """Remove duplicate auxiliary requirements."""
     sources = pd.DataFrame(
         {
-            "country": ["GBR", "GBR"],
+            "context": ["GBR", "GBR"],
             "start": ["2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z"],
             "end": ["2025-01-02T00:00:00Z", "2025-01-02T00:00:00Z"],
             "weight": [1.0, 1.0],
@@ -137,7 +137,7 @@ def test_compile_auxiliary_requirements_validates_source_periods():
     """Reject invalid source-period definitions before planning."""
     sources = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-01-01T00:00:00Z"],
             "end": ["2025-01-02T00:00:00Z"],
         }
@@ -226,7 +226,7 @@ def test_expand_auxiliary_requirements_adds_context():
     """Expand exact requirements by basic-cleaning context."""
     requirements = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": [pd.Timestamp("2025-01-10T00:00:00Z")],
             "end": [pd.Timestamp("2025-01-11T00:00:00Z")],
         }
@@ -245,7 +245,7 @@ def test_expand_auxiliary_requirements_preserves_exact_period_when_disabled():
     """Do not add cleaning context when basic cleaning is disabled."""
     requirements = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": [pd.Timestamp("2025-01-10T00:00:00Z")],
             "end": [pd.Timestamp("2025-01-11T00:00:00Z")],
         }
@@ -262,7 +262,7 @@ def test_expand_auxiliary_requirements_merges_after_expansion():
     """Merge requirements that overlap after context is added."""
     requirements = pd.DataFrame(
         {
-            "country": ["GBR", "GBR"],
+            "context": ["GBR", "GBR"],
             "start": [
                 pd.Timestamp("2025-01-01T00:00:00Z"),
                 pd.Timestamp("2025-01-03T00:00:00Z"),
@@ -291,29 +291,29 @@ def test_expand_auxiliary_requirements_merges_after_expansion():
     assert result.loc[0, "end"] == pd.Timestamp("2025-01-05T00:00:00Z")
 
 
-def test_validate_source_capabilities_accepts_explicit_country():
-    """Accept a source with explicit country coverage."""
-    capabilities = pd.DataFrame({"source": ["neso"], "country": ["GBR"]})
+def test_validate_source_capabilities_accepts_explicit_context():
+    """Accept a source with explicit context coverage."""
+    capabilities = pd.DataFrame({"source": ["neso"], "context": ["GBR"]})
 
     result = validate_source_capabilities(capabilities)
 
     assert result.loc[0, "source"] == "neso"
-    assert result.loc[0, "country"] == "GBR"
+    assert result.loc[0, "context"] == "GBR"
 
 
-def test_validate_source_capabilities_accepts_all_country_wildcard():
-    """Accept a missing country as wildcard coverage."""
-    capabilities = pd.DataFrame({"source": ["entsoe"], "country": [None]})
+def test_validate_source_capabilities_accepts_all_context_wildcard():
+    """Accept a missing context as wildcard coverage."""
+    capabilities = pd.DataFrame({"source": ["entsoe"], "context": [None]})
 
     result = validate_source_capabilities(capabilities)
 
     assert result.loc[0, "source"] == "entsoe"
-    assert pd.isna(result.loc[0, "country"])
+    assert pd.isna(result.loc[0, "context"])
 
 
 def test_validate_source_capabilities_rejects_duplicates():
-    """Reject duplicate source-country capability definitions."""
-    capabilities = pd.DataFrame({"source": ["neso", "neso"], "country": ["GBR", "GBR"]})
+    """Reject duplicate source-context capability definitions."""
+    capabilities = pd.DataFrame({"source": ["neso", "neso"], "context": ["GBR", "GBR"]})
 
     with pytest.raises(pandera.errors.SchemaErrors):
         validate_source_capabilities(capabilities)
@@ -322,7 +322,7 @@ def test_validate_source_capabilities_rejects_duplicates():
 def test_validate_source_capabilities_rejects_mixed_wildcard_and_explicit():
     """Reject mixed wildcard and explicit coverage for one source."""
     capabilities = pd.DataFrame(
-        {"source": ["entsoe", "entsoe"], "country": [None, "GBR"]}
+        {"source": ["entsoe", "entsoe"], "context": [None, "GBR"]}
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
@@ -333,28 +333,28 @@ def test_build_auxiliary_source_requests_maps_explicit_capability():
     """Map a requirement to an explicitly capable source."""
     requirements = pd.DataFrame(
         {
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": [pd.Timestamp("2025-01-01T00:00:00Z")],
             "end": [pd.Timestamp("2025-01-02T00:00:00Z")],
         }
     )
 
-    capabilities = pd.DataFrame({"source": ["neso"], "country": ["GBR"]})
+    capabilities = pd.DataFrame({"source": ["neso"], "context": ["GBR"]})
 
     result = build_auxiliary_source_requests(
         requirements, source_capabilities=capabilities
     )
 
-    assert list(result[["source", "country"]].itertuples(index=False, name=None)) == [
+    assert list(result[["source", "context"]].itertuples(index=False, name=None)) == [
         ("neso", "GBR")
     ]
 
 
-def test_build_auxiliary_source_requests_applies_wildcard_to_all_countries():
-    """Map wildcard source coverage to every required country."""
+def test_build_auxiliary_source_requests_applies_wildcard_to_all_contexts():
+    """Map wildcard source coverage to every required context."""
     requirements = pd.DataFrame(
         {
-            "country": ["GBR", "FRA"],
+            "context": ["GBR", "FRA"],
             "start": [
                 pd.Timestamp("2025-01-01T00:00:00Z"),
                 pd.Timestamp("2025-01-01T00:00:00Z"),
@@ -366,23 +366,23 @@ def test_build_auxiliary_source_requests_applies_wildcard_to_all_countries():
         }
     )
 
-    capabilities = pd.DataFrame({"source": ["entsoe"], "country": [None]})
+    capabilities = pd.DataFrame({"source": ["entsoe"], "context": [None]})
 
     result = build_auxiliary_source_requests(
         requirements, source_capabilities=capabilities
     )
 
-    assert list(result[["source", "country"]].itertuples(index=False, name=None)) == [
+    assert list(result[["source", "context"]].itertuples(index=False, name=None)) == [
         ("entsoe", "FRA"),
         ("entsoe", "GBR"),
     ]
 
 
 def test_build_auxiliary_source_requests_combines_wildcard_and_specific_sources():
-    """Combine wildcard and country-specific source capabilities."""
+    """Combine wildcard and context-specific source capabilities."""
     requirements = pd.DataFrame(
         {
-            "country": ["GBR", "FRA"],
+            "context": ["GBR", "FRA"],
             "start": [
                 pd.Timestamp("2025-01-01T00:00:00Z"),
                 pd.Timestamp("2025-01-01T00:00:00Z"),
@@ -395,31 +395,31 @@ def test_build_auxiliary_source_requests_combines_wildcard_and_specific_sources(
     )
 
     capabilities = pd.DataFrame(
-        {"source": ["entsoe", "neso"], "country": [None, "GBR"]}
+        {"source": ["entsoe", "neso"], "context": [None, "GBR"]}
     )
 
     result = build_auxiliary_source_requests(
         requirements, source_capabilities=capabilities
     )
 
-    assert list(result[["source", "country"]].itertuples(index=False, name=None)) == [
+    assert list(result[["source", "context"]].itertuples(index=False, name=None)) == [
         ("entsoe", "FRA"),
         ("entsoe", "GBR"),
         ("neso", "GBR"),
     ]
 
 
-def test_build_auxiliary_source_requests_rejects_uncovered_country():
+def test_build_auxiliary_source_requests_rejects_uncovered_context():
     """Reject requirements unsupported by every configured source."""
     requirements = pd.DataFrame(
         {
-            "country": ["FRA"],
+            "context": ["FRA"],
             "start": [pd.Timestamp("2025-01-01T00:00:00Z")],
             "end": [pd.Timestamp("2025-01-02T00:00:00Z")],
         }
     )
 
-    capabilities = pd.DataFrame({"source": ["neso"], "country": ["GBR"]})
+    capabilities = pd.DataFrame({"source": ["neso"], "context": ["GBR"]})
 
     with pytest.raises(ValueError, match="No configured auxiliary source supports"):
         build_auxiliary_source_requests(requirements, source_capabilities=capabilities)
@@ -429,13 +429,13 @@ def test_build_auxiliary_source_requests_returns_empty_without_requirements():
     """Return no requests when no auxiliary data are required."""
     requirements = pd.DataFrame(
         {
-            "country": pd.Series(dtype="string"),
+            "context": pd.Series(dtype="string"),
             "start": pd.Series(dtype="datetime64[ns, UTC]"),
             "end": pd.Series(dtype="datetime64[ns, UTC]"),
         }
     )
 
-    capabilities = pd.DataFrame({"source": ["entsoe"], "country": [None]})
+    capabilities = pd.DataFrame({"source": ["entsoe"], "context": [None]})
 
     result = build_auxiliary_source_requests(
         requirements, source_capabilities=capabilities
@@ -443,17 +443,17 @@ def test_build_auxiliary_source_requests_returns_empty_without_requirements():
 
     assert result.empty
 
-    assert result.columns.tolist() == ["source", "country", "start", "end"]
+    assert result.columns.tolist() == ["source", "context", "start", "end"]
 
 
 def test_select_active_advanced_rules_keeps_intersecting_rules():
-    """Select rules whose country and period intersect the target scope."""
+    """Select rules whose context and period intersect the target scope."""
     rules = pd.DataFrame(
         {
-            "rule_name": ["inside", "wrong_country", "wrong_period"],
+            "rule_name": ["inside", "wrong_context", "wrong_period"],
             "method": ["external_profile", "external_profile", "external_profile"],
             "source": ["test_source", "test_source", "test_source"],
-            "country": ["GBR", "FRA", "GBR"],
+            "context": ["GBR", "FRA", "GBR"],
             "start": [
                 "2026-01-01T00:00:00Z",
                 "2026-01-01T00:00:00Z",
@@ -470,7 +470,7 @@ def test_select_active_advanced_rules_keeps_intersecting_rules():
 
     result = select_active_advanced_rules(
         rules,
-        target_countries=["GBR"],
+        target_contexts=["GBR"],
         target_start="2026-01-01T00:00:00Z",
         target_end="2026-02-01T00:00:00Z",
     )
@@ -485,7 +485,7 @@ def test_select_active_advanced_rules_accepts_partial_period_overlap():
             "rule_name": ["partial"],
             "method": ["external_profile"],
             "source": ["test_source"],
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-12-31T00:00:00Z"],
             "end": ["2026-01-02T00:00:00Z"],
             "scope": ["fill_gaps"],
@@ -494,7 +494,7 @@ def test_select_active_advanced_rules_accepts_partial_period_overlap():
 
     result = select_active_advanced_rules(
         rules,
-        target_countries=["GBR"],
+        target_contexts=["GBR"],
         target_start="2026-01-01T00:00:00Z",
         target_end="2026-02-01T00:00:00Z",
     )
@@ -509,7 +509,7 @@ def test_select_active_advanced_rules_excludes_rule_ending_at_target_start():
             "rule_name": ["before"],
             "method": ["external_profile"],
             "source": ["test_source"],
-            "country": ["GBR"],
+            "context": ["GBR"],
             "start": ["2025-12-01T00:00:00Z"],
             "end": ["2026-01-01T00:00:00Z"],
             "scope": ["fill_gaps"],
@@ -518,7 +518,7 @@ def test_select_active_advanced_rules_excludes_rule_ending_at_target_start():
 
     result = select_active_advanced_rules(
         rules,
-        target_countries=["GBR"],
+        target_contexts=["GBR"],
         target_start="2026-01-01T00:00:00Z",
         target_end="2026-02-01T00:00:00Z",
     )
@@ -533,7 +533,7 @@ def test_select_active_advanced_rules_preserves_rule_order():
             "rule_name": ["second_chronologically", "first_chronologically"],
             "method": ["external_profile", "external_profile"],
             "source": ["test_source", "test_source"],
-            "country": ["GBR", "GBR"],
+            "context": ["GBR", "GBR"],
             "start": ["2026-01-10T00:00:00Z", "2026-01-01T00:00:00Z"],
             "end": ["2026-01-11T00:00:00Z", "2026-01-02T00:00:00Z"],
             "scope": ["overwrite", "overwrite"],
@@ -542,7 +542,7 @@ def test_select_active_advanced_rules_preserves_rule_order():
 
     result = select_active_advanced_rules(
         rules,
-        target_countries=["GBR"],
+        target_contexts=["GBR"],
         target_start="2026-01-01T00:00:00Z",
         target_end="2026-02-01T00:00:00Z",
     )
