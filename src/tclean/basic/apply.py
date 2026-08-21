@@ -37,7 +37,7 @@ def fill_basic_gaps(
     Parameters
     ----------
     data:
-        Hourly data indexed by timestamp, with one column per region.
+        Hourly data indexed by timestamp, with one column per context.
     cleaning_method:
         Per-cell cleaning-method provenance for the observed input values.
         Missing input values should contain ``pd.NA``.
@@ -154,10 +154,10 @@ def _log_rule_results(
         total,
     )
 
-    for region, count in newly_filled.sum().items():
+    for context, count in newly_filled.sum().items():
         count = int(count)
 
         if count:
             logger.info(
-                "%s: %s values filled using rule '%s'.", region, count, rule_name
+                "%s: %s values filled using rule '%s'.", context, count, rule_name
             )

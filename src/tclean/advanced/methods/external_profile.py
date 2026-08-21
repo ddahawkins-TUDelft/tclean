@@ -11,7 +11,7 @@ from tclean._schemas import EXTERNAL_PROFILE_SCHEMA
 METHOD_NAME = "external_profile"
 
 
-def data_external_profile(path: str | Path) -> pd.Series:
+def read_external_profile(path: str | Path) -> pd.Series:
     """Data and validate an external profile.
 
     The CSV is read once and validated against the strict T-Clean
