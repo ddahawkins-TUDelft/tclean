@@ -184,11 +184,11 @@ SOURCE_PERIODS_SCHEMA = pa.DataFrameSchema(
     name="source_periods",
 )
 
-CLEANING_METHOD_SCHEMA = pa.DataFrameSchema(
+PROVENANCE_SCHEMA = pa.DataFrameSchema(
     {r".+": pa.Column("string", nullable=True, coerce=True, regex=True)},
     strict=True,
     unique_column_names=True,
-    name="cleaning_method",
+    name="provenance",
 )
 
 

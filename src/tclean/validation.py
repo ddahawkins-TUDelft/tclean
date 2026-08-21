@@ -6,9 +6,9 @@ from tclean._schemas import (
     ADVANCED_FILL_RULES_SCHEMA,
     AUXILIARY_REQUIREMENTS_SCHEMA,
     AUXILIARY_SOURCE_REQUESTS_SCHEMA,
-    CLEANING_METHOD_SCHEMA,
     DEMAND_SCHEMA,
     HOURLY_TIMESTAMP_INDEX_SCHEMA,
+    PROVENANCE_SCHEMA,
     SOURCE_CAPABILITIES_SCHEMA,
     SOURCE_PERIODS_SCHEMA,
     TEMPORAL_RANGE_SCHEMA,
@@ -109,13 +109,13 @@ def validate_source_periods(source_periods: pd.DataFrame) -> pd.DataFrame:
     return SOURCE_PERIODS_SCHEMA.validate(source_periods, lazy=True)
 
 
-def validate_cleaning_method(
-    cleaning_method: pd.DataFrame, *, load: pd.DataFrame
+def validate_provenance(
+    provenance: pd.DataFrame, *, load: pd.DataFrame
 ) -> pd.DataFrame:
     """Validate and normalize cleaning-method provenance data.
 
     Args:
-        cleaning_method: Provenance labels corresponding to demand values.
+        provenance: Provenance labels corresponding to demand values.
         load: Canonical demand data whose shape and axes must be matched.
 
     Returns:
@@ -123,10 +123,10 @@ def validate_cleaning_method(
 
     Raises:
         pandera.errors.SchemaErrors: If provenance values violate the
-            cleaning-method schema.
+            provenance schema.
         ValueError: If provenance index or columns do not exactly match load.
     """
-    validated = CLEANING_METHOD_SCHEMA.validate(cleaning_method, lazy=True)
+    validated = PROVENANCE_SCHEMA.validate(provenance, lazy=True)
 
     if not validated.index.equals(load.index):
         raise ValueError("Cleaning-method index must exactly match load index.")
@@ -135,6 +135,20 @@ def validate_cleaning_method(
         raise ValueError("Cleaning-method columns must exactly match load columns.")
 
     return validated
+
+
+def validate_cleaning_method(
+    cleaning_method: pd.DataFrame, *, load: pd.DataFrame
+) -> pd.DataFrame:
+    """Validate cleaning-method provenance aligned with demand."""
+    return validate_provenance(cleaning_method, load=load)
+
+
+def validate_data_source(
+    data_source: pd.DataFrame, *, load: pd.DataFrame
+) -> pd.DataFrame:
+    """Validate data-source provenance aligned with demand."""
+    return validate_provenance(data_source, load=load)
 
 
 def validate_advanced_fill_rules(rules: pd.DataFrame) -> pd.DataFrame:
