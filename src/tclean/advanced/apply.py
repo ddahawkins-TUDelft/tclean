@@ -184,8 +184,6 @@ def apply_advanced_rules(
     for _, rule in rules.iterrows():
         source = None if pd.isna(rule["source"]) else advanced_sources[rule["source"]]
 
-        filled, methods = apply_advanced_rule(
-            filled, methods, rule=rule, source=source
-        )
+        filled, methods = apply_advanced_rule(filled, methods, rule=rule, source=source)
 
     return (filled, methods)
