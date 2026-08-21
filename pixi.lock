@@ -1320,4 +1320,4 @@ packages:
   timestamp: 1786599623274
 - pypi: .
   name: tclean
-  requires_python: '>=3.11'
+  requires_python: '>=3.12'
