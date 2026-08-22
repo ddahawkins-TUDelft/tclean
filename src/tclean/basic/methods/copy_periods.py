@@ -13,7 +13,7 @@ def apply_copy_periods(
     max_gap: str | pd.Timedelta,
     source_offset: str | pd.Timedelta,
     original_gap_duration: pd.DataFrame,
-    require_complete_source: bool = True,
+    require_complete_source: bool,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Fill eligible gaps using values from another period.
 

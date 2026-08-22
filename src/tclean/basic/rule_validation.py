@@ -12,28 +12,67 @@ from tclean.basic.methods.linear_interpolation import (
 )
 
 
-def _positive_timedelta(value: object, *, field: str) -> pd.Timedelta:
-    """Convert a value to a positive timedelta."""
+def _timedelta(value: object, *, field: str) -> pd.Timedelta:
+    """Validate and normalize an explicit fixed duration."""
+    if pd.isna(value):
+        raise ValueError(f"{field!r} must not be missing.")
+
+    if isinstance(value, str):
+        value = value.strip()
+
+        if not value:
+            raise ValueError(f"{field!r} must not be empty.")
+
+    elif not isinstance(value, pd.Timedelta):
+        raise TypeError(f"{field!r} must be a duration string or pandas Timedelta.")
+
     try:
         delta = pd.Timedelta(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"{field!r} must be a valid timedelta.") from exc
+        raise ValueError(f"{field!r} must be a valid fixed duration.") from exc
 
-    if delta <= pd.Timedelta(0):
-        raise ValueError(f"{field!r} must be greater than zero.")
+    if pd.isna(delta):
+        raise ValueError(f"{field!r} must not be missing.")
 
     return delta
 
 
-def _nonzero_timedelta(value: object, *, field: str) -> pd.Timedelta:
-    """Convert a value to a non-zero timedelta."""
-    try:
-        delta = pd.Timedelta(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{field!r} must be a valid timedelta.") from exc
+def _validate_frequency_multiple(
+    delta: pd.Timedelta, *, field: str, frequency: pd.Timedelta
+) -> None:
+    """Require a duration to align with the configured frequency."""
+    if delta % frequency != pd.Timedelta(0):
+        raise ValueError(
+            f"{field!r} must be an integer multiple "
+            "of the configured frequency. "
+            f"Value: {delta}; frequency: {frequency}."
+        )
+
+
+def _positive_timedelta(
+    value: object, *, field: str, frequency: pd.Timedelta
+) -> pd.Timedelta:
+    """Convert a value to a positive frequency-aligned timedelta."""
+    delta = _timedelta(value, field=field)
+
+    if delta <= pd.Timedelta(0):
+        raise ValueError(f"{field!r} must be greater than zero.")
+
+    _validate_frequency_multiple(delta, field=field, frequency=frequency)
+
+    return delta
+
+
+def _nonzero_timedelta(
+    value: object, *, field: str, frequency: pd.Timedelta
+) -> pd.Timedelta:
+    """Convert a value to a non-zero frequency-aligned timedelta."""
+    delta = _timedelta(value, field=field)
 
     if delta == pd.Timedelta(0):
         raise ValueError(f"{field!r} must not be zero.")
+
+    _validate_frequency_multiple(delta, field=field, frequency=frequency)
 
     return delta
 
@@ -70,18 +109,24 @@ def _validate_common_fields(rule: Mapping[str, Any]) -> None:
         raise ValueError("Basic rule 'method' must be a non-empty string.")
 
 
-def _validate_linear_interpolation_rule(rule: Mapping[str, Any]) -> dict[str, Any]:
+def _validate_linear_interpolation_rule(
+    rule: Mapping[str, Any], *, frequency: pd.Timedelta
+) -> dict[str, Any]:
     """Validate and normalize a linear-interpolation rule."""
     _validate_keys(rule, required={"name", "method", "max_gap"})
 
     normalized = dict(rule)
 
-    normalized["max_gap"] = _positive_timedelta(rule["max_gap"], field="max_gap")
+    normalized["max_gap"] = _positive_timedelta(
+        rule["max_gap"], field="max_gap", frequency=frequency
+    )
 
     return normalized
 
 
-def _validate_copy_periods_rule(rule: Mapping[str, Any]) -> dict[str, Any]:
+def _validate_copy_periods_rule(
+    rule: Mapping[str, Any], *, frequency: pd.Timedelta
+) -> dict[str, Any]:
     """Validate and normalize a copy-periods rule."""
     _validate_keys(
         rule,
@@ -99,16 +144,20 @@ def _validate_copy_periods_rule(rule: Mapping[str, Any]) -> dict[str, Any]:
 
     normalized = dict(rule)
 
-    normalized["max_gap"] = _positive_timedelta(rule["max_gap"], field="max_gap")
+    normalized["max_gap"] = _positive_timedelta(
+        rule["max_gap"], field="max_gap", frequency=frequency
+    )
 
     normalized["source_offset"] = _nonzero_timedelta(
-        rule["source_offset"], field="source_offset"
+        rule["source_offset"], field="source_offset", frequency=frequency
     )
 
     return normalized
 
 
-def _validate_average_periods_rule(rule: Mapping[str, Any]) -> dict[str, Any]:
+def _validate_average_periods_rule(
+    rule: Mapping[str, Any], *, frequency: pd.Timedelta
+) -> dict[str, Any]:
     """Validate and normalize an average-periods rule."""
     _validate_keys(rule, required={"name", "method", "max_gap", "source_offsets"})
 
@@ -123,10 +172,13 @@ def _validate_average_periods_rule(rule: Mapping[str, Any]) -> dict[str, Any]:
 
     normalized = dict(rule)
 
-    normalized["max_gap"] = _positive_timedelta(rule["max_gap"], field="max_gap")
+    normalized["max_gap"] = _positive_timedelta(
+        rule["max_gap"], field="max_gap", frequency=frequency
+    )
 
     normalized["source_offsets"] = [
-        _nonzero_timedelta(offset, field="source_offsets") for offset in source_offsets
+        _nonzero_timedelta(offset, field="source_offsets", frequency=frequency)
+        for offset in source_offsets
     ]
 
     return normalized
@@ -167,7 +219,7 @@ def validate_basic_rule(
     except KeyError as exc:
         raise ValueError(f"Unsupported basic cleaning method: {method!r}.") from exc
 
-    return validator(rule)
+    return validator(rule, frequency=frequency)
 
 
 def validate_basic_rules(

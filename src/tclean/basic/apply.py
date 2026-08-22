@@ -98,7 +98,7 @@ def fill_basic_gaps(
                 filled,
                 max_gap=rule["max_gap"],
                 source_offset=rule["source_offset"],
-                require_complete_source=rule.get("require_complete_source", True),
+                require_complete_source=rule["require_complete_source"],
                 original_gap_duration=original_gap_duration,
             )
 

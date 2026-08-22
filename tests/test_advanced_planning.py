@@ -603,3 +603,25 @@ def test_select_active_advanced_rules_preserves_rule_order():
         "second_chronologically",
         "first_chronologically",
     ]
+
+
+def test_basic_cleaning_context_uses_configured_frequency():
+    """Use one configured timestep around interpolation gaps."""
+    rules = [
+        {"name": "interpolate", "method": "linear_interpolation", "max_gap": "30min"}
+    ]
+
+    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("30min"))
+
+    assert left == pd.Timedelta("30min")
+    assert right == pd.Timedelta("30min")
+
+
+def test_basic_cleaning_context_supports_two_hour_frequency():
+    """Use a two-hour timestep for interpolation context."""
+    rules = [{"name": "interpolate", "method": "linear_interpolation", "max_gap": "2h"}]
+
+    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("2h"))
+
+    assert left == pd.Timedelta("2h")
+    assert right == pd.Timedelta("2h")

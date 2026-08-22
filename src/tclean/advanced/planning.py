@@ -126,7 +126,7 @@ def get_basic_cleaning_context(
         rule_right = max_gap
 
         if method == LINEAR_INTERPOLATION:
-            offsets = (-pd.Timedelta(hours=1), pd.Timedelta(hours=1))
+            offsets = (-frequency, frequency)
 
         elif method == COPY_PERIODS:
             offsets = (rule["source_offset"],)

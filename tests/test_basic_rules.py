@@ -61,7 +61,11 @@ def test_copy_periods_fills_from_previous_period():
     durations.loc[index[2], "ALB"] = pd.Timedelta(hours=1)
 
     filled, newly_filled = apply_copy_periods(
-        data, max_gap="1h", source_offset="-2h", original_gap_duration=durations
+        data,
+        max_gap="1h",
+        source_offset="-2h",
+        original_gap_duration=durations,
+        require_complete_source=True,
     )
 
     assert filled.loc[index[2], "ALB"] == 10.0
@@ -81,7 +85,11 @@ def test_copy_periods_requires_complete_source_by_default():
     durations.loc[index[2:4], "ALB"] = pd.Timedelta(hours=2)
 
     filled, newly_filled = apply_copy_periods(
-        data, max_gap="2h", source_offset="-2h", original_gap_duration=durations
+        data,
+        max_gap="2h",
+        source_offset="-2h",
+        original_gap_duration=durations,
+        require_complete_source=True,
     )
 
     assert filled.loc[index[2:4], "ALB"].isna().all()

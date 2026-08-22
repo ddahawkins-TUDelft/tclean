@@ -27,6 +27,7 @@ def clean(
     Args:
         sources: Canonical time-series frames keyed by source name.
             Mapping insertion order defines source priority.
+        config: tclean configuration object.
         basic_rules: Ordered basic cleaning rules. If omitted, basic
             cleaning is skipped.
         advanced_rules: Validated advanced-fill rule definitions. If omitted,

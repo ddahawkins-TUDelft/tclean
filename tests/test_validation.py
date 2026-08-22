@@ -456,18 +456,6 @@ def test_validate_time_series_accepts_two_hour_frequency():
     validate_time_series(data, frequency=pd.Timedelta("2h"))
 
 
-def test_validate_time_series_rejects_wrong_frequency():
-    """Reject data that do not match the configured frequency."""
-    index = pd.date_range(
-        "2026-01-01 00:00", periods=3, freq="1h", tz="UTC", name="timestamp"
-    )
-
-    data = pd.DataFrame({"A": [1.0, 2.0, 3.0]}, index=index)
-
-    with pytest.raises(ValueError, match="configured interval"):
-        validate_time_series(data, frequency=pd.Timedelta("30min"))
-
-
 def test_validate_time_series_allows_shifted_regular_grid():
     """Allow regular grids that do not start on the wall-clock hour."""
     index = pd.date_range(

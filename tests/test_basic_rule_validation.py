@@ -144,3 +144,77 @@ def test_validate_average_periods_rejects_empty_offsets():
             },
             frequency=pd.Timedelta("1h"),
         )
+
+
+def test_basic_rule_accepts_frequency_aligned_duration():
+    """Accept durations aligned with the configured frequency."""
+    result = validate_basic_rule(
+        {"name": "interpolate", "method": "linear_interpolation", "max_gap": "90min"},
+        frequency=pd.Timedelta("30min"),
+    )
+
+    assert result["max_gap"] == pd.Timedelta("90min")
+
+
+def test_basic_rule_rejects_misaligned_max_gap():
+    """Reject maximum gaps not aligned with the configured frequency."""
+    with pytest.raises(ValueError, match="integer multiple"):
+        validate_basic_rule(
+            {
+                "name": "interpolate",
+                "method": "linear_interpolation",
+                "max_gap": "45min",
+            },
+            frequency=pd.Timedelta("30min"),
+        )
+
+
+def test_copy_periods_rejects_misaligned_source_offset():
+    """Reject copy offsets not aligned with the configured frequency."""
+    with pytest.raises(ValueError, match="integer multiple"):
+        validate_basic_rule(
+            {
+                "name": "copy",
+                "method": "copy_periods",
+                "max_gap": "2h",
+                "source_offset": "-3h",
+                "require_complete_source": True,
+            },
+            frequency=pd.Timedelta("2h"),
+        )
+
+
+def test_basic_rule_rejects_missing_duration():
+    """Reject missing basic-rule durations."""
+    with pytest.raises(ValueError, match="must not be missing"):
+        validate_basic_rule(
+            {
+                "name": "interpolate",
+                "method": "linear_interpolation",
+                "max_gap": pd.NaT,
+            },
+            frequency=pd.Timedelta("1h"),
+        )
+
+
+def test_basic_rule_rejects_numeric_duration():
+    """Reject durations without explicit units."""
+    with pytest.raises(TypeError, match="duration string"):
+        validate_basic_rule(
+            {"name": "interpolate", "method": "linear_interpolation", "max_gap": 3},
+            frequency=pd.Timedelta("1h"),
+        )
+
+
+def test_average_periods_rejects_misaligned_source_offset():
+    """Reject any average-period offset not aligned with frequency."""
+    with pytest.raises(ValueError, match="integer multiple"):
+        validate_basic_rule(
+            {
+                "name": "average",
+                "method": "average_periods",
+                "max_gap": "2h",
+                "source_offsets": ["-4h", "3h"],
+            },
+            frequency=pd.Timedelta("2h"),
+        )
