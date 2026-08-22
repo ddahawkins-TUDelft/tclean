@@ -24,7 +24,7 @@ def apply_copy_periods(
     Parameters
     ----------
     data:
-        Demand data indexed by timestamp.
+        Ddata indexed by timestamp.
     max_gap:
         Maximum original gap duration eligible for filling.
     source_offset:
@@ -37,7 +37,7 @@ def apply_copy_periods(
     Returns:
     -------
     filled:
-        Demand data after applying the copy-period rule.
+        Data after applying the copy-period rule.
     newly_filled:
         Boolean DataFrame identifying values filled by this rule.
     """

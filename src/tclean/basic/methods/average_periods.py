@@ -24,7 +24,7 @@ def apply_average_periods(
     Parameters
     ----------
     data:
-        Demand data indexed by timestamp.
+        Data indexed by timestamp.
     max_gap:
         Maximum original gap duration eligible for filling.
     source_offsets:
@@ -35,7 +35,7 @@ def apply_average_periods(
     Returns:
     -------
     filled:
-        Demand data after applying the averaging rule.
+        Data after applying the averaging rule.
     newly_filled:
         Boolean DataFrame identifying values filled by this rule.
     """
