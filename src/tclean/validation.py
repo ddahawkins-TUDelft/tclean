@@ -7,12 +7,12 @@ from tclean._schemas import (
     ADVANCED_SOURCE_SCHEMA,
     AUXILIARY_REQUIREMENTS_SCHEMA,
     AUXILIARY_SOURCE_REQUESTS_SCHEMA,
-    HOURLY_TIMESTAMP_INDEX_SCHEMA,
     PROVENANCE_SCHEMA,
     SOURCE_CAPABILITIES_SCHEMA,
     SOURCE_PERIODS_SCHEMA,
     TEMPORAL_RANGE_SCHEMA,
     TIME_SERIES_SCHEMA,
+    TIMESTAMP_INDEX_SCHEMA,
 )
 
 
@@ -31,12 +31,20 @@ def validate_time_series(data: pd.DataFrame, frequency: pd.Timedelta) -> pd.Data
         pandera.errors.SchemaErrors: If the data violate the canonical
             T-Clean time-series contract.
     """
-    del frequency
-    return TIME_SERIES_SCHEMA.validate(data, lazy=True)
+    validated = TIME_SERIES_SCHEMA.validate(data, lazy=True)
+
+    if not validated.index.is_monotonic_increasing:
+        raise ValueError("Timestamps must be sorted.")
+
+    _validate_frequency_grid(
+        validated.index, frequency=frequency, require_complete=True
+    )
+
+    return validated
 
 
 def validate_temporal_range(
-    *, start: object, end: object
+    start: object, end: object
 ) -> tuple[pd.Timestamp, pd.Timestamp]:
     """Validate and normalize a temporal range.
 
@@ -73,27 +81,40 @@ def infer_regular_timestep(index: pd.Index) -> pd.Timedelta:
     return index[1] - index[0]
 
 
-def validate_hourly_timestamp_index(
-    index: pd.DatetimeIndex, frequency: pd.Timedelta
+def validate_timestamp_index(
+    index: pd.DatetimeIndex, *, frequency: pd.Timedelta
 ) -> pd.DatetimeIndex:
-    """Validate and normalize a canonical hourly timestamp index.
+    """Validate a canonical regular timestamp index.
 
     Args:
         index: Timestamp index to validate.
-        frequency: pd.Timedelta of time series frequency.
+        frequency: Fixed interval between consecutive timestamps.
 
     Returns:
-        Validated UTC hourly timestamp index named ``timestamp``.
+        Validated timestamp index.
 
     Raises:
-        pandera.errors.SchemaErrors: If the index violates the canonical
-            hourly timestamp contract.
+        TypeError: If index is not a pandas DatetimeIndex.
+        ValueError: If timestamps are unsorted or do not follow the
+            configured frequency.
     """
-    frame = pd.DataFrame(index=index)
-    del frequency
-    validated = HOURLY_TIMESTAMP_INDEX_SCHEMA.validate(frame, lazy=True)
+    if not isinstance(index, pd.DatetimeIndex):
+        raise TypeError("'index' must be a pandas DatetimeIndex.")
 
-    return validated.index
+    frame = pd.DataFrame(index=index)
+
+    validated = TIMESTAMP_INDEX_SCHEMA.validate(frame, lazy=True)
+
+    validated_index = validated.index
+
+    if not validated_index.is_monotonic_increasing:
+        raise ValueError("Timestamps must be sorted.")
+
+    _validate_frequency_grid(
+        validated_index, frequency=frequency, require_complete=True
+    )
+
+    return validated_index
 
 
 def validate_source_periods(source_periods: pd.DataFrame) -> pd.DataFrame:
@@ -243,3 +264,29 @@ def validate_advanced_source(source: pd.Series, frequency: pd.Timedelta) -> pd.S
 
     # pandera is not coercing despite coerce=True, so forcing coersion here.
     return validated.astype(float)
+
+
+def _validate_frequency_grid(
+    index: pd.DatetimeIndex, *, frequency: pd.Timedelta, require_complete: bool
+) -> None:
+    """Validate timestamp spacing against a fixed frequency."""
+    if len(index) < 2:
+        return
+
+    differences = index.to_series().diff().dropna()
+
+    if require_complete:
+        valid = differences.eq(frequency).all()
+    else:
+        valid = (differences % frequency).eq(pd.Timedelta(0)).all()
+
+    if not valid:
+        requirement = (
+            "exactly one configured interval apart"
+            if require_complete
+            else "integer multiples of the configured interval"
+        )
+
+        raise ValueError(
+            f"Timestamps must be {requirement}. Configured frequency: {frequency}."
+        )

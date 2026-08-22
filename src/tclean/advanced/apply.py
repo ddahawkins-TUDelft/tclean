@@ -207,6 +207,7 @@ def apply_advanced_rules(
         cleaning_method: Provenance labels aligned with ``data``.
         rules: Advanced-fill rules in the order they should be applied.
         advanced_sources: Advanced time-series sources keyed by source name.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Time-series and provenance data after sequential rule application.

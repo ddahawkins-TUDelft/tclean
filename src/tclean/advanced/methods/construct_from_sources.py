@@ -3,9 +3,9 @@
 import pandas as pd
 
 from tclean.validation import (
-    validate_hourly_timestamp_index,
     validate_source_periods,
     validate_time_series,
+    validate_timestamp_index,
 )
 
 METHOD_NAME = "construct_from_sources"
@@ -119,8 +119,8 @@ def construct_from_sources(
     """Construct a target profile from weighted source periods.
 
     Args:
-        source_data: Canonical hourly source_data data.
-        target_index: Hourly timestamps for the constructed profile.
+        source_data: Canonical source_data data.
+        target_index: Timestamps for the constructed profile.
         sources: Explicit weighted source-period definitions.
         scaling_sources: Optional explicit weighted reference periods
             whose mean value the constructed profile should match.
@@ -139,7 +139,7 @@ def construct_from_sources(
     """
     source_data = validate_time_series(source_data, frequency=frequency)
 
-    target_index = validate_hourly_timestamp_index(target_index, frequency=frequency)
+    target_index = validate_timestamp_index(target_index, frequency=frequency)
 
     sources = validate_source_periods(sources)
 

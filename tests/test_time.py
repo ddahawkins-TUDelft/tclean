@@ -4,7 +4,7 @@ import pandas as pd
 import pandera.errors
 import pytest
 
-from tclean.time import build_hourly_index
+from tclean.time import build_time_index
 from tclean.validation import validate_temporal_range
 
 
@@ -52,8 +52,10 @@ def test_validate_temporal_range_rejects_reversed_bounds():
 
 def test_build_hourly_index_is_end_exclusive():
     """Build an hourly timestamp index that excludes the end bound."""
-    result = build_hourly_index(
-        start="2026-01-01T00:00:00Z", end="2026-01-01T03:00:00Z"
+    result = build_time_index(
+        start="2026-01-01T00:00:00Z",
+        end="2026-01-01T03:00:00Z",
+        frequency=pd.Timedelta("1h"),
     )
 
     expected = pd.DatetimeIndex(

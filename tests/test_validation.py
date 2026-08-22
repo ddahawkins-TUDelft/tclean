@@ -4,6 +4,7 @@ import pandas as pd
 import pandera.errors
 import pytest
 
+from tclean.time import build_time_index
 from tclean.validation import (
     infer_regular_timestep,
     validate_advanced_fill_rules,
@@ -109,18 +110,19 @@ def test_validate_time_series_rejects_duplicate_timestamps():
         validate_time_series(data, frequency=pd.Timedelta("1h"))
 
 
-def test_validate_time_series_rejects_non_hourly_timestamps():
-    """Reject otherwise regular data that are not hourly."""
+def test_validate_time_series_rejects_wrong_frequency():
+    """Reject data that do not match the configured frequency."""
     index = pd.date_range(
         "2026-01-01 00:00", periods=3, freq="30min", tz="UTC", name="timestamp"
     )
+
     data = pd.DataFrame({"ALB": [100.0, 101.0, 102.0]}, index=index)
 
-    with pytest.raises(pandera.errors.SchemaErrors):
+    with pytest.raises(ValueError, match="configured interval"):
         validate_time_series(data, frequency=pd.Timedelta("1h"))
 
 
-def test_validate_time_series_rejects_missing_hour():
+def test_validate_time_series_rejects_missing_interval():
     """Reject an hourly index containing a missing timestamp."""
     index = pd.DatetimeIndex(
         ["2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z", "2026-01-01T03:00:00Z"],
@@ -128,7 +130,7 @@ def test_validate_time_series_rejects_missing_hour():
     )
     data = pd.DataFrame({"ALB": [100.0, 101.0, 103.0]}, index=index)
 
-    with pytest.raises(pandera.errors.SchemaErrors):
+    with pytest.raises(ValueError, match="configured interval"):
         validate_time_series(data, frequency=pd.Timedelta("1h"))
 
 
@@ -426,3 +428,77 @@ def test_validate_advanced_source_rejects_unsorted_timestamps():
 
     with pytest.raises(ValueError, match="must be sorted"):
         validate_advanced_source(source, frequency=pd.Timedelta("1h"))
+
+
+def test_validate_time_series_accepts_half_hourly_frequency():
+    """Accept a complete half-hourly canonical time series."""
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=4, freq="30min", tz="UTC", name="timestamp"
+    )
+
+    data = pd.DataFrame({"A": [1.0, 2.0, 3.0, 4.0]}, index=index)
+
+    result = validate_time_series(data, frequency=pd.Timedelta("30min"))
+
+    pd.testing.assert_index_equal(result.index, data.index, exact=False)
+
+    assert result["A"].tolist() == [1.0, 2.0, 3.0, 4.0]
+
+
+def test_validate_time_series_accepts_two_hour_frequency():
+    """Accept a complete two-hourly canonical time series."""
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="2h", tz="UTC", name="timestamp"
+    )
+
+    data = pd.DataFrame({"A": [1.0, 2.0, 3.0]}, index=index)
+
+    validate_time_series(data, frequency=pd.Timedelta("2h"))
+
+
+def test_validate_time_series_rejects_wrong_frequency():
+    """Reject data that do not match the configured frequency."""
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="1h", tz="UTC", name="timestamp"
+    )
+
+    data = pd.DataFrame({"A": [1.0, 2.0, 3.0]}, index=index)
+
+    with pytest.raises(ValueError, match="configured interval"):
+        validate_time_series(data, frequency=pd.Timedelta("30min"))
+
+
+def test_validate_time_series_allows_shifted_regular_grid():
+    """Allow regular grids that do not start on the wall-clock hour."""
+    index = pd.date_range(
+        "2026-01-01 00:30", periods=3, freq="1h", tz="UTC", name="timestamp"
+    )
+
+    data = pd.DataFrame({"A": [1.0, 2.0, 3.0]}, index=index)
+
+    validate_time_series(data, frequency=pd.Timedelta("1h"))
+
+
+def test_build_time_index_supports_half_hourly_frequency():
+    """Build a half-hourly end-exclusive timestamp index."""
+    result = build_time_index(
+        pd.Timestamp("2026-01-01T00:00:00Z"),
+        pd.Timestamp("2026-01-01T02:00:00Z"),
+        frequency=pd.Timedelta("30min"),
+    )
+
+    expected = pd.date_range(
+        "2026-01-01T00:00:00Z", periods=4, freq="30min", name="timestamp"
+    )
+
+    pd.testing.assert_index_equal(result, expected, exact=False)
+
+
+def test_build_time_index_rejects_incompatible_range():
+    """Reject a range not divisible by the configured frequency."""
+    with pytest.raises(ValueError, match="integer number"):
+        build_time_index(
+            pd.Timestamp("2026-01-01T00:00:00Z"),
+            pd.Timestamp("2026-01-01T01:45:00Z"),
+            frequency=pd.Timedelta("30min"),
+        )

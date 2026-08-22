@@ -63,10 +63,6 @@ TIME_SERIES_SCHEMA = pa.DataFrameSchema(
             _timestamps_are_sorted,
             error="Timestamps must be sorted in increasing order.",
         ),
-        pa.Check(
-            _timestamps_are_hourly,
-            error="Timestamps must use a complete hourly time index.",
-        ),
     ],
     strict=True,
     unique_column_names=True,
@@ -120,7 +116,7 @@ EXTERNAL_PROFILE_SCHEMA = pa.DataFrameSchema(
     name="external_profile",
 )
 
-HOURLY_TIMESTAMP_INDEX_SCHEMA = pa.DataFrameSchema(
+TIMESTAMP_INDEX_SCHEMA = pa.DataFrameSchema(
     {},
     index=pa.Index(
         DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
@@ -131,20 +127,12 @@ HOURLY_TIMESTAMP_INDEX_SCHEMA = pa.DataFrameSchema(
     ),
     checks=[
         pa.Check(
-            _has_multiple_timestamps,
-            error="Hourly timestamp index must contain at least two timestamps.",
-        ),
-        pa.Check(
             _timestamps_are_sorted,
-            error="Hourly timestamps must be sorted in increasing order.",
-        ),
-        pa.Check(
-            _timestamps_are_hourly,
-            error="Timestamp index must form a complete hourly sequence.",
-        ),
+            error="Timestamps must be sorted in increasing order.",
+        )
     ],
     strict=True,
-    name="hourly_timestamp_index",
+    name="timestamp_index",
 )
 
 SOURCE_PERIODS_SCHEMA = pa.DataFrameSchema(
