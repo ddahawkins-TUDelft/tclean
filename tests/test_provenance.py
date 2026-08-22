@@ -11,10 +11,9 @@ from tclean.provenance import (
 
 
 def test_build_cleaning_method_ranks_orders_sources_before_rules():
-    """Rank observed sources before configured gap-filling rules."""
+    """Rank observed sources before cleaning rules and missing data."""
     ranks = build_cleaning_method_ranks(
-        source_priority=["entsoe", "neso"],
-        rules=[{"name": "linear"}, {"name": "copy_previous_week"}],
+        ["entsoe", "neso"], basic_rule_names=["linear", "copy_previous_week"]
     )
 
     assert ranks == {
@@ -26,11 +25,48 @@ def test_build_cleaning_method_ranks_orders_sources_before_rules():
     }
 
 
+def test_build_cleaning_method_ranks_includes_advanced_rules():
+    """Rank advanced rules after basic rules."""
+    ranks = build_cleaning_method_ranks(
+        ["entsoe", "neso"],
+        basic_rule_names=["interpolate", "copy_previous_week"],
+        advanced_rule_names=["external_fallback", "constructed_fallback"],
+    )
+
+    assert ranks == {
+        "observed_entsoe": 0,
+        "observed_neso": 1,
+        "interpolate": 2,
+        "copy_previous_week": 3,
+        "external_fallback": 4,
+        "constructed_fallback": 5,
+        "missing": 6,
+    }
+
+
 def test_build_cleaning_method_ranks_handles_no_rules():
     """Place missing data after observed sources when no rules exist."""
-    ranks = build_cleaning_method_ranks(source_priority=["entsoe"], rules=[])
+    ranks = build_cleaning_method_ranks(["entsoe"])
 
     assert ranks == {"observed_entsoe": 0, "missing": 1}
+
+
+def test_build_cleaning_method_ranks_preserves_configured_order():
+    """Preserve source and rule execution order in provenance ranks."""
+    ranks = build_cleaning_method_ranks(
+        ["secondary", "primary"],
+        basic_rule_names=["second_rule", "first_rule"],
+        advanced_rule_names=["later_rule"],
+    )
+
+    assert list(ranks) == [
+        "observed_secondary",
+        "observed_primary",
+        "second_rule",
+        "first_rule",
+        "later_rule",
+        "missing",
+    ]
 
 
 def test_derive_cleaning_method_rank_maps_methods_to_integers():
@@ -81,3 +117,17 @@ def test_combine_cleaning_rules_does_not_mutate_inputs():
     result[0]["name"] = "changed"
 
     assert basic_rule["name"] == "linear"
+
+
+def test_build_cleaning_method_ranks_rejects_duplicate_rule_names():
+    """Reject duplicate provenance labels across configured rules."""
+    with pytest.raises(ValueError, match="must be unique"):
+        build_cleaning_method_ranks(
+            ["entsoe"], basic_rule_names=["duplicate", "duplicate"]
+        )
+
+
+def test_build_cleaning_method_ranks_rejects_reserved_label_collision():
+    """Reject rule names that collide with reserved provenance labels."""
+    with pytest.raises(ValueError, match="must be unique"):
+        build_cleaning_method_ranks(["entsoe"], basic_rule_names=["missing"])

@@ -9,21 +9,40 @@ import pandas as pd
 
 
 def build_cleaning_method_ranks(
-    *, source_priority: Sequence[str], rules: Sequence[Mapping[str, Any]]
+    source_names: Sequence[str],
+    *,
+    basic_rule_names: Sequence[str] = (),
+    advanced_rule_names: Sequence[str] = (),
 ) -> dict[str, int]:
-    """Build cleaning-method ranks from source and rule priority order."""
-    ranks: dict[str, int] = {}
-    for rank, source_name in enumerate(source_priority):
-        ranks[f"observed_{source_name}"] = rank
+    """Build cleaning-method ranks from execution order.
 
-    first_gap_filling_rank = len(source_priority)
+    Args:
+        source_names: Primary source names in priority order.
+        basic_rule_names: Basic cleaning rule names in execution order.
+        advanced_rule_names: Advanced cleaning rule names in execution order.
 
-    for rule_position, rule in enumerate(rules):
-        ranks[str(rule["name"])] = first_gap_filling_rank + rule_position
+    Returns:
+        Mapping from cleaning-method provenance labels to integer ranks.
 
-    ranks["missing"] = len(source_priority) + len(rules)
+    Raises:
+        ValueError: If any generated provenance label would be duplicated.
+    """
+    labels = [
+        *(f"observed_{source}" for source in source_names),
+        *basic_rule_names,
+        *advanced_rule_names,
+        "missing",
+    ]
 
-    return ranks
+    duplicates = sorted({label for label in labels if labels.count(label) > 1})
+
+    if duplicates:
+        raise ValueError(
+            "Cleaning-method provenance labels must be unique. "
+            f"Duplicates: {duplicates!r}."
+        )
+
+    return {label: rank for rank, label in enumerate(labels)}
 
 
 def derive_cleaning_method_rank(
