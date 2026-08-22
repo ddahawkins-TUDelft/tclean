@@ -114,6 +114,7 @@ def construct_from_sources(
     target_index: pd.DatetimeIndex,
     sources: pd.DataFrame,
     scaling_sources: pd.DataFrame | None = None,
+    frequency: pd.Timedelta,
 ) -> pd.Series:
     """Construct a target profile from weighted source periods.
 
@@ -123,6 +124,7 @@ def construct_from_sources(
         sources: Explicit weighted source-period definitions.
         scaling_sources: Optional explicit weighted reference periods
             whose mean value the constructed profile should match.
+        frequency: pd. Timestamp of time series frequency.
 
     Returns:
         Constructed floating-point profile indexed by
@@ -135,9 +137,9 @@ def construct_from_sources(
         pandera.errors.SchemaErrors: If any input violates its
             T-Clean data contract.
     """
-    source_data = validate_time_series(source_data)
+    source_data = validate_time_series(source_data, frequency=frequency)
 
-    target_index = validate_hourly_timestamp_index(target_index)
+    target_index = validate_hourly_timestamp_index(target_index, frequency=frequency)
 
     sources = validate_source_periods(sources)
 

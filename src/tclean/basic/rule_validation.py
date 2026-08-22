@@ -139,11 +139,14 @@ _RULE_VALIDATORS = {
 }
 
 
-def validate_basic_rule(rule: Mapping[str, Any]) -> dict[str, Any]:
+def validate_basic_rule(
+    rule: Mapping[str, Any], frequency: pd.Timedelta
+) -> dict[str, Any]:
     """Validate and normalize one basic cleaning rule.
 
     Args:
         rule: Basic cleaning rule configuration.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Validated and normalized rule.
@@ -167,11 +170,14 @@ def validate_basic_rule(rule: Mapping[str, Any]) -> dict[str, Any]:
     return validator(rule)
 
 
-def validate_basic_rules(rules: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+def validate_basic_rules(
+    rules: Sequence[Mapping[str, Any]], frequency: pd.Timedelta
+) -> list[dict[str, Any]]:
     """Validate and normalize ordered basic cleaning rules.
 
     Args:
         rules: Ordered basic cleaning rule configurations.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Validated rules in their original execution order.
@@ -183,7 +189,7 @@ def validate_basic_rules(rules: Sequence[Mapping[str, Any]]) -> list[dict[str, A
     if isinstance(rules, (str, bytes)) or not isinstance(rules, Sequence):
         raise TypeError("Basic cleaning rules must be an ordered sequence.")
 
-    normalized = [validate_basic_rule(rule) for rule in rules]
+    normalized = [validate_basic_rule(rule, frequency=frequency) for rule in rules]
 
     names = [rule["name"] for rule in normalized]
 

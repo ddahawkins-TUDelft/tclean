@@ -11,7 +11,7 @@ from tclean._schemas import EXTERNAL_PROFILE_SCHEMA
 METHOD_NAME = "external_profile"
 
 
-def read_external_profile(path: str | Path) -> pd.Series:
+def read_external_profile(path: str | Path, *, frequency: pd.Timedelta) -> pd.Series:
     """Data and validate an external profile.
 
     The CSV is read once and validated against the strict T-Clean
@@ -19,6 +19,7 @@ def read_external_profile(path: str | Path) -> pd.Series:
 
     Args:
         path: Path to the external profile CSV file.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Validated time series indexed by sorted UTC timestamps named

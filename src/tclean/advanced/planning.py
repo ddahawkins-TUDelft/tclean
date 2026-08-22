@@ -94,7 +94,7 @@ def _merge_requirements(requirements: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_basic_cleaning_context(
-    rules: Sequence[Mapping[str, Any]],
+    rules: Sequence[Mapping[str, Any]], frequency: pd.Timedelta
 ) -> tuple[pd.Timedelta, pd.Timedelta]:
     """Calculate context required by ordered basic cleaning rules.
 
@@ -104,6 +104,7 @@ def get_basic_cleaning_context(
 
     Args:
         rules: Ordered basic cleaning-rule definitions.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Required context before and after the exact auxiliary period.
@@ -111,7 +112,7 @@ def get_basic_cleaning_context(
     Raises:
         ValueError: If a rule uses an unsupported basic cleaning method.
     """
-    rules = validate_basic_rules(rules)
+    rules = validate_basic_rules(rules, frequency=frequency)
     left_context = pd.Timedelta(0)
     right_context = pd.Timedelta(0)
 
@@ -153,6 +154,7 @@ def expand_auxiliary_requirements(
     requirements: pd.DataFrame,
     *,
     rules: Sequence[Mapping[str, Any]],
+    frequency: pd.Timedelta,
     enabled: bool = True,
 ) -> pd.DataFrame:
     """Expand auxiliary requirements for basic-cleaning context.
@@ -160,6 +162,7 @@ def expand_auxiliary_requirements(
     Args:
         requirements: Exact auxiliary context-period requirements.
         rules: Ordered basic cleaning rules.
+        frequency: pd.Timedelta of time series frequency.
         enabled: Whether basic cleaning will be applied to auxiliary data.
 
     Returns:
@@ -170,7 +173,7 @@ def expand_auxiliary_requirements(
     if requirements.empty or not enabled or not rules:
         return requirements.copy()
 
-    left_context, right_context = get_basic_cleaning_context(rules)
+    left_context, right_context = get_basic_cleaning_context(rules, frequency=frequency)
 
     expanded = requirements.copy()
 
@@ -186,6 +189,7 @@ def build_auxiliary_acquisition_requirements(
     source_periods: Sequence[pd.DataFrame],
     *,
     basic_rules: Sequence[Mapping[str, Any]],
+    frequency: pd.Timedelta,
     basic_cleaning_enabled: bool,
 ) -> pd.DataFrame:
     """Build auxiliary periods required for acquisition.
@@ -193,6 +197,7 @@ def build_auxiliary_acquisition_requirements(
     Args:
         source_periods: Source-period tables required by advanced cleaning.
         basic_rules: Ordered rules used to clean acquired auxiliary data.
+        frequency: pd.Timedelta of time series frequency.
         basic_cleaning_enabled: Whether basic cleaning is applied to
             auxiliary data.
 
@@ -202,7 +207,10 @@ def build_auxiliary_acquisition_requirements(
     exact_requirements = compile_auxiliary_requirements(source_periods)
 
     return expand_auxiliary_requirements(
-        exact_requirements, rules=basic_rules, enabled=basic_cleaning_enabled
+        exact_requirements,
+        rules=basic_rules,
+        frequency=frequency,
+        enabled=basic_cleaning_enabled,
     )
 
 

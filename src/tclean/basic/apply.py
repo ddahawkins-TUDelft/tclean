@@ -31,6 +31,7 @@ def fill_basic_gaps(
     *,
     cleaning_method: pd.DataFrame,
     rules: Sequence[Mapping[str, Any]],
+    frequency: pd.Timedelta,
     enabled: bool = True,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Apply configured basic cleaning rules and record provenance.
@@ -44,6 +45,8 @@ def fill_basic_gaps(
         Missing input values should contain ``pd.NA``.
     rules:
         Ordered basic cleaning rules.
+    frequency:
+        pd.Timestamp of time series frequency.
     enabled:
         Whether basic gap filling should be applied.
 
@@ -55,11 +58,11 @@ def fill_basic_gaps(
         Per-cell provenance containing the observed-source identifier,
         configured cleaning-rule name, or ``"missing"``.
     """
-    data = validate_time_series(data)
+    data = validate_time_series(data, frequency=frequency)
 
     cleaning_method = validate_cleaning_method(cleaning_method, data=data)
 
-    rules = validate_basic_rules(rules)
+    rules = validate_basic_rules(rules, frequency=frequency)
 
     filled = data.copy()
     cleaning_method = cleaning_method.copy()
@@ -69,7 +72,7 @@ def fill_basic_gaps(
         cleaning_method = cleaning_method.fillna("missing")
         return filled, cleaning_method
 
-    original_gap_duration = calculate_missing_run_durations(data)
+    original_gap_duration = calculate_missing_run_durations(data, frequency=frequency)
 
     for rule in rules:
         method = str(rule["method"])
@@ -114,7 +117,9 @@ def fill_basic_gaps(
     return filled, cleaning_method
 
 
-def calculate_missing_run_durations(data: pd.DataFrame) -> pd.DataFrame:
+def calculate_missing_run_durations(
+    data: pd.DataFrame, frequency: pd.Timedelta
+) -> pd.DataFrame:
     """Return the original duration of each contiguous missing run.
 
     Observed values receive a duration of zero.
@@ -123,13 +128,15 @@ def calculate_missing_run_durations(data: pd.DataFrame) -> pd.DataFrame:
     ----------
     data:
         Regularly indexed data.
+    frequency:
+        pd.Timestamp of time series frequency.
 
     Returns:
     -------
     pandas.DataFrame
         Per-cell durations of the original contiguous missing runs.
     """
-    data = validate_time_series(data)
+    data = validate_time_series(data, frequency=frequency)
     timestep = infer_regular_timestep(data.index)
     durations = pd.DataFrame(pd.Timedelta(0), index=data.index, columns=data.columns)
 

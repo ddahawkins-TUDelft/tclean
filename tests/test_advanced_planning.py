@@ -149,7 +149,7 @@ def test_compile_auxiliary_requirements_validates_source_periods():
 
 def test_get_basic_cleaning_context_returns_zero_without_rules():
     """Require no surrounding context when no basic rules are configured."""
-    left, right = get_basic_cleaning_context([])
+    left, right = get_basic_cleaning_context([], frequency=pd.Timedelta("1h"))
 
     assert left == pd.Timedelta(0)
     assert right == pd.Timedelta(0)
@@ -159,7 +159,7 @@ def test_get_basic_cleaning_context_for_linear_interpolation():
     """Include gap-classification context for linear interpolation."""
     rules = [{"name": "linop", "method": "linear_interpolation", "max_gap": "3h"}]
 
-    left, right = get_basic_cleaning_context(rules)
+    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("1h"))
 
     assert left == pd.Timedelta(hours=3)
     assert right == pd.Timedelta(hours=3)
@@ -177,7 +177,7 @@ def test_get_basic_cleaning_context_for_previous_period_copy():
         }
     ]
 
-    left, right = get_basic_cleaning_context(rules)
+    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("1h"))
 
     assert left == pd.Timedelta(hours=24)
     assert right == pd.Timedelta(hours=2)
@@ -195,7 +195,7 @@ def test_get_basic_cleaning_context_for_following_period_copy():
         }
     ]
 
-    left, right = get_basic_cleaning_context(rules)
+    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("1h"))
 
     assert left == pd.Timedelta(hours=2)
     assert right == pd.Timedelta(hours=24)
@@ -212,7 +212,7 @@ def test_get_basic_cleaning_context_for_average_periods():
         }
     ]
 
-    left, right = get_basic_cleaning_context(rules)
+    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("1h"))
 
     assert left == pd.Timedelta(hours=24)
     assert right == pd.Timedelta(hours=24)
@@ -237,7 +237,7 @@ def test_get_basic_cleaning_context_accumulates_across_rules():
         },
     ]
 
-    left, right = get_basic_cleaning_context(rules)
+    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("1h"))
 
     assert left == pd.Timedelta(hours=192)
     assert right == pd.Timedelta(hours=2)
@@ -248,7 +248,7 @@ def test_get_basic_cleaning_context_rejects_unknown_method():
     rules = [{"name": "fake", "method": "unknown", "max_gap": "2h"}]
 
     with pytest.raises(ValueError, match="Unsupported basic cleaning method"):
-        get_basic_cleaning_context(rules)
+        get_basic_cleaning_context(rules, frequency=pd.Timedelta("1h"))
 
 
 def test_expand_auxiliary_requirements_adds_context():
@@ -271,7 +271,9 @@ def test_expand_auxiliary_requirements_adds_context():
         }
     ]
 
-    result = expand_auxiliary_requirements(requirements, rules=rules)
+    result = expand_auxiliary_requirements(
+        requirements, rules=rules, frequency=pd.Timedelta("1h")
+    )
 
     assert result.loc[0, "start"] == pd.Timestamp("2025-01-09T00:00:00Z")
 
@@ -298,7 +300,9 @@ def test_expand_auxiliary_requirements_preserves_exact_period_when_disabled():
         }
     ]
 
-    result = expand_auxiliary_requirements(requirements, rules=rules, enabled=False)
+    result = expand_auxiliary_requirements(
+        requirements, rules=rules, enabled=False, frequency=pd.Timedelta("1h")
+    )
 
     pd.testing.assert_frame_equal(result, requirements, check_dtype=False)
 
@@ -328,7 +332,9 @@ def test_expand_auxiliary_requirements_merges_after_expansion():
         }
     ]
 
-    result = expand_auxiliary_requirements(requirements, rules=rules)
+    result = expand_auxiliary_requirements(
+        requirements, rules=rules, frequency=pd.Timedelta("1h")
+    )
 
     assert len(result) == 1
 

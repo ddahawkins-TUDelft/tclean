@@ -86,13 +86,17 @@ def _apply_advanced_source(
 
 
 def _validate_advanced_sources(
-    rules: pd.DataFrame, advanced_sources: Mapping[str, pd.Series]
+    rules: pd.DataFrame,
+    advanced_sources: Mapping[str, pd.Series],
+    *,
+    frequency: pd.Timedelta,
 ) -> dict[str, pd.Series]:
     """Validate advanced-source references and source data.
 
     Args:
         rules: Validated advanced cleaning rules.
         advanced_sources: Advanced time-series sources keyed by source name.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Validated advanced sources keyed by source name.
@@ -125,7 +129,7 @@ def _validate_advanced_sources(
         if not isinstance(source, pd.Series):
             raise TypeError(f"Advanced source {name!r} must be a pandas Series.")
 
-        validated_sources[name] = validate_advanced_source(source)
+        validated_sources[name] = validate_advanced_source(source, frequency=frequency)
 
     return validated_sources
 
@@ -193,6 +197,7 @@ def apply_advanced_rules(
     *,
     rules: pd.DataFrame,
     advanced_sources: Mapping[str, pd.Series],
+    frequency: pd.Timedelta,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Apply validated advanced-fill rules in table order.
 
@@ -210,7 +215,7 @@ def apply_advanced_rules(
         ValueError: If supplied advanced sources do not exactly match
             the sources referenced by the rules.
     """
-    filled = validate_time_series(data)
+    filled = validate_time_series(data, frequency=frequency)
 
     sources = validate_data_source(data_source, data=filled)
 
@@ -218,7 +223,9 @@ def apply_advanced_rules(
 
     rules = validate_advanced_fill_rules(rules)
 
-    advanced_sources = _validate_advanced_sources(rules, advanced_sources)
+    advanced_sources = _validate_advanced_sources(
+        rules, advanced_sources, frequency=frequency
+    )
 
     filled = filled.copy()
     sources = sources.copy()

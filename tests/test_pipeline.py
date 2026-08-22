@@ -3,7 +3,10 @@
 import pandas as pd
 import pytest
 
+from tclean import TCleanConfig
 from tclean.pipeline import clean
+
+config = TCleanConfig(frequency="1h")
 
 
 def _index() -> pd.DatetimeIndex:
@@ -24,7 +27,7 @@ def test_clean_combines_sources_without_cleaning_rules():
     secondary = pd.DataFrame({"GBR": [100.0, 200.0, 300.0, 400.0, 500.0]}, index=index)
 
     cleaned, data_source, cleaning_method = clean(
-        {"primary": primary, "secondary": secondary}
+        {"primary": primary, "secondary": secondary}, config=config
     )
 
     assert cleaned["GBR"].tolist() == [10.0, 200.0, 30.0, 400.0, 50.0]
@@ -60,7 +63,9 @@ def test_clean_applies_basic_rules_after_combination():
         }
     ]
 
-    cleaned, _, cleaning_method = clean({"primary": data}, basic_rules=basic_rules)
+    cleaned, _, cleaning_method = clean(
+        {"primary": data}, basic_rules=basic_rules, config=config
+    )
 
     assert cleaned.loc[index[1], "GBR"] == pytest.approx(20.0)
 
@@ -104,6 +109,7 @@ def test_clean_applies_advanced_rules_after_basic_rules():
         basic_rules=basic_rules,
         advanced_rules=advanced_rules,
         advanced_sources={"fallback": fallback},
+        config=config,
     )
 
     assert cleaned.loc[index[1], "GBR"] == pytest.approx(200.0)
@@ -124,7 +130,7 @@ def test_clean_rejects_advanced_sources_without_rules():
     source = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0], index=index)
 
     with pytest.raises(ValueError, match="without advanced rules"):
-        clean({"primary": data}, advanced_sources={"unused": source})
+        clean({"primary": data}, advanced_sources={"unused": source}, config=config)
 
 
 def test_clean_allows_leave_missing_without_advanced_sources():
@@ -145,7 +151,9 @@ def test_clean_allows_leave_missing_without_advanced_sources():
         }
     )
 
-    cleaned, _, _ = clean({"primary": data}, advanced_rules=advanced_rules)
+    cleaned, _, _ = clean(
+        {"primary": data}, advanced_rules=advanced_rules, config=config
+    )
 
     assert pd.isna(cleaned.loc[index[1], "GBR"])
 
@@ -175,4 +183,5 @@ def test_clean_rejects_unused_advanced_source():
             {"primary": data},
             advanced_rules=advanced_rules,
             advanced_sources={"unused": unused},
+            config=config,
         )

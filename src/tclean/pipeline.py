@@ -5,6 +5,7 @@ from typing import Any
 
 import pandas as pd
 
+from tclean import TCleanConfig
 from tclean.advanced.apply import apply_advanced_rules
 from tclean.basic.apply import fill_basic_gaps
 from tclean.combine import combine_sources
@@ -13,6 +14,7 @@ from tclean.combine import combine_sources
 def clean(
     sources: Mapping[str, pd.DataFrame],
     *,
+    config: TCleanConfig,
     basic_rules: Sequence[Mapping[str, Any]] | None = None,
     advanced_rules: pd.DataFrame | None = None,
     advanced_sources: Mapping[str, pd.Series] | None = None,
@@ -39,11 +41,18 @@ def clean(
         ValueError: If advanced sources are supplied without advanced rules,
             or advanced rules are supplied without an advanced-source mapping.
     """
-    cleaned, data_source, cleaning_method = combine_sources(sources)
+    frequency = config.frequency
+
+    cleaned, data_source, cleaning_method = combine_sources(
+        sources, frequency=frequency
+    )
 
     if basic_rules:
         cleaned, cleaning_method = fill_basic_gaps(
-            cleaned, cleaning_method=cleaning_method, rules=basic_rules
+            cleaned,
+            cleaning_method=cleaning_method,
+            rules=basic_rules,
+            frequency=frequency,
         )
 
     if advanced_rules is None:
@@ -61,6 +70,7 @@ def clean(
         cleaning_method,
         rules=advanced_rules,
         advanced_sources=advanced_sources,
+        frequency=frequency,
     )
 
     return (cleaned, data_source, cleaning_method)

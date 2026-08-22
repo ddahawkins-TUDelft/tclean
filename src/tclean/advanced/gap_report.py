@@ -9,7 +9,9 @@ import pandas as pd
 from tclean.validation import validate_time_series
 
 
-def build_gap_report(data: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
+def build_gap_report(
+    data: pd.DataFrame, *, frequency: pd.Timedelta, enabled: bool
+) -> pd.DataFrame:
     """Describe contiguous unresolved gaps in cleaned data.
 
     An empty report with the expected columns is returned when reporting
@@ -19,6 +21,8 @@ def build_gap_report(data: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
     ----------
     data:
         Hourly data indexed by timestamp.
+    frequency:
+        pd.Timedelta of time series frequency.
     enabled:
         Whether unresolved-gap reporting should be performed.
 
@@ -41,7 +45,7 @@ def build_gap_report(data: pd.DataFrame, *, enabled: bool) -> pd.DataFrame:
     if not enabled:
         return pd.DataFrame(columns=columns)
 
-    data = validate_time_series(data)
+    data = validate_time_series(data, frequency=frequency)
 
     records: list[dict[str, Any]] = []
 

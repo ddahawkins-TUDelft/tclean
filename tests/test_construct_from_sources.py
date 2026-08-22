@@ -27,7 +27,10 @@ def test_construct_from_sources_remaps_single_source():
     )
 
     result = construct_from_sources(
-        source_data, target_index=target_index, sources=sources
+        source_data,
+        target_index=target_index,
+        sources=sources,
+        frequency=pd.Timedelta("1h"),
     )
 
     expected = pd.Series([10.0, 20.0, 30.0], index=target_index, dtype=float)
@@ -58,7 +61,10 @@ def test_construct_from_sources_combines_weighted_sources():
     )
 
     result = construct_from_sources(
-        source_data, target_index=target_index, sources=sources
+        source_data,
+        target_index=target_index,
+        sources=sources,
+        frequency=pd.Timedelta("1h"),
     )
 
     expected = pd.Series(
@@ -97,7 +103,12 @@ def test_construct_from_sources_rejects_unknown_context():
     with pytest.raises(
         ValueError, match="source_data data do not contain requested context"
     ):
-        construct_from_sources(source_data, target_index=target_index, sources=sources)
+        construct_from_sources(
+            source_data,
+            target_index=target_index,
+            sources=sources,
+            frequency=pd.Timedelta("1h"),
+        )
 
 
 def test_construct_from_sources_rejects_missing_source_values():
@@ -125,7 +136,12 @@ def test_construct_from_sources_rejects_missing_source_values():
     with pytest.raises(
         ValueError, match="source_data source period contains missing values"
     ):
-        construct_from_sources(source_data, target_index=target_index, sources=sources)
+        construct_from_sources(
+            source_data,
+            target_index=target_index,
+            sources=sources,
+            frequency=pd.Timedelta("1h"),
+        )
 
 
 def test_construct_from_sources_rejects_length_mismatch():
@@ -149,7 +165,12 @@ def test_construct_from_sources_rejects_length_mismatch():
     )
 
     with pytest.raises(ValueError, match="must contain the same number of values"):
-        construct_from_sources(source_data, target_index=target_index, sources=sources)
+        construct_from_sources(
+            source_data,
+            target_index=target_index,
+            sources=sources,
+            frequency=pd.Timedelta("1h"),
+        )
 
 
 def test_construct_from_sources_removes_leap_day_for_non_leap_target():
@@ -175,7 +196,10 @@ def test_construct_from_sources_removes_leap_day_for_non_leap_target():
     )
 
     result = construct_from_sources(
-        source_data, target_index=target_index, sources=sources
+        source_data,
+        target_index=target_index,
+        sources=sources,
+        frequency=pd.Timedelta("1h"),
     )
 
     expected_values = pd.concat(
@@ -212,7 +236,10 @@ def test_construct_from_sources_inserts_leap_day_for_leap_target():
     )
 
     result = construct_from_sources(
-        source_data, target_index=target_index, sources=sources
+        source_data,
+        target_index=target_index,
+        sources=sources,
+        frequency=pd.Timedelta("1h"),
     )
 
     expected = pd.Series(
@@ -261,6 +288,7 @@ def test_construct_from_sources_matches_reference_energy():
         target_index=target_index,
         sources=sources,
         scaling_sources=scaling_sources,
+        frequency=pd.Timedelta("1h"),
     )
 
     expected = pd.Series([20.0, 20.0, 20.0], index=target_index, dtype=float)
@@ -309,6 +337,7 @@ def test_construct_from_sources_uses_weighted_reference_energy():
         target_index=target_index,
         sources=sources,
         scaling_sources=scaling_sources,
+        frequency=pd.Timedelta("1h"),
     )
 
     expected_energy = ((60.0 * 1.0) + (120.0 * 3.0)) / 4.0
@@ -353,6 +382,7 @@ def test_construct_from_sources_rejects_unknown_scaling_context():
             target_index=target_index,
             sources=sources,
             scaling_sources=scaling_sources,
+            frequency=pd.Timedelta("1h"),
         )
 
 
@@ -396,6 +426,7 @@ def test_construct_from_sources_rejects_missing_scaling_values():
             target_index=target_index,
             sources=sources,
             scaling_sources=scaling_sources,
+            frequency=pd.Timedelta("1h"),
         )
 
 
@@ -434,6 +465,7 @@ def test_construct_from_sources_rejects_empty_scaling_period():
             target_index=target_index,
             sources=sources,
             scaling_sources=scaling_sources,
+            frequency=pd.Timedelta("1h"),
         )
 
 
@@ -475,4 +507,5 @@ def test_construct_from_sources_rejects_zero_energy_profile():
             target_index=target_index,
             sources=sources,
             scaling_sources=scaling_sources,
+            frequency=pd.Timedelta("1h"),
         )

@@ -32,7 +32,7 @@ def _validate_source_alignment(sources: Mapping[str, pd.DataFrame]) -> None:
 
 
 def combine_sources(
-    sources: Mapping[str, pd.DataFrame],
+    sources: Mapping[str, pd.DataFrame], *, frequency: pd.Timedelta
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Combine prepared time-series sources in mapping order.
 
@@ -43,6 +43,7 @@ def combine_sources(
         sources: Prepared canonical time-series frames keyed by source name.
             Mapping insertion order defines source priority from highest to
             lowest.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Combined data, data-source provenance, and cleaning-method
@@ -58,7 +59,8 @@ def combine_sources(
         raise ValueError("At least one time-series source must be supplied.")
 
     validated_sources = {
-        name: validate_time_series(data) for name, data in sources.items()
+        name: validate_time_series(data, frequency=frequency)
+        for name, data in sources.items()
     }
 
     _validate_source_alignment(validated_sources)
@@ -97,7 +99,7 @@ def combine_sources(
             newly_supplied, f"observed_{source_name}"
         )
 
-    combined = validate_time_series(combined)
+    combined = validate_time_series(combined, frequency=frequency)
 
     data_source = validate_data_source(data_source, data=combined)
 
@@ -107,7 +109,7 @@ def combine_sources(
 
 
 def combine_auxiliary_sources(
-    datas: Mapping[str, pd.DataFrame],
+    datas: Mapping[str, pd.DataFrame], *, frequency: pd.Timedelta
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Combine available auxiliary sources in mapping order.
 
@@ -117,6 +119,7 @@ def combine_auxiliary_sources(
     Args:
         datas: Available prepared auxiliary time-series data keyed by source
             name. Mapping insertion order defines source priority.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Combined auxiliary data, source provenance, and cleaning-method
@@ -127,7 +130,10 @@ def combine_auxiliary_sources(
 
         return (empty, empty.copy(), empty.copy())
 
-    validated_datas = {name: validate_time_series(data) for name, data in datas.items()}
+    validated_datas = {
+        name: validate_time_series(data, frequency=frequency)
+        for name, data in datas.items()
+    }
 
     columns = sorted(
         {column for data in validated_datas.values() for column in data.columns}
@@ -138,4 +144,4 @@ def combine_auxiliary_sources(
         for source, data in validated_datas.items()
     }
 
-    return combine_sources(aligned)
+    return combine_sources(aligned, frequency=frequency)

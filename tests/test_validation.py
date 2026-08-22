@@ -22,7 +22,7 @@ def test_validate_time_series_accepts_hourly_numeric_dataframe():
         {"ALB": [100.0, 101.0, 102.0], "GBR": [200.0, 201.0, 202.0]}, index=index
     )
 
-    result = validate_time_series(data)
+    result = validate_time_series(data, frequency=pd.Timedelta("1h"))
 
     pd.testing.assert_index_equal(result.index, data.index, exact=False)
 
@@ -38,7 +38,7 @@ def test_validate_time_series_coerces_numeric_value():
     )
     data = pd.DataFrame({"ALB": ["100", "101", "102"]}, index=index)
 
-    result = validate_time_series(data)
+    result = validate_time_series(data, frequency=pd.Timedelta("1h"))
 
     assert result["ALB"].dtype == float
     assert result["ALB"].tolist() == [100.0, 101.0, 102.0]
@@ -51,7 +51,7 @@ def test_validate_time_series_allows_missing_value():
     )
     data = pd.DataFrame({"ALB": [100.0, float("nan"), 102.0]}, index=index)
 
-    result = validate_time_series(data)
+    result = validate_time_series(data, frequency=pd.Timedelta("1h"))
 
     assert pd.isna(result.loc[index[1], "ALB"])
 
@@ -64,7 +64,7 @@ def test_validate_time_series_rejects_non_numeric_value():
     data = pd.DataFrame({"ALB": [100.0, "invalid", 102.0]}, index=index)
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_time_series(data)
+        validate_time_series(data, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_time_series_rejects_no_value_columns():
@@ -75,7 +75,7 @@ def test_validate_time_series_rejects_no_value_columns():
     data = pd.DataFrame(index=index)
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_time_series(data)
+        validate_time_series(data, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_time_series_rejects_single_timestamp():
@@ -84,7 +84,7 @@ def test_validate_time_series_rejects_single_timestamp():
     data = pd.DataFrame({"ALB": [100.0]}, index=index)
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_time_series(data)
+        validate_time_series(data, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_time_series_rejects_unsorted_timestamps():
@@ -95,7 +95,7 @@ def test_validate_time_series_rejects_unsorted_timestamps():
     data = pd.DataFrame({"ALB": [100.0, 101.0]}, index=index)
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_time_series(data)
+        validate_time_series(data, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_time_series_rejects_duplicate_timestamps():
@@ -106,7 +106,7 @@ def test_validate_time_series_rejects_duplicate_timestamps():
     data = pd.DataFrame({"ALB": [100.0, 101.0]}, index=index)
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_time_series(data)
+        validate_time_series(data, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_time_series_rejects_non_hourly_timestamps():
@@ -117,7 +117,7 @@ def test_validate_time_series_rejects_non_hourly_timestamps():
     data = pd.DataFrame({"ALB": [100.0, 101.0, 102.0]}, index=index)
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_time_series(data)
+        validate_time_series(data, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_time_series_rejects_missing_hour():
@@ -129,7 +129,7 @@ def test_validate_time_series_rejects_missing_hour():
     data = pd.DataFrame({"ALB": [100.0, 101.0, 103.0]}, index=index)
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_time_series(data)
+        validate_time_series(data, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_time_series_converts_timestamp_index_to_utc():
@@ -144,7 +144,7 @@ def test_validate_time_series_converts_timestamp_index_to_utc():
     )
     data = pd.DataFrame({"ALB": [100.0, 101.0, 102.0]}, index=index)
 
-    result = validate_time_series(data)
+    result = validate_time_series(data, frequency=pd.Timedelta("1h"))
 
     expected = pd.DatetimeIndex(
         ["2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z", "2026-01-01T02:00:00Z"],
@@ -171,7 +171,7 @@ def test_validate_time_series_rejects_unnamed_timestamp_index():
     data = pd.DataFrame({"ALB": [100.0, 101.0, 102.0]}, index=index)
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_time_series(data)
+        validate_time_series(data, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_cleaning_method_accepts_aligned_data():
@@ -352,7 +352,7 @@ def test_validate_advanced_source_accepts_valid_series():
 
     source = pd.Series([10.0, 20.0, 30.0], index=index)
 
-    result = validate_advanced_source(source)
+    result = validate_advanced_source(source, frequency=pd.Timedelta("1h"))
 
     pd.testing.assert_series_equal(result, source, check_dtype=False)
 
@@ -365,7 +365,7 @@ def test_validate_advanced_source_coerces_numeric_values():
 
     source = pd.Series(["10", "20", "30"], index=index)
 
-    result = validate_advanced_source(source)
+    result = validate_advanced_source(source, frequency=pd.Timedelta("1h"))
 
     assert result.tolist() == [10.0, 20.0, 30.0]
 
@@ -379,7 +379,7 @@ def test_validate_advanced_source_rejects_missing_values():
     source = pd.Series([10.0, float("nan"), 30.0], index=index)
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_advanced_source(source)
+        validate_advanced_source(source, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_advanced_source_rejects_duplicate_timestamps():
@@ -391,7 +391,7 @@ def test_validate_advanced_source_rejects_duplicate_timestamps():
     source = pd.Series([10.0, 20.0], index=index)
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_advanced_source(source)
+        validate_advanced_source(source, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_advanced_source_rejects_non_hourly_timestamp():
@@ -401,7 +401,7 @@ def test_validate_advanced_source_rejects_non_hourly_timestamp():
     source = pd.Series([10.0], index=index)
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_advanced_source(source)
+        validate_advanced_source(source, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_advanced_source_rejects_non_numeric_values():
@@ -413,7 +413,7 @@ def test_validate_advanced_source_rejects_non_numeric_values():
     source = pd.Series(["10", "not-a-number"], index=index)
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_advanced_source(source)
+        validate_advanced_source(source, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_advanced_source_rejects_unsorted_timestamps():
@@ -425,4 +425,4 @@ def test_validate_advanced_source_rejects_unsorted_timestamps():
     source = pd.Series([20.0, 10.0], index=index)
 
     with pytest.raises(ValueError, match="must be sorted"):
-        validate_advanced_source(source)
+        validate_advanced_source(source, frequency=pd.Timedelta("1h"))

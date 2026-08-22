@@ -16,7 +16,7 @@ def test_calculate_missing_run_durations_labels_complete_gap():
         {"ALB": [10.0, float("nan"), float("nan"), 13.0, 14.0]}, index=index
     )
 
-    result = calculate_missing_run_durations(data)
+    result = calculate_missing_run_durations(data, frequency=pd.Timedelta("1h"))
 
     expected = pd.DataFrame(
         {
@@ -61,7 +61,7 @@ def test_fill_basic_gaps_applies_rules_in_order():
     ]
 
     filled, provenance = fill_basic_gaps(
-        data, cleaning_method=cleaning_method, rules=rules
+        data, cleaning_method=cleaning_method, rules=rules, frequency=pd.Timedelta("1h")
     )
 
     assert filled.loc[index[1], "ALB"] == 12.0
@@ -91,7 +91,7 @@ def test_fill_basic_gaps_marks_unresolved_values_missing():
     ]
 
     filled, provenance = fill_basic_gaps(
-        data, cleaning_method=cleaning_method, rules=rules
+        data, cleaning_method=cleaning_method, rules=rules, frequency=pd.Timedelta("1h")
     )
 
     assert filled.loc[index[1:3], "ALB"].isna().all()
@@ -113,7 +113,11 @@ def test_fill_basic_gaps_disabled_preserves_data():
     )
 
     filled, provenance = fill_basic_gaps(
-        data, cleaning_method=cleaning_method, rules=[], enabled=False
+        data,
+        cleaning_method=cleaning_method,
+        rules=[],
+        enabled=False,
+        frequency=pd.Timedelta("1h"),
     )
 
     pd.testing.assert_index_equal(filled.index, data.index, exact=False)
@@ -141,4 +145,9 @@ def test_fill_basic_gaps_rejects_unknown_method():
     rules = [{"name": "mystery_rule", "method": "not_a_method", "max_gap": "1h"}]
 
     with pytest.raises(ValueError, match="Unsupported basic cleaning method"):
-        fill_basic_gaps(data, cleaning_method=cleaning_method, rules=rules)
+        fill_basic_gaps(
+            data,
+            cleaning_method=cleaning_method,
+            rules=rules,
+            frequency=pd.Timedelta("1h"),
+        )

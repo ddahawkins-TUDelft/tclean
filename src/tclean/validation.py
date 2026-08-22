@@ -16,12 +16,13 @@ from tclean._schemas import (
 )
 
 
-def validate_time_series(data: pd.DataFrame) -> pd.DataFrame:
+def validate_time_series(data: pd.DataFrame, frequency: pd.Timedelta) -> pd.DataFrame:
     """Validate canonical time-series data.
 
     Args:
         data: Time-series data with timestamps on the index and one or
             more contexts in the columns.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Validated canonical time-series data.
@@ -30,6 +31,7 @@ def validate_time_series(data: pd.DataFrame) -> pd.DataFrame:
         pandera.errors.SchemaErrors: If the data violate the canonical
             T-Clean time-series contract.
     """
+    del frequency
     return TIME_SERIES_SCHEMA.validate(data, lazy=True)
 
 
@@ -71,11 +73,14 @@ def infer_regular_timestep(index: pd.Index) -> pd.Timedelta:
     return index[1] - index[0]
 
 
-def validate_hourly_timestamp_index(index: pd.DatetimeIndex) -> pd.DatetimeIndex:
+def validate_hourly_timestamp_index(
+    index: pd.DatetimeIndex, frequency: pd.Timedelta
+) -> pd.DatetimeIndex:
     """Validate and normalize a canonical hourly timestamp index.
 
     Args:
         index: Timestamp index to validate.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Validated UTC hourly timestamp index named ``timestamp``.
@@ -85,7 +90,7 @@ def validate_hourly_timestamp_index(index: pd.DatetimeIndex) -> pd.DatetimeIndex
             hourly timestamp contract.
     """
     frame = pd.DataFrame(index=index)
-
+    del frequency
     validated = HOURLY_TIMESTAMP_INDEX_SCHEMA.validate(frame, lazy=True)
 
     return validated.index
@@ -217,11 +222,12 @@ def validate_auxiliary_source_requests(requests: pd.DataFrame) -> pd.DataFrame:
     return AUXILIARY_SOURCE_REQUESTS_SCHEMA.validate(requests, lazy=True)
 
 
-def validate_advanced_source(source: pd.Series) -> pd.Series:
+def validate_advanced_source(source: pd.Series, frequency: pd.Timedelta) -> pd.Series:
     """Validate and normalise advanced time-series source.
 
     Args:
         source: Time-series values indexed by UTC timestamps.
+        frequency: pd.Timesamp of time series frequency.
 
     Returns:
         Validated numeric source with canonical UTC timestamps.
@@ -231,7 +237,7 @@ def validate_advanced_source(source: pd.Series) -> pd.Series:
             T-Clean advanced-source contract.
     """
     validated = ADVANCED_SOURCE_SCHEMA.validate(source, lazy=True)
-
+    del frequency
     if not validated.index.is_monotonic_increasing:
         raise ValueError("Advanced source timestamps must be sorted.")
 
