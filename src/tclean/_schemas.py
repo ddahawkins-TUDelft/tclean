@@ -100,10 +100,6 @@ EXTERNAL_PROFILE_SCHEMA = pa.DataFrameSchema(
     {
         "timestamp": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
-            checks=pa.Check(
-                _timestamps_are_on_hour,
-                error="Timestamps must be aligned to whole hours.",
-            ),
             nullable=False,
             unique=True,
             coerce=True,
@@ -140,19 +136,11 @@ SOURCE_PERIODS_SCHEMA = pa.DataFrameSchema(
         "context": pa.Column(str, nullable=False),
         "start": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
-            checks=pa.Check(
-                _timestamps_are_on_hour,
-                error="Source-period start timestamps must be aligned to whole hours.",
-            ),
             nullable=False,
             coerce=True,
         ),
         "end": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
-            checks=pa.Check(
-                _timestamps_are_on_hour,
-                error="Source-period end timestamps must be aligned to whole hours.",
-            ),
             nullable=False,
             coerce=True,
         ),
@@ -217,19 +205,11 @@ ADVANCED_FILL_RULES_SCHEMA = pa.DataFrameSchema(
         "context": pa.Column(str, nullable=False),
         "start": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
-            checks=pa.Check(
-                _timestamps_are_on_hour,
-                error="Advanced-fill start timestamps must align to whole hours.",
-            ),
             nullable=False,
             coerce=True,
         ),
         "end": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
-            checks=pa.Check(
-                _timestamps_are_on_hour,
-                error="Advanced-fill end timestamps must align to whole hours.",
-            ),
             nullable=False,
             coerce=True,
         ),
@@ -270,19 +250,11 @@ AUXILIARY_REQUIREMENTS_SCHEMA = pa.DataFrameSchema(
         "context": pa.Column(str, nullable=False),
         "start": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
-            checks=pa.Check(
-                _timestamps_are_on_hour,
-                error="Auxiliary requirement start timestamps must align to whole hours.",
-            ),
             nullable=False,
             coerce=True,
         ),
         "end": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
-            checks=pa.Check(
-                _timestamps_are_on_hour,
-                error="Auxiliary requirement end timestamps must align to whole hours.",
-            ),
             nullable=False,
             coerce=True,
         ),
@@ -343,19 +315,11 @@ AUXILIARY_SOURCE_REQUESTS_SCHEMA = pa.DataFrameSchema(
         "context": pa.Column(str, nullable=False),
         "start": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
-            checks=pa.Check(
-                _timestamps_are_on_hour,
-                error="Source-request start timestamps must align to whole hours.",
-            ),
             nullable=False,
             coerce=True,
         ),
         "end": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
-            checks=pa.Check(
-                _timestamps_are_on_hour,
-                error="Source-request end timestamps must align to whole hours.",
-            ),
             nullable=False,
             coerce=True,
         ),
@@ -384,10 +348,6 @@ ADVANCED_SOURCE_SCHEMA = pa.SeriesSchema(
         nullable=False,
         coerce=True,
         unique=True,
-        checks=pa.Check(
-            _timestamps_are_on_hour,
-            error="Advanced source timestamps must align to whole hours.",
-        ),
     ),
     nullable=False,
     coerce=True,

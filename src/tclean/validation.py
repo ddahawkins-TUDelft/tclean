@@ -258,11 +258,14 @@ def validate_advanced_source(source: pd.Series, frequency: pd.Timedelta) -> pd.S
             T-Clean advanced-source contract.
     """
     validated = ADVANCED_SOURCE_SCHEMA.validate(source, lazy=True)
-    del frequency
+
     if not validated.index.is_monotonic_increasing:
         raise ValueError("Advanced source timestamps must be sorted.")
 
-    # pandera is not coercing despite coerce=True, so forcing coersion here.
+    _validate_frequency_grid(
+        validated.index, frequency=frequency, require_complete=False
+    )
+
     return validated.astype(float)
 
 

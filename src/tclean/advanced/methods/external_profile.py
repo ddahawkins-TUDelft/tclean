@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from tclean._schemas import EXTERNAL_PROFILE_SCHEMA
+from tclean.validation import validate_advanced_source
 
 METHOD_NAME = "external_profile"
 
@@ -28,14 +29,18 @@ def read_external_profile(path: str | Path, *, frequency: pd.Timedelta) -> pd.Se
     Raises:
         pandera.errors.SchemaErrors: If the CSV violates the external-profile
             contract.
+        ValueError: If timestamps are incompatible with the configured
+            frequency.
     """
     profile = pd.read_csv(path)
 
     validated = EXTERNAL_PROFILE_SCHEMA.validate(profile, lazy=True)
 
-    return pd.Series(
+    series = pd.Series(
         validated["value"].to_numpy(),
         index=pd.DatetimeIndex(validated["timestamp"], name="timestamp"),
         dtype=float,
         name="value",
     ).sort_index()
+
+    return validate_advanced_source(series, frequency=frequency)

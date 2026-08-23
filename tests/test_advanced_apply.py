@@ -1,7 +1,6 @@
 """Tests for applying advanced auxiliary-fill rules."""
 
 import pandas as pd
-import pandera as pa
 import pytest
 
 from tclean.advanced.apply import apply_advanced_rules
@@ -432,10 +431,13 @@ def test_apply_advanced_rules_rejects_invalid_advanced_source():
     )
 
     invalid_source = pd.Series(
-        [100.0], index=pd.DatetimeIndex(["2026-01-01T00:30:00Z"], name="timestamp")
+        [100.0, 200.0],
+        index=pd.DatetimeIndex(
+            ["2026-01-01T00:00:00Z", "2026-01-01T00:30:00Z"], name="timestamp"
+        ),
     )
 
-    with pytest.raises(pa.errors.SchemaErrors):
+    with pytest.raises(ValueError, match="integer multiples"):
         apply_advanced_rules(
             data,
             data_source,

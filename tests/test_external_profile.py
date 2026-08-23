@@ -89,13 +89,15 @@ def test_read_external_profile_rejects_duplicate_timestamps(tmp_path: Path):
         read_external_profile(path, frequency=pd.Timedelta("1h"))
 
 
-def test_read_external_profile_rejects_subhourly_timestamp(tmp_path: Path):
+def test_read_external_profile_rejects_incompatible_frequency(tmp_path: Path):
     """Reject timestamps that are not aligned to whole hours."""
     path = tmp_path / "profile.csv"
-    path.write_text("timestamp,value\n2026-01-01T00:30:00Z,100\n")
+    path.write_text(
+        "timestamp,value\n2026-01-01T00:00:00Z,100\n2026-01-01T00:45:00Z,110\n"
+    )
 
-    with pytest.raises(pandera.errors.SchemaErrors):
-        read_external_profile(path, frequency=pd.Timedelta("1h"))
+    with pytest.raises(ValueError, match="integer multiples"):
+        read_external_profile(path, frequency=pd.Timedelta("30min"))
 
 
 def test_read_external_profile_rejects_invalid_timestamp(tmp_path: Path):

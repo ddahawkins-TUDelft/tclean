@@ -396,14 +396,30 @@ def test_validate_advanced_source_rejects_duplicate_timestamps():
         validate_advanced_source(source, frequency=pd.Timedelta("1h"))
 
 
-def test_validate_advanced_source_rejects_non_hourly_timestamp():
-    """Reject advanced-source timestamps that are not on whole hours."""
-    index = pd.DatetimeIndex(["2026-01-01T00:30:00Z"], name="timestamp")
+def test_validate_advanced_source_rejects_incompatible_frequency():
+    """Reject advanced-source timestamps incompatible with the frequency."""
+    index = pd.DatetimeIndex(
+        ["2026-01-01T00:00:00Z", "2026-01-01T00:45:00Z"], name="timestamp"
+    )
 
-    source = pd.Series([10.0], index=index)
+    source = pd.Series([10.0, 20.0], index=index)
 
-    with pytest.raises(pandera.errors.SchemaErrors):
-        validate_advanced_source(source, frequency=pd.Timedelta("1h"))
+    with pytest.raises(ValueError, match="integer multiples"):
+        validate_advanced_source(source, frequency=pd.Timedelta("30min"))
+
+
+def test_validate_advanced_source_accepts_sparse_frequency_aligned_data():
+    """Accept sparse source timestamps aligned to the configured frequency."""
+    index = pd.DatetimeIndex(
+        ["2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z", "2026-01-01T02:30:00Z"],
+        name="timestamp",
+    )
+
+    source = pd.Series([10.0, 20.0, 30.0], index=index)
+
+    result = validate_advanced_source(source, frequency=pd.Timedelta("30min"))
+
+    assert result.tolist() == [10.0, 20.0, 30.0]
 
 
 def test_validate_advanced_source_rejects_non_numeric_values():
