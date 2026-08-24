@@ -71,7 +71,7 @@ def test_validate_source_periods_accepts_valid_sources():
         }
     )
 
-    result = validate_source_periods(source_periods)
+    result = validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
     assert str(result["start"].dt.tz) == "UTC"
     assert str(result["end"].dt.tz) == "UTC"
@@ -89,7 +89,7 @@ def test_validate_source_periods_converts_offsets_to_utc():
         }
     )
 
-    result = validate_source_periods(source_periods)
+    result = validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
     assert result.loc[0, "start"] == pd.Timestamp("2025-01-01T00:00:00Z")
     assert result.loc[0, "end"] == pd.Timestamp("2025-01-02T00:00:00Z")
@@ -106,7 +106,7 @@ def test_validate_source_periods_rejects_missing_weight_column():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods)
+        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_source_periods_rejects_missing_weight_value():
@@ -121,7 +121,7 @@ def test_validate_source_periods_rejects_missing_weight_value():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods)
+        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_source_periods_rejects_zero_weight():
@@ -136,7 +136,7 @@ def test_validate_source_periods_rejects_zero_weight():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods)
+        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_source_periods_rejects_negative_weight():
@@ -151,7 +151,7 @@ def test_validate_source_periods_rejects_negative_weight():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods)
+        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_source_periods_rejects_non_numeric_weight():
@@ -166,7 +166,7 @@ def test_validate_source_periods_rejects_non_numeric_weight():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods)
+        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_source_periods_rejects_reversed_period():
@@ -181,7 +181,7 @@ def test_validate_source_periods_rejects_reversed_period():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods)
+        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_source_periods_rejects_equal_bounds():
@@ -196,7 +196,7 @@ def test_validate_source_periods_rejects_equal_bounds():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods)
+        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_source_periods_rejects_extra_column():
@@ -212,7 +212,7 @@ def test_validate_source_periods_rejects_extra_column():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods)
+        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_source_periods_rejects_wrong_column_order():
@@ -227,7 +227,7 @@ def test_validate_source_periods_rejects_wrong_column_order():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods)
+        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_source_periods_rejects_missing_context():
@@ -242,7 +242,7 @@ def test_validate_source_periods_rejects_missing_context():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods)
+        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_source_periods_rejects_empty_sources():
@@ -250,7 +250,7 @@ def test_validate_source_periods_rejects_empty_sources():
     source_periods = pd.DataFrame(columns=["context", "start", "end", "weight"])
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods)
+        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_source_periods_rejects_subhourly_start():
@@ -265,7 +265,7 @@ def test_validate_source_periods_rejects_subhourly_start():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods)
+        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_source_periods_rejects_subhourly_end():
@@ -280,4 +280,4 @@ def test_validate_source_periods_rejects_subhourly_end():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods)
+        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))

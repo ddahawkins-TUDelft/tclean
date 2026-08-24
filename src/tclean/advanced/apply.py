@@ -222,7 +222,7 @@ def apply_advanced_rules(
 
     methods = validate_cleaning_method(cleaning_method, data=filled)
 
-    rules = validate_advanced_fill_rules(rules)
+    rules = validate_advanced_fill_rules(rules, frequency=frequency)
 
     advanced_sources = _validate_advanced_sources(
         rules, advanced_sources, frequency=frequency

@@ -16,7 +16,7 @@ from tclean.validation import validate_source_capabilities
 
 def test_compile_auxiliary_requirements_returns_empty_for_no_sources():
     """Return an empty canonical requirements table when no sources exist."""
-    result = compile_auxiliary_requirements([])
+    result = compile_auxiliary_requirements([], frequency=pd.Timedelta("1h"))
 
     assert result.empty
     assert result.columns.tolist() == ["context", "start", "end"]
@@ -42,7 +42,9 @@ def test_compile_auxiliary_requirements_preserves_distinct_periods():
         }
     )
 
-    result = compile_auxiliary_requirements([first, second])
+    result = compile_auxiliary_requirements(
+        [first, second], frequency=pd.Timedelta("1h")
+    )
 
     assert len(result) == 2
 
@@ -67,7 +69,9 @@ def test_compile_auxiliary_requirements_merges_overlapping_periods():
         }
     )
 
-    result = compile_auxiliary_requirements([first, second])
+    result = compile_auxiliary_requirements(
+        [first, second], frequency=pd.Timedelta("1h")
+    )
 
     assert len(result) == 1
     assert result.loc[0, "start"] == pd.Timestamp("2025-01-01T00:00:00Z")
@@ -94,7 +98,9 @@ def test_compile_auxiliary_requirements_merges_adjacent_periods():
         }
     )
 
-    result = compile_auxiliary_requirements([first, second])
+    result = compile_auxiliary_requirements(
+        [first, second], frequency=pd.Timedelta("1h")
+    )
 
     assert len(result) == 1
     assert result.loc[0, "start"] == pd.Timestamp("2025-01-01T00:00:00Z")
@@ -112,7 +118,7 @@ def test_compile_auxiliary_requirements_keeps_contexts_separate():
         }
     )
 
-    result = compile_auxiliary_requirements([sources])
+    result = compile_auxiliary_requirements([sources], frequency=pd.Timedelta("1h"))
 
     assert result["context"].tolist() == ["FRA", "GBR"]
 
@@ -128,7 +134,7 @@ def test_compile_auxiliary_requirements_deduplicates_periods():
         }
     )
 
-    result = compile_auxiliary_requirements([sources])
+    result = compile_auxiliary_requirements([sources], frequency=pd.Timedelta("1h"))
 
     assert len(result) == 1
 
@@ -144,7 +150,7 @@ def test_compile_auxiliary_requirements_validates_source_periods():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        compile_auxiliary_requirements([sources])
+        compile_auxiliary_requirements([sources], frequency=pd.Timedelta("1h"))
 
 
 def test_get_basic_cleaning_context_returns_zero_without_rules():
@@ -394,7 +400,7 @@ def test_build_auxiliary_source_requests_maps_explicit_capability():
     capabilities = pd.DataFrame({"source": ["neso"], "context": ["GBR"]})
 
     result = build_auxiliary_source_requests(
-        requirements, source_capabilities=capabilities
+        requirements, source_capabilities=capabilities, frequency=pd.Timedelta("1h")
     )
 
     assert list(result[["source", "context"]].itertuples(index=False, name=None)) == [
@@ -421,7 +427,7 @@ def test_build_auxiliary_source_requests_applies_wildcard_to_all_contexts():
     capabilities = pd.DataFrame({"source": ["entsoe"], "context": [None]})
 
     result = build_auxiliary_source_requests(
-        requirements, source_capabilities=capabilities
+        requirements, source_capabilities=capabilities, frequency=pd.Timedelta("1h")
     )
 
     assert list(result[["source", "context"]].itertuples(index=False, name=None)) == [
@@ -451,7 +457,7 @@ def test_build_auxiliary_source_requests_combines_wildcard_and_specific_sources(
     )
 
     result = build_auxiliary_source_requests(
-        requirements, source_capabilities=capabilities
+        requirements, source_capabilities=capabilities, frequency=pd.Timedelta("1h")
     )
 
     assert list(result[["source", "context"]].itertuples(index=False, name=None)) == [
@@ -474,7 +480,9 @@ def test_build_auxiliary_source_requests_rejects_uncovered_context():
     capabilities = pd.DataFrame({"source": ["neso"], "context": ["GBR"]})
 
     with pytest.raises(ValueError, match="No configured auxiliary source supports"):
-        build_auxiliary_source_requests(requirements, source_capabilities=capabilities)
+        build_auxiliary_source_requests(
+            requirements, source_capabilities=capabilities, frequency=pd.Timedelta("1h")
+        )
 
 
 def test_build_auxiliary_source_requests_returns_empty_without_requirements():
@@ -490,7 +498,7 @@ def test_build_auxiliary_source_requests_returns_empty_without_requirements():
     capabilities = pd.DataFrame({"source": ["entsoe"], "context": [None]})
 
     result = build_auxiliary_source_requests(
-        requirements, source_capabilities=capabilities
+        requirements, source_capabilities=capabilities, frequency=pd.Timedelta("1h")
     )
 
     assert result.empty
@@ -525,6 +533,7 @@ def test_select_active_advanced_rules_keeps_intersecting_rules():
         target_contexts=["GBR"],
         target_start="2026-01-01T00:00:00Z",
         target_end="2026-02-01T00:00:00Z",
+        frequency=pd.Timedelta("1h"),
     )
 
     assert result["rule_name"].tolist() == ["inside"]
@@ -549,6 +558,7 @@ def test_select_active_advanced_rules_accepts_partial_period_overlap():
         target_contexts=["GBR"],
         target_start="2026-01-01T00:00:00Z",
         target_end="2026-02-01T00:00:00Z",
+        frequency=pd.Timedelta("1h"),
     )
 
     assert result["rule_name"].tolist() == ["partial"]
@@ -573,6 +583,7 @@ def test_select_active_advanced_rules_excludes_rule_ending_at_target_start():
         target_contexts=["GBR"],
         target_start="2026-01-01T00:00:00Z",
         target_end="2026-02-01T00:00:00Z",
+        frequency=pd.Timedelta("1h"),
     )
 
     assert result.empty
@@ -597,6 +608,7 @@ def test_select_active_advanced_rules_preserves_rule_order():
         target_contexts=["GBR"],
         target_start="2026-01-01T00:00:00Z",
         target_end="2026-02-01T00:00:00Z",
+        frequency=pd.Timedelta("1h"),
     )
 
     assert result["rule_name"].tolist() == [

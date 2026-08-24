@@ -141,10 +141,10 @@ def construct_from_sources(
 
     target_index = validate_timestamp_index(target_index, frequency=frequency)
 
-    sources = validate_source_periods(sources)
+    sources = validate_source_periods(sources, frequency=frequency)
 
     if scaling_sources is not None:
-        scaling_sources = validate_source_periods(scaling_sources)
+        scaling_sources = validate_source_periods(scaling_sources, frequency=frequency)
 
     weighted_sources: list[pd.Series] = []
     weights: list[float] = []

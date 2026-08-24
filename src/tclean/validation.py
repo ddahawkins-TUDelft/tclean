@@ -117,12 +117,31 @@ def validate_timestamp_index(
     return validated_index
 
 
-def validate_source_periods(source_periods: pd.DataFrame) -> pd.DataFrame:
+def _validate_period_durations(
+    periods: pd.DataFrame, *, frequency: pd.Timedelta
+) -> None:
+    """Require periods to contain whole configured intervals."""
+    durations = periods["end"] - periods["start"]
+
+    aligned = (durations % frequency).eq(pd.Timedelta(0))
+
+    if not aligned.all():
+        raise ValueError(
+            "Source periods must contain an integer number "
+            "of configured intervals. "
+            f"Configured frequency: {frequency}."
+        )
+
+
+def validate_source_periods(
+    source_periods: pd.DataFrame, *, frequency: pd.Timedelta
+) -> pd.DataFrame:
     """Validate and normalize source-period definitions.
 
     Args:
         source_periods: Source definitions containing context, start,
             end, and weight columns.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Validated source-period definitions with UTC timestamps and
@@ -132,7 +151,9 @@ def validate_source_periods(source_periods: pd.DataFrame) -> pd.DataFrame:
         pandera.errors.SchemaErrors: If the source-period definitions
             violate the T-Clean source-period contract.
     """
-    return SOURCE_PERIODS_SCHEMA.validate(source_periods, lazy=True)
+    validated = SOURCE_PERIODS_SCHEMA.validate(source_periods, lazy=True)
+    _validate_period_durations(validated, frequency=frequency)
+    return validated
 
 
 def validate_provenance(
@@ -177,12 +198,15 @@ def validate_data_source(
     return validate_provenance(data_source, data=data)
 
 
-def validate_advanced_fill_rules(rules: pd.DataFrame) -> pd.DataFrame:
+def validate_advanced_fill_rules(
+    rules: pd.DataFrame, *, frequency: pd.Timedelta
+) -> pd.DataFrame:
     """Validate and normalize advanced-fill rule definitions.
 
     Args:
         rules: Advanced-fill rules containing rule name, method,
             context, start, end, and scope.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Validated rule definitions with UTC timestamps.
@@ -191,14 +215,19 @@ def validate_advanced_fill_rules(rules: pd.DataFrame) -> pd.DataFrame:
         pandera.errors.SchemaErrors: If the rules violate the
             T-Clean advanced-fill contract.
     """
-    return ADVANCED_FILL_RULES_SCHEMA.validate(rules, lazy=True)
+    validated = ADVANCED_FILL_RULES_SCHEMA.validate(rules, lazy=True)
+    _validate_period_durations(validated, frequency=frequency)
+    return validated
 
 
-def validate_auxiliary_requirements(requirements: pd.DataFrame) -> pd.DataFrame:
+def validate_auxiliary_requirements(
+    requirements: pd.DataFrame, frequency: pd.Timedelta
+) -> pd.DataFrame:
     """Validate and normalize auxiliary data requirements.
 
     Args:
         requirements: Auxiliary context-period requirements.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Validated requirements with canonical UTC timestamps.
@@ -207,7 +236,9 @@ def validate_auxiliary_requirements(requirements: pd.DataFrame) -> pd.DataFrame:
         pandera.errors.SchemaErrors: If requirements violate the
             T-Clean auxiliary-requirements contract.
     """
-    return AUXILIARY_REQUIREMENTS_SCHEMA.validate(requirements, lazy=True)
+    validated = AUXILIARY_REQUIREMENTS_SCHEMA.validate(requirements, lazy=True)
+    _validate_period_durations(validated, frequency=frequency)
+    return validated
 
 
 def validate_source_capabilities(capabilities: pd.DataFrame) -> pd.DataFrame:
@@ -227,11 +258,14 @@ def validate_source_capabilities(capabilities: pd.DataFrame) -> pd.DataFrame:
     return SOURCE_CAPABILITIES_SCHEMA.validate(capabilities, lazy=True)
 
 
-def validate_auxiliary_source_requests(requests: pd.DataFrame) -> pd.DataFrame:
+def validate_auxiliary_source_requests(
+    requests: pd.DataFrame, frequency: pd.Timedelta
+) -> pd.DataFrame:
     """Validate and normalize auxiliary source requests.
 
     Args:
         requests: Source-context-period acquisition requests.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Validated source requests with canonical UTC timestamps.
@@ -240,7 +274,9 @@ def validate_auxiliary_source_requests(requests: pd.DataFrame) -> pd.DataFrame:
         pandera.errors.SchemaErrors: If the requests violate the
             T-Clean auxiliary-source-request contract.
     """
-    return AUXILIARY_SOURCE_REQUESTS_SCHEMA.validate(requests, lazy=True)
+    validated = AUXILIARY_SOURCE_REQUESTS_SCHEMA.validate(requests, lazy=True)
+    _validate_period_durations(validated, frequency=frequency)
+    return validated
 
 
 def validate_advanced_source(source: pd.Series, frequency: pd.Timedelta) -> pd.Series:

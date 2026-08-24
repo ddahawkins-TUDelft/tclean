@@ -26,13 +26,16 @@ SOURCE_REQUEST_COLUMNS = ["source", "context", "start", "end"]
 
 
 def compile_auxiliary_requirements(
-    source_periods: Sequence[pd.DataFrame],
+    source_periods: Sequence[pd.DataFrame], *, frequency: pd.Timedelta
 ) -> pd.DataFrame:
     """Compile and merge auxiliary context-period requirements."""
     if not source_periods:
         return _empty_requirements()
 
-    validated_periods = [validate_source_periods(periods) for periods in source_periods]
+    validated_periods = [
+        validate_source_periods(periods, frequency=frequency)
+        for periods in source_periods
+    ]
 
     requirements = pd.concat(
         [periods[["context", "start", "end"]] for periods in validated_periods],
@@ -47,7 +50,7 @@ def compile_auxiliary_requirements(
 
     merged = _merge_requirements(requirements)
 
-    return validate_auxiliary_requirements(merged)
+    return validate_auxiliary_requirements(merged, frequency=frequency)
 
 
 def _empty_requirements() -> pd.DataFrame:
@@ -168,7 +171,7 @@ def expand_auxiliary_requirements(
     Returns:
         Requirements expanded by the context needed for basic cleaning.
     """
-    requirements = validate_auxiliary_requirements(requirements)
+    requirements = validate_auxiliary_requirements(requirements, frequency=frequency)
 
     if requirements.empty or not enabled or not rules:
         return requirements.copy()
@@ -182,7 +185,7 @@ def expand_auxiliary_requirements(
 
     expanded = _merge_requirements(expanded)
 
-    return validate_auxiliary_requirements(expanded)
+    return validate_auxiliary_requirements(expanded, frequency=frequency)
 
 
 def build_auxiliary_acquisition_requirements(
@@ -204,7 +207,9 @@ def build_auxiliary_acquisition_requirements(
     Returns:
         Merged acquisition requirements including required cleaning context.
     """
-    exact_requirements = compile_auxiliary_requirements(source_periods)
+    exact_requirements = compile_auxiliary_requirements(
+        source_periods, frequency=frequency
+    )
 
     return expand_auxiliary_requirements(
         exact_requirements,
@@ -227,7 +232,10 @@ def _empty_source_requests() -> pd.DataFrame:
 
 
 def build_auxiliary_source_requests(
-    requirements: pd.DataFrame, *, source_capabilities: pd.DataFrame
+    requirements: pd.DataFrame,
+    *,
+    source_capabilities: pd.DataFrame,
+    frequency: pd.Timedelta,
 ) -> pd.DataFrame:
     """Map auxiliary requirements onto capable data sources.
 
@@ -237,6 +245,7 @@ def build_auxiliary_source_requests(
     Args:
         requirements: Required auxiliary context-periods.
         source_capabilities: Explicit source capability definitions.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Source-context-period acquisition requests.
@@ -247,7 +256,7 @@ def build_auxiliary_source_requests(
         pandera.errors.SchemaErrors: If an input violates its T-Clean
             data contract.
     """
-    requirements = validate_auxiliary_requirements(requirements)
+    requirements = validate_auxiliary_requirements(requirements, frequency=frequency)
 
     if requirements.empty:
         return _empty_source_requests()
@@ -298,7 +307,7 @@ def build_auxiliary_source_requests(
         .reset_index(drop=True)
     )
 
-    return validate_auxiliary_source_requests(requests)
+    return validate_auxiliary_source_requests(requests, frequency=frequency)
 
 
 def select_active_advanced_rules(
@@ -307,6 +316,7 @@ def select_active_advanced_rules(
     target_contexts: Sequence[str],
     target_start: object,
     target_end: object,
+    frequency: pd.Timedelta,
 ) -> pd.DataFrame:
     """Select advanced-fill rules intersecting the target model scope.
 
@@ -315,6 +325,7 @@ def select_active_advanced_rules(
         target_contexts: contexts included in the target model scope.
         target_start: Inclusive start of the target model period.
         target_end: Exclusive end of the target model period.
+        frequency: pd.Timedelta of time series frequency.
 
     Returns:
         Active advanced-fill rules in their original execution order.
@@ -323,7 +334,7 @@ def select_active_advanced_rules(
         pandera.errors.SchemaErrors: If the advanced rules or temporal
             range violate their T-Clean contracts.
     """
-    rules = validate_advanced_fill_rules(rules)
+    rules = validate_advanced_fill_rules(rules, frequency=frequency)
 
     target_start, target_end = validate_temporal_range(
         start=target_start, end=target_end

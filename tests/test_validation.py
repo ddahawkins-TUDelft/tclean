@@ -252,7 +252,7 @@ def test_validate_advanced_fill_rules_rejects_unknown_method():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_advanced_fill_rules(rules)
+        validate_advanced_fill_rules(rules, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_advanced_fill_rules_rejects_unknown_scope():
@@ -270,7 +270,7 @@ def test_validate_advanced_fill_rules_rejects_unknown_scope():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_advanced_fill_rules(rules)
+        validate_advanced_fill_rules(rules, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_advanced_fill_rules_rejects_duplicate_names():
@@ -288,7 +288,7 @@ def test_validate_advanced_fill_rules_rejects_duplicate_names():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_advanced_fill_rules(rules)
+        validate_advanced_fill_rules(rules, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_advanced_fill_rules_requires_source_for_profile_method():
@@ -306,7 +306,7 @@ def test_validate_advanced_fill_rules_requires_source_for_profile_method():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_advanced_fill_rules(rules)
+        validate_advanced_fill_rules(rules, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_advanced_fill_rules_rejects_source_for_leave_missing():
@@ -324,7 +324,7 @@ def test_validate_advanced_fill_rules_rejects_source_for_leave_missing():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_advanced_fill_rules(rules)
+        validate_advanced_fill_rules(rules, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_advanced_fill_rules_allows_source_reuse():
@@ -341,7 +341,7 @@ def test_validate_advanced_fill_rules_allows_source_reuse():
         }
     )
 
-    result = validate_advanced_fill_rules(rules)
+    result = validate_advanced_fill_rules(rules, frequency=pd.Timedelta("1h"))
 
     assert result["source"].tolist() == ["winter_profile", "winter_profile"]
 
