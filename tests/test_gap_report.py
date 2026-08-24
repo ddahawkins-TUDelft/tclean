@@ -8,7 +8,7 @@ EXPECTED_COLUMNS = [
     "context",
     "gap_start",
     "gap_end",
-    "gap_hours",
+    "gap_duration",
     "touches_start_boundary",
     "touches_end_boundary",
 ]
@@ -58,7 +58,7 @@ def test_build_gap_report_describes_internal_gap():
     assert row["context"] == "ALB"
     assert row["gap_start"] == index[1]
     assert row["gap_end"] == index[3]
-    assert row["gap_hours"] == 2
+    assert row["gap_duration"] == pd.Timedelta("0 days 02:00:00")
     assert not row["touches_start_boundary"]
     assert not row["touches_end_boundary"]
 

@@ -37,7 +37,7 @@ def build_gap_report(
         "context",
         "gap_start",
         "gap_end",
-        "gap_hours",
+        "gap_duration",
         "touches_start_boundary",
         "touches_end_boundary",
     ]
@@ -70,8 +70,8 @@ def build_gap_report(
                 {
                     "context": context,
                     "gap_start": timestamps[0],
-                    "gap_end": timestamps[-1] + pd.Timedelta(hours=1),
-                    "gap_hours": len(timestamps),
+                    "gap_end": timestamps[-1] + frequency,
+                    "gap_duration": len(timestamps) * frequency,
                     "touches_start_boundary": (timestamps[0] == first_timestamp),
                     "touches_end_boundary": (timestamps[-1] == last_timestamp),
                 }
