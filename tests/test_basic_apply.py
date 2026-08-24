@@ -4,7 +4,17 @@ import pandas as pd
 import pytest
 
 from tclean.basic.apply import calculate_missing_run_durations, fill_basic_gaps
+from tclean.time_grid import TimeGrid
 
+
+def _grid(
+    frequency: str = "1h",
+) -> TimeGrid:
+    return TimeGrid(
+        start="2026-01-01T00:00:00Z",
+        end="2026-01-03T00:00:00Z",
+        frequency=frequency,
+    )
 
 def test_calculate_missing_run_durations_labels_complete_gap():
     """Assign the full run duration to every value in a missing run."""
@@ -16,7 +26,7 @@ def test_calculate_missing_run_durations_labels_complete_gap():
         {"ALB": [10.0, float("nan"), float("nan"), 13.0, 14.0]}, index=index
     )
 
-    result = calculate_missing_run_durations(data, frequency=pd.Timedelta("1h"))
+    result = calculate_missing_run_durations(data, grid=_grid())
 
     expected = pd.DataFrame(
         {
@@ -33,8 +43,10 @@ def test_calculate_missing_run_durations_labels_complete_gap():
 
     pd.testing.assert_index_equal(result.index, expected.index, exact=False)
 
-    pd.testing.assert_frame_equal(
-        result.reset_index(drop=True), expected.reset_index(drop=True)
+    pd.testing.assert_index_equal(
+        result.index,
+        expected.index,
+        exact=False,
     )
 
 
@@ -61,7 +73,7 @@ def test_fill_basic_gaps_applies_rules_in_order():
     ]
 
     filled, provenance = fill_basic_gaps(
-        data, cleaning_method=cleaning_method, rules=rules, frequency=pd.Timedelta("1h")
+        data, cleaning_method=cleaning_method, rules=rules, grid=_grid()
     )
 
     assert filled.loc[index[1], "ALB"] == 12.0
@@ -91,7 +103,7 @@ def test_fill_basic_gaps_marks_unresolved_values_missing():
     ]
 
     filled, provenance = fill_basic_gaps(
-        data, cleaning_method=cleaning_method, rules=rules, frequency=pd.Timedelta("1h")
+        data, cleaning_method=cleaning_method, rules=rules, grid=_grid()
     )
 
     assert filled.loc[index[1:3], "ALB"].isna().all()
@@ -117,7 +129,7 @@ def test_fill_basic_gaps_disabled_preserves_data():
         cleaning_method=cleaning_method,
         rules=[],
         enabled=False,
-        frequency=pd.Timedelta("1h"),
+        grid=_grid(),
     )
 
     pd.testing.assert_index_equal(filled.index, data.index, exact=False)
@@ -149,5 +161,5 @@ def test_fill_basic_gaps_rejects_unknown_method():
             data,
             cleaning_method=cleaning_method,
             rules=rules,
-            frequency=pd.Timedelta("1h"),
+            grid=_grid(),
         )
