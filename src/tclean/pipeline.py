@@ -59,7 +59,7 @@ def clean(
     if advanced_rules is None:
         if advanced_sources:
             raise ValueError("Advanced sources were supplied without advanced rules.")
-
+        cleaning_method = cleaning_method.fillna("missing")
         return (cleaned, data_source, cleaning_method)
 
     if advanced_sources is None:
@@ -73,5 +73,5 @@ def clean(
         advanced_sources=advanced_sources,
         frequency=frequency,
     )
-
+    cleaning_method = cleaning_method.fillna("missing")
     return (cleaned, data_source, cleaning_method)

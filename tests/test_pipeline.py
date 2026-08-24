@@ -185,3 +185,20 @@ def test_clean_rejects_unused_advanced_source():
             advanced_sources={"unused": unused},
             config=config,
         )
+
+
+def test_clean_labels_unresolved_values_as_missing():
+    """Label unresolved values with the missing cleaning method."""
+    index = pd.date_range(
+        "2026-01-01T00:00:00Z", periods=3, freq="1h", name="timestamp"
+    )
+
+    source = pd.DataFrame({"GBR": [100.0, pd.NA, 120.0]}, index=index, dtype="Float64")
+
+    _, _, cleaning_method = clean(
+        {"primary": source}, config=TCleanConfig(frequency="1h")
+    )
+
+    assert cleaning_method.loc[index[0], "GBR"] == "observed_primary"
+    assert cleaning_method.loc[index[1], "GBR"] == "missing"
+    assert cleaning_method.loc[index[2], "GBR"] == "observed_primary"
