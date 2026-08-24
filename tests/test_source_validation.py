@@ -14,7 +14,12 @@ def test_validate_timestamp_index_accepts_valid_index():
         "2026-01-01 00:00", periods=3, freq="1h", tz="UTC", name="timestamp"
     )
 
-    result = validate_timestamp_index(index, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+    result = validate_timestamp_index(
+        index,
+        grid=TimeGrid(
+            start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+        ),
+    )
 
     pd.testing.assert_index_equal(result, index, exact=False)
 
@@ -25,7 +30,12 @@ def test_validate_timestamp_index_accepts_half_hour_frequency():
         "2026-01-01 00:00", periods=3, freq="30min", tz="UTC", name="timestamp"
     )
 
-    result = validate_timestamp_index(index, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="30min"))
+    result = validate_timestamp_index(
+        index,
+        grid=TimeGrid(
+            start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="30min"
+        ),
+    )
 
     pd.testing.assert_index_equal(result, index, exact=False)
 
@@ -36,7 +46,12 @@ def test_validate_timestamp_index_accepts_shifted_grid():
         "2026-01-01 00:30", periods=3, freq="1h", tz="UTC", name="timestamp"
     )
 
-    result = validate_timestamp_index(index, grid=TimeGrid(start="2026-01-01T00:30:00Z", end = "2026-12-01T01:30:00Z", frequency="1h"))
+    result = validate_timestamp_index(
+        index,
+        grid=TimeGrid(
+            start="2026-01-01T00:30:00Z", end="2026-12-01T01:30:00Z", frequency="1h"
+        ),
+    )
 
     pd.testing.assert_index_equal(result, index, exact=False)
 
@@ -51,7 +66,12 @@ def test_validate_timestamp_index_converts_to_utc():
         name="timestamp",
     )
 
-    result = validate_timestamp_index(index, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+    result = validate_timestamp_index(
+        index,
+        grid=TimeGrid(
+            start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+        ),
+    )
 
     assert str(result.tz) == "UTC"
     assert result[0] == pd.Timestamp("2026-01-01T00:00:00Z")
@@ -65,7 +85,12 @@ def test_validate_timestamp_index_rejects_missing_interval():
     )
 
     with pytest.raises(ValueError, match="exactly one configured interval apart"):
-        validate_timestamp_index(index, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_timestamp_index(
+            index,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_timestamp_index_rejects_wrong_frequency():
@@ -75,7 +100,12 @@ def test_validate_timestamp_index_rejects_wrong_frequency():
     )
 
     with pytest.raises(ValueError, match="exactly one configured interval apart"):
-        validate_timestamp_index(index, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_timestamp_index(
+            index,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_timestamp_index_rejects_unnamed_index():
@@ -83,7 +113,12 @@ def test_validate_timestamp_index_rejects_unnamed_index():
     index = pd.date_range("2026-01-01 00:00", periods=3, freq="1h", tz="UTC")
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_timestamp_index(index, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_timestamp_index(
+            index,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_timestamp_index_rejects_duplicates():
@@ -94,7 +129,12 @@ def test_validate_timestamp_index_rejects_duplicates():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_timestamp_index(index, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_timestamp_index(
+            index,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_source_periods_accepts_valid_sources():
@@ -108,7 +148,12 @@ def test_validate_source_periods_accepts_valid_sources():
         }
     )
 
-    result = validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+    result = validate_source_periods(
+        source_periods,
+        grid=TimeGrid(
+            start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+        ),
+    )
 
     assert str(result["start"].dt.tz) == "UTC"
     assert str(result["end"].dt.tz) == "UTC"
@@ -126,7 +171,12 @@ def test_validate_source_periods_converts_offsets_to_utc():
         }
     )
 
-    result = validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+    result = validate_source_periods(
+        source_periods,
+        grid=TimeGrid(
+            start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+        ),
+    )
 
     assert result.loc[0, "start"] == pd.Timestamp("2025-01-01T00:00:00Z")
     assert result.loc[0, "end"] == pd.Timestamp("2025-01-02T00:00:00Z")
@@ -143,7 +193,12 @@ def test_validate_source_periods_accepts_half_hour_frequency():
         }
     )
 
-    result = validate_source_periods(source_periods, grid=TimeGrid(start="2025-01-01T00:15:00Z", end = "2026-12-01T01:45:00Z", frequency="30min"))
+    result = validate_source_periods(
+        source_periods,
+        grid=TimeGrid(
+            start="2025-01-01T00:15:00Z", end="2026-12-01T01:45:00Z", frequency="30min"
+        ),
+    )
 
     assert len(result) == 1
 
@@ -159,7 +214,12 @@ def test_validate_source_periods_accepts_shifted_hourly_period():
         }
     )
 
-    result = validate_source_periods(source_periods, grid=TimeGrid(start="2025-01-01T00:30:00Z", end = "2026-12-01T01:00:00Z", frequency="30min"))
+    result = validate_source_periods(
+        source_periods,
+        grid=TimeGrid(
+            start="2025-01-01T00:30:00Z", end="2026-12-01T01:00:00Z", frequency="30min"
+        ),
+    )
 
     assert len(result) == 1
 
@@ -175,11 +235,15 @@ def test_validate_source_periods_rejects_incompatible_duration():
         }
     )
 
-    with pytest.raises(
-        ValueError,
-        match="Period end .* does not align",
-    ):
-        validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="30min"))
+    with pytest.raises(ValueError, match="Period end .* does not align"):
+        validate_source_periods(
+            source_periods,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z",
+                end="2026-12-01T01:00:00Z",
+                frequency="30min",
+            ),
+        )
 
 
 def test_validate_source_periods_rejects_missing_weight_column():
@@ -193,7 +257,12 @@ def test_validate_source_periods_rejects_missing_weight_column():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_source_periods(
+            source_periods,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_source_periods_rejects_missing_weight_value():
@@ -208,7 +277,12 @@ def test_validate_source_periods_rejects_missing_weight_value():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_source_periods(
+            source_periods,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_source_periods_rejects_zero_weight():
@@ -223,7 +297,12 @@ def test_validate_source_periods_rejects_zero_weight():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_source_periods(
+            source_periods,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_source_periods_rejects_negative_weight():
@@ -238,7 +317,12 @@ def test_validate_source_periods_rejects_negative_weight():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_source_periods(
+            source_periods,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_source_periods_rejects_non_numeric_weight():
@@ -253,7 +337,12 @@ def test_validate_source_periods_rejects_non_numeric_weight():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_source_periods(
+            source_periods,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_source_periods_rejects_reversed_period():
@@ -268,7 +357,12 @@ def test_validate_source_periods_rejects_reversed_period():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_source_periods(
+            source_periods,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_source_periods_rejects_equal_bounds():
@@ -283,7 +377,12 @@ def test_validate_source_periods_rejects_equal_bounds():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_source_periods(
+            source_periods,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_source_periods_rejects_extra_column():
@@ -299,7 +398,12 @@ def test_validate_source_periods_rejects_extra_column():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_source_periods(
+            source_periods,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_source_periods_rejects_wrong_column_order():
@@ -314,7 +418,12 @@ def test_validate_source_periods_rejects_wrong_column_order():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_source_periods(
+            source_periods,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_source_periods_rejects_missing_context():
@@ -329,7 +438,12 @@ def test_validate_source_periods_rejects_missing_context():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_source_periods(
+            source_periods,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )
 
 
 def test_validate_source_periods_rejects_empty_sources():
@@ -337,4 +451,9 @@ def test_validate_source_periods_rejects_empty_sources():
     source_periods = pd.DataFrame(columns=["context", "start", "end", "weight"])
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="1h"))
+        validate_source_periods(
+            source_periods,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="1h"
+            ),
+        )

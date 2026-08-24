@@ -7,14 +7,11 @@ from tclean.basic.apply import calculate_missing_run_durations, fill_basic_gaps
 from tclean.time_grid import TimeGrid
 
 
-def _grid(
-    frequency: str = "1h",
-) -> TimeGrid:
+def _grid(frequency: str = "1h") -> TimeGrid:
     return TimeGrid(
-        start="2026-01-01T00:00:00Z",
-        end="2026-01-03T00:00:00Z",
-        frequency=frequency,
+        start="2026-01-01T00:00:00Z", end="2026-01-03T00:00:00Z", frequency=frequency
     )
+
 
 def test_calculate_missing_run_durations_labels_complete_gap():
     """Assign the full run duration to every value in a missing run."""
@@ -43,11 +40,7 @@ def test_calculate_missing_run_durations_labels_complete_gap():
 
     pd.testing.assert_index_equal(result.index, expected.index, exact=False)
 
-    pd.testing.assert_index_equal(
-        result.index,
-        expected.index,
-        exact=False,
-    )
+    pd.testing.assert_index_equal(result.index, expected.index, exact=False)
 
 
 def test_fill_basic_gaps_applies_rules_in_order():
@@ -125,11 +118,7 @@ def test_fill_basic_gaps_disabled_preserves_data():
     )
 
     filled, provenance = fill_basic_gaps(
-        data,
-        cleaning_method=cleaning_method,
-        rules=[],
-        enabled=False,
-        grid=_grid(),
+        data, cleaning_method=cleaning_method, rules=[], enabled=False, grid=_grid()
     )
 
     pd.testing.assert_index_equal(filled.index, data.index, exact=False)
@@ -158,8 +147,5 @@ def test_fill_basic_gaps_rejects_unknown_method():
 
     with pytest.raises(ValueError, match="Unsupported basic cleaning method"):
         fill_basic_gaps(
-            data,
-            cleaning_method=cleaning_method,
-            rules=rules,
-            grid=_grid(),
+            data, cleaning_method=cleaning_method, rules=rules, grid=_grid()
         )

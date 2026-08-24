@@ -14,57 +14,32 @@ from tclean.basic.methods.linear_interpolation import (
 from tclean.time_grid import TimeGrid
 
 
-def _positive_timedelta(
-    value: object,
-    *,
-    field: str,
-    grid: TimeGrid,
-) -> pd.Timedelta:
+def _positive_timedelta(value: object, *, field: str, grid: TimeGrid) -> pd.Timedelta:
     """Normalize a positive duration aligned with the configured grid."""
-    delta = normalize_fixed_duration(
-        value,
-        field=field,
-    )
+    delta = normalize_fixed_duration(value, field=field)
 
     if delta <= pd.Timedelta(0):
         raise ValueError(f"{field!r} must be greater than zero.")
 
-    grid.validate_duration_multiple(
-        delta,
-        field=field,
-    )
+    grid.validate_duration_multiple(delta, field=field)
 
     return delta
 
 
-def _nonzero_timedelta(
-    value: object,
-    *,
-    field: str,
-    grid: TimeGrid,
-) -> pd.Timedelta:
+def _nonzero_timedelta(value: object, *, field: str, grid: TimeGrid) -> pd.Timedelta:
     """Normalize a non-zero duration aligned with the configured grid."""
-    delta = normalize_fixed_duration(
-        value,
-        field=field,
-    )
+    delta = normalize_fixed_duration(value, field=field)
 
     if delta == pd.Timedelta(0):
         raise ValueError(f"{field!r} must not be zero.")
 
-    grid.validate_duration_multiple(
-        delta,
-        field=field,
-    )
+    grid.validate_duration_multiple(delta, field=field)
 
     return delta
 
 
 def _validate_keys(
-    rule: Mapping[str, Any],
-    *,
-    required: set[str],
-    optional: set[str] | None = None,
+    rule: Mapping[str, Any], *, required: set[str], optional: set[str] | None = None
 ) -> None:
     """Require exactly the supported keys for a rule."""
     optional = optional or set()
@@ -82,54 +57,35 @@ def _validate_keys(
         )
 
 
-def _validate_common_fields(
-    rule: Mapping[str, Any],
-) -> None:
+def _validate_common_fields(rule: Mapping[str, Any]) -> None:
     """Validate fields shared by every basic rule."""
     name = rule.get("name")
     method = rule.get("method")
 
     if not isinstance(name, str) or not name.strip():
-        raise ValueError(
-            "Basic rule 'name' must be a non-empty string."
-        )
+        raise ValueError("Basic rule 'name' must be a non-empty string.")
 
     if not isinstance(method, str) or not method.strip():
-        raise ValueError(
-            "Basic rule 'method' must be a non-empty string."
-        )
+        raise ValueError("Basic rule 'method' must be a non-empty string.")
 
 
 def _validate_linear_interpolation_rule(
-    rule: Mapping[str, Any],
-    *,
-    grid: TimeGrid,
+    rule: Mapping[str, Any], *, grid: TimeGrid
 ) -> dict[str, Any]:
     """Validate and normalize a linear-interpolation rule."""
-    _validate_keys(
-        rule,
-        required={
-            "name",
-            "method",
-            "max_gap",
-        },
-    )
+    _validate_keys(rule, required={"name", "method", "max_gap"})
 
     normalized = dict(rule)
 
     normalized["max_gap"] = _positive_timedelta(
-        rule["max_gap"],
-        field="max_gap",
-        grid=grid,
+        rule["max_gap"], field="max_gap", grid=grid
     )
 
     return normalized
 
 
 def _validate_copy_periods_rule(
-    rule: Mapping[str, Any],
-    *,
-    grid: TimeGrid,
+    rule: Mapping[str, Any], *, grid: TimeGrid
 ) -> dict[str, Any]:
     """Validate and normalize a copy-periods rule."""
     _validate_keys(
@@ -143,46 +99,27 @@ def _validate_copy_periods_rule(
         },
     )
 
-    if not isinstance(
-        rule["require_complete_source"],
-        bool,
-    ):
-        raise ValueError(
-            "'require_complete_source' must be boolean."
-        )
+    if not isinstance(rule["require_complete_source"], bool):
+        raise ValueError("'require_complete_source' must be boolean.")
 
     normalized = dict(rule)
 
     normalized["max_gap"] = _positive_timedelta(
-        rule["max_gap"],
-        field="max_gap",
-        grid=grid,
+        rule["max_gap"], field="max_gap", grid=grid
     )
 
     normalized["source_offset"] = _nonzero_timedelta(
-        rule["source_offset"],
-        field="source_offset",
-        grid=grid,
+        rule["source_offset"], field="source_offset", grid=grid
     )
 
     return normalized
 
 
 def _validate_average_periods_rule(
-    rule: Mapping[str, Any],
-    *,
-    grid: TimeGrid,
+    rule: Mapping[str, Any], *, grid: TimeGrid
 ) -> dict[str, Any]:
     """Validate and normalize an average-periods rule."""
-    _validate_keys(
-        rule,
-        required={
-            "name",
-            "method",
-            "max_gap",
-            "source_offsets",
-        },
-    )
+    _validate_keys(rule, required={"name", "method", "max_gap", "source_offsets"})
 
     source_offsets = rule["source_offsets"]
 
@@ -191,24 +128,16 @@ def _validate_average_periods_rule(
         or not isinstance(source_offsets, Sequence)
         or not source_offsets
     ):
-        raise ValueError(
-            "'source_offsets' must be a non-empty sequence."
-        )
+        raise ValueError("'source_offsets' must be a non-empty sequence.")
 
     normalized = dict(rule)
 
     normalized["max_gap"] = _positive_timedelta(
-        rule["max_gap"],
-        field="max_gap",
-        grid=grid,
+        rule["max_gap"], field="max_gap", grid=grid
     )
 
     normalized["source_offsets"] = [
-        _nonzero_timedelta(
-            offset,
-            field="source_offsets",
-            grid=grid,
-        )
+        _nonzero_timedelta(offset, field="source_offsets", grid=grid)
         for offset in source_offsets
     ]
 
@@ -222,11 +151,7 @@ _RULE_VALIDATORS = {
 }
 
 
-def validate_basic_rule(
-    rule: Mapping[str, Any],
-    *,
-    grid: TimeGrid,
-) -> dict[str, Any]:
+def validate_basic_rule(rule: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
     """Validate and normalize one basic cleaning rule.
 
     Args:
@@ -241,9 +166,7 @@ def validate_basic_rule(
         ValueError: If the rule is invalid or uses an unsupported method.
     """
     if not isinstance(rule, Mapping):
-        raise TypeError(
-            "Each basic cleaning rule must be a mapping."
-        )
+        raise TypeError("Each basic cleaning rule must be a mapping.")
 
     _validate_common_fields(rule)
 
@@ -252,20 +175,13 @@ def validate_basic_rule(
     try:
         validator = _RULE_VALIDATORS[method]
     except KeyError as exc:
-        raise ValueError(
-            f"Unsupported basic cleaning method: {method!r}."
-        ) from exc
+        raise ValueError(f"Unsupported basic cleaning method: {method!r}.") from exc
 
-    return validator(
-        rule,
-        grid=grid,
-    )
+    return validator(rule, grid=grid)
 
 
 def validate_basic_rules(
-    rules: Sequence[Mapping[str, Any]],
-    *,
-    grid: TimeGrid,
+    rules: Sequence[Mapping[str, Any]], *, grid: TimeGrid
 ) -> list[dict[str, Any]]:
     """Validate and normalize ordered basic cleaning rules.
 
@@ -280,39 +196,18 @@ def validate_basic_rules(
         TypeError: If rules are not supplied as an ordered sequence.
         ValueError: If a rule is invalid or rule names are duplicated.
     """
-    if isinstance(rules, (str, bytes)) or not isinstance(
-        rules,
-        Sequence,
-    ):
-        raise TypeError(
-            "Basic cleaning rules must be an ordered sequence."
-        )
+    if isinstance(rules, (str, bytes)) or not isinstance(rules, Sequence):
+        raise TypeError("Basic cleaning rules must be an ordered sequence.")
 
-    normalized = [
-        validate_basic_rule(
-            rule,
-            grid=grid,
-        )
-        for rule in rules
-    ]
+    normalized = [validate_basic_rule(rule, grid=grid) for rule in rules]
 
-    names = [
-        rule["name"]
-        for rule in normalized
-    ]
+    names = [rule["name"] for rule in normalized]
 
-    duplicates = sorted(
-        {
-            name
-            for name in names
-            if names.count(name) > 1
-        }
-    )
+    duplicates = sorted({name for name in names if names.count(name) > 1})
 
     if duplicates:
         raise ValueError(
-            "Basic cleaning rule names must be unique. "
-            f"Duplicates: {duplicates!r}."
+            f"Basic cleaning rule names must be unique. Duplicates: {duplicates!r}."
         )
 
     return normalized

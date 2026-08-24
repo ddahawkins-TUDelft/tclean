@@ -4,6 +4,7 @@ from collections.abc import Mapping
 
 import pandas as pd
 
+from tclean.time_grid import TimeGrid
 from tclean.validation import (
     validate_cleaning_method,
     validate_data_source,
@@ -11,7 +12,9 @@ from tclean.validation import (
 )
 
 
-def _validate_source_alignment(sources: Mapping[str, pd.DataFrame]) -> None:
+def _validate_source_alignment(
+    sources: Mapping[str, pd.DataFrame],
+) -> None:
     """Require all prepared sources to use the same target grid."""
     source_items = list(sources.items())
 
@@ -32,7 +35,9 @@ def _validate_source_alignment(sources: Mapping[str, pd.DataFrame]) -> None:
 
 
 def combine_sources(
-    sources: Mapping[str, pd.DataFrame], *, frequency: pd.Timedelta
+    sources: Mapping[str, pd.DataFrame],
+    *,
+    grid: TimeGrid,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Combine prepared time-series sources in mapping order.
 
@@ -43,7 +48,7 @@ def combine_sources(
         sources: Prepared canonical time-series frames keyed by source name.
             Mapping insertion order defines source priority from highest to
             lowest.
-        frequency: pd.Timedelta of time series frequency.
+        grid: Temporal grid against which source timestamps are validated.
 
     Returns:
         Combined data, data-source provenance, and cleaning-method
@@ -56,10 +61,15 @@ def combine_sources(
             time-series contract.
     """
     if not sources:
-        raise ValueError("At least one time-series source must be supplied.")
+        raise ValueError(
+            "At least one time-series source must be supplied."
+        )
 
     validated_sources = {
-        name: validate_time_series(data, frequency=frequency)
+        name: validate_time_series(
+            data,
+            grid=grid,
+        )
         for name, data in sources.items()
     }
 
@@ -71,55 +81,87 @@ def combine_sources(
     combined = validated_sources[first_source].copy()
 
     data_source = pd.DataFrame(
-        pd.NA, index=combined.index, columns=combined.columns, dtype="string"
+        pd.NA,
+        index=combined.index,
+        columns=combined.columns,
+        dtype="string",
     )
 
     cleaning_method = pd.DataFrame(
-        pd.NA, index=combined.index, columns=combined.columns, dtype="string"
+        pd.NA,
+        index=combined.index,
+        columns=combined.columns,
+        dtype="string",
     )
 
     first_source_values = combined.notna()
 
-    data_source = data_source.mask(first_source_values, first_source)
+    data_source = data_source.mask(
+        first_source_values,
+        first_source,
+    )
 
     cleaning_method = cleaning_method.mask(
-        first_source_values, f"observed_{first_source}"
+        first_source_values,
+        f"observed_{first_source}",
     )
 
     for source_name in source_names[1:]:
         candidate = validated_sources[source_name]
 
-        newly_supplied = combined.isna() & candidate.notna()
+        newly_supplied = (
+            combined.isna()
+            & candidate.notna()
+        )
 
         combined = combined.combine_first(candidate)
 
-        data_source = data_source.mask(newly_supplied, source_name)
-
-        cleaning_method = cleaning_method.mask(
-            newly_supplied, f"observed_{source_name}"
+        data_source = data_source.mask(
+            newly_supplied,
+            source_name,
         )
 
-    combined = validate_time_series(combined, frequency=frequency)
+        cleaning_method = cleaning_method.mask(
+            newly_supplied,
+            f"observed_{source_name}",
+        )
 
-    data_source = validate_data_source(data_source, data=combined)
+    combined = validate_time_series(
+        combined,
+        grid=grid,
+    )
 
-    cleaning_method = validate_cleaning_method(cleaning_method, data=combined)
+    data_source = validate_data_source(
+        data_source,
+        data=combined,
+    )
 
-    return (combined, data_source, cleaning_method)
+    cleaning_method = validate_cleaning_method(
+        cleaning_method,
+        data=combined,
+    )
+
+    return (
+        combined,
+        data_source,
+        cleaning_method,
+    )
 
 
 def combine_auxiliary_sources(
-    datas: Mapping[str, pd.DataFrame], *, frequency: pd.Timedelta
+    datas: Mapping[str, pd.DataFrame],
+    *,
+    grid: TimeGrid,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Combine available auxiliary sources in mapping order.
 
-    Earlier sources have higher priority. context coverage may differ
+    Earlier sources have higher priority. Context coverage may differ
     between auxiliary sources.
 
     Args:
         datas: Available prepared auxiliary time-series data keyed by source
             name. Mapping insertion order defines source priority.
-        frequency: pd.Timedelta of time series frequency.
+        grid: Temporal grid against which source timestamps are validated.
 
     Returns:
         Combined auxiliary data, source provenance, and cleaning-method
@@ -128,15 +170,26 @@ def combine_auxiliary_sources(
     if not datas:
         empty = pd.DataFrame()
 
-        return (empty, empty.copy(), empty.copy())
+        return (
+            empty,
+            empty.copy(),
+            empty.copy(),
+        )
 
     validated_datas = {
-        name: validate_time_series(data, frequency=frequency)
+        name: validate_time_series(
+            data,
+            grid=grid,
+        )
         for name, data in datas.items()
     }
 
     columns = sorted(
-        {column for data in validated_datas.values() for column in data.columns}
+        {
+            column
+            for data in validated_datas.values()
+            for column in data.columns
+        }
     )
 
     aligned = {
@@ -144,4 +197,7 @@ def combine_auxiliary_sources(
         for source, data in validated_datas.items()
     }
 
-    return combine_sources(aligned, frequency=frequency)
+    return combine_sources(
+        aligned,
+        grid=grid,
+    )

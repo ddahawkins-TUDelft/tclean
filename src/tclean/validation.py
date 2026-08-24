@@ -17,11 +17,7 @@ from tclean._temporal import normalize_temporal_range
 from tclean.time_grid import TimeGrid
 
 
-def validate_time_series(
-    data: pd.DataFrame,
-    *,
-    grid: TimeGrid,
-) -> pd.DataFrame:
+def validate_time_series(data: pd.DataFrame, *, grid: TimeGrid) -> pd.DataFrame:
     """Validate canonical time-series data.
 
     Args:
@@ -39,10 +35,7 @@ def validate_time_series(
     """
     validated = TIME_SERIES_SCHEMA.validate(data, lazy=True)
 
-    index = _require_datetime_index(
-        validated.index,
-        field="Time-series index",
-    )
+    index = _require_datetime_index(validated.index, field="Time-series index")
 
     grid.validate_complete_index(index)
 
@@ -50,8 +43,7 @@ def validate_time_series(
 
 
 def validate_temporal_range(
-    start: object,
-    end: object,
+    start: object, end: object
 ) -> tuple[pd.Timestamp, pd.Timestamp]:
     """Validate and normalize a temporal range.
 
@@ -62,10 +54,7 @@ def validate_temporal_range(
     Returns:
         Validated UTC start and end timestamps.
     """
-    return normalize_temporal_range(
-        start=start,
-        end=end,
-    )
+    return normalize_temporal_range(start=start, end=end)
 
 
 def infer_regular_timestep(index: pd.Index) -> pd.Timedelta:
@@ -81,9 +70,7 @@ def infer_regular_timestep(index: pd.Index) -> pd.Timedelta:
 
 
 def validate_timestamp_index(
-    index: pd.DatetimeIndex,
-    *,
-    grid: TimeGrid,
+    index: pd.DatetimeIndex, *, grid: TimeGrid
 ) -> pd.DatetimeIndex:
     """Validate a canonical regular timestamp index.
 
@@ -104,10 +91,7 @@ def validate_timestamp_index(
     frame = pd.DataFrame(index=index)
     validated = TIMESTAMP_INDEX_SCHEMA.validate(frame, lazy=True)
 
-    validated_index = _require_datetime_index(
-        validated.index,
-        field="Timestamp index",
-    )
+    validated_index = _require_datetime_index(validated.index, field="Timestamp index")
 
     grid.validate_complete_index(validated_index)
 
@@ -115,9 +99,7 @@ def validate_timestamp_index(
 
 
 def validate_source_periods(
-    source_periods: pd.DataFrame,
-    *,
-    grid: TimeGrid,
+    source_periods: pd.DataFrame, *, grid: TimeGrid
 ) -> pd.DataFrame:
     """Validate and normalize source-period definitions.
 
@@ -135,23 +117,15 @@ def validate_source_periods(
             violate the T-Clean source-period contract.
         ValueError: If period boundaries do not align with the configured grid.
     """
-    validated = SOURCE_PERIODS_SCHEMA.validate(
-        source_periods,
-        lazy=True,
-    )
+    validated = SOURCE_PERIODS_SCHEMA.validate(source_periods, lazy=True)
 
-    _validate_periods_against_grid(
-        validated,
-        grid=grid,
-    )
+    _validate_periods_against_grid(validated, grid=grid)
 
     return validated
 
 
 def validate_provenance(
-    provenance: pd.DataFrame,
-    *,
-    data: pd.DataFrame,
+    provenance: pd.DataFrame, *, data: pd.DataFrame
 ) -> pd.DataFrame:
     """Validate and normalize cleaning-method provenance data.
 
@@ -167,52 +141,33 @@ def validate_provenance(
             provenance schema.
         ValueError: If provenance index or columns do not exactly match data.
     """
-    validated = PROVENANCE_SCHEMA.validate(
-        provenance,
-        lazy=True,
-    )
+    validated = PROVENANCE_SCHEMA.validate(provenance, lazy=True)
 
     if not validated.index.equals(data.index):
-        raise ValueError(
-            "Cleaning-method index must exactly match data index."
-        )
+        raise ValueError("Cleaning-method index must exactly match data index.")
 
     if not validated.columns.equals(data.columns):
-        raise ValueError(
-            "Cleaning-method columns must exactly match data columns."
-        )
+        raise ValueError("Cleaning-method columns must exactly match data columns.")
 
     return validated
 
 
 def validate_cleaning_method(
-    cleaning_method: pd.DataFrame,
-    *,
-    data: pd.DataFrame,
+    cleaning_method: pd.DataFrame, *, data: pd.DataFrame
 ) -> pd.DataFrame:
     """Validate cleaning-method provenance aligned with values."""
-    return validate_provenance(
-        cleaning_method,
-        data=data,
-    )
+    return validate_provenance(cleaning_method, data=data)
 
 
 def validate_data_source(
-    data_source: pd.DataFrame,
-    *,
-    data: pd.DataFrame,
+    data_source: pd.DataFrame, *, data: pd.DataFrame
 ) -> pd.DataFrame:
     """Validate data-source provenance aligned with values."""
-    return validate_provenance(
-        data_source,
-        data=data,
-    )
+    return validate_provenance(data_source, data=data)
 
 
 def validate_advanced_fill_rules(
-    rules: pd.DataFrame,
-    *,
-    grid: TimeGrid,
+    rules: pd.DataFrame, *, grid: TimeGrid
 ) -> pd.DataFrame:
     """Validate and normalize advanced-fill rule definitions.
 
@@ -229,23 +184,15 @@ def validate_advanced_fill_rules(
             T-Clean advanced-fill contract.
         ValueError: If rule periods do not align with the configured grid.
     """
-    validated = ADVANCED_FILL_RULES_SCHEMA.validate(
-        rules,
-        lazy=True,
-    )
+    validated = ADVANCED_FILL_RULES_SCHEMA.validate(rules, lazy=True)
 
-    _validate_periods_against_grid(
-        validated,
-        grid=grid,
-    )
+    _validate_periods_against_grid(validated, grid=grid)
 
     return validated
 
 
 def validate_auxiliary_requirements(
-    requirements: pd.DataFrame,
-    *,
-    grid: TimeGrid,
+    requirements: pd.DataFrame, *, grid: TimeGrid
 ) -> pd.DataFrame:
     """Validate and normalize auxiliary data requirements.
 
@@ -261,22 +208,14 @@ def validate_auxiliary_requirements(
             T-Clean auxiliary-requirements contract.
         ValueError: If requirement periods do not align with the configured grid.
     """
-    validated = AUXILIARY_REQUIREMENTS_SCHEMA.validate(
-        requirements,
-        lazy=True,
-    )
+    validated = AUXILIARY_REQUIREMENTS_SCHEMA.validate(requirements, lazy=True)
 
-    _validate_periods_against_grid(
-        validated,
-        grid=grid,
-    )
+    _validate_periods_against_grid(validated, grid=grid)
 
     return validated
 
 
-def validate_source_capabilities(
-    capabilities: pd.DataFrame,
-) -> pd.DataFrame:
+def validate_source_capabilities(capabilities: pd.DataFrame) -> pd.DataFrame:
     """Validate source-context capability definitions.
 
     Args:
@@ -290,16 +229,11 @@ def validate_source_capabilities(
         pandera.errors.SchemaErrors: If the capabilities violate the
             T-Clean source-capability contract.
     """
-    return SOURCE_CAPABILITIES_SCHEMA.validate(
-        capabilities,
-        lazy=True,
-    )
+    return SOURCE_CAPABILITIES_SCHEMA.validate(capabilities, lazy=True)
 
 
 def validate_auxiliary_source_requests(
-    requests: pd.DataFrame,
-    *,
-    grid: TimeGrid,
+    requests: pd.DataFrame, *, grid: TimeGrid
 ) -> pd.DataFrame:
     """Validate and normalize auxiliary source requests.
 
@@ -315,24 +249,14 @@ def validate_auxiliary_source_requests(
             T-Clean auxiliary-source-request contract.
         ValueError: If request periods do not align with the configured grid.
     """
-    validated = AUXILIARY_SOURCE_REQUESTS_SCHEMA.validate(
-        requests,
-        lazy=True,
-    )
+    validated = AUXILIARY_SOURCE_REQUESTS_SCHEMA.validate(requests, lazy=True)
 
-    _validate_periods_against_grid(
-        validated,
-        grid=grid,
-    )
+    _validate_periods_against_grid(validated, grid=grid)
 
     return validated
 
 
-def validate_advanced_source(
-    source: pd.Series,
-    *,
-    grid: TimeGrid,
-) -> pd.Series:
+def validate_advanced_source(source: pd.Series, *, grid: TimeGrid) -> pd.Series:
     """Validate and normalize an advanced time-series source.
 
     Args:
@@ -347,42 +271,22 @@ def validate_advanced_source(
             T-Clean advanced-source contract.
         ValueError: If source timestamps do not lie on the configured grid.
     """
-    validated = ADVANCED_SOURCE_SCHEMA.validate(
-        source,
-        lazy=True,
-    )
+    validated = ADVANCED_SOURCE_SCHEMA.validate(source, lazy=True)
 
-    index = _require_datetime_index(
-        validated.index,
-        field="Advanced source index",
-    )
+    index = _require_datetime_index(validated.index, field="Advanced source index")
 
     grid.validate_sparse_index(index)
 
     return validated.astype(float)
 
 
-def _validate_periods_against_grid(
-    periods: pd.DataFrame,
-    *,
-    grid: TimeGrid,
-) -> None:
+def _validate_periods_against_grid(periods: pd.DataFrame, *, grid: TimeGrid) -> None:
     """Validate period boundaries against a configured time grid."""
-    for start, end in periods[["start", "end"]].itertuples(
-        index=False,
-        name=None,
-    ):
-        grid.validate_period(
-            start=pd.Timestamp(start),
-            end=pd.Timestamp(end),
-        )
+    for start, end in periods[["start", "end"]].itertuples(index=False, name=None):
+        grid.validate_period(start=pd.Timestamp(start), end=pd.Timestamp(end))
 
 
-def _require_datetime_index(
-    index: pd.Index,
-    *,
-    field: str,
-) -> pd.DatetimeIndex:
+def _require_datetime_index(index: pd.Index, *, field: str) -> pd.DatetimeIndex:
     """Narrow an already validated index to a DatetimeIndex.
 
     Args:
@@ -396,8 +300,6 @@ def _require_datetime_index(
         TypeError: If the validated index is not a DatetimeIndex.
     """
     if not isinstance(index, pd.DatetimeIndex):
-        raise TypeError(
-            f"{field} must be a pandas DatetimeIndex."
-        )
+        raise TypeError(f"{field} must be a pandas DatetimeIndex.")
 
     return index

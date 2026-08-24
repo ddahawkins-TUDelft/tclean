@@ -202,21 +202,14 @@ class TimeGrid:
         return data.loc[(data.index >= self.start) & (data.index < self.end)]
 
     def _validate_index(
-        self,
-        index: pd.DatetimeIndex,
-        *,
-        require_complete: bool,
+        self, index: pd.DatetimeIndex, *, require_complete: bool
     ) -> None:
         """Validate timestamp alignment and spacing against the grid."""
         if not isinstance(index, pd.DatetimeIndex):
-            raise TypeError(
-                "Time-series index must be a pandas DatetimeIndex."
-            )
+            raise TypeError("Time-series index must be a pandas DatetimeIndex.")
 
         if not index.is_monotonic_increasing:
-            raise ValueError(
-                "Timestamps must be sorted in ascending order."
-            )
+            raise ValueError("Timestamps must be sorted in ascending order.")
 
         if len(index) == 0:
             return
@@ -234,9 +227,7 @@ class TimeGrid:
                     )
 
             else:
-                valid = (
-                    differences % self.frequency
-                ).eq(pd.Timedelta(0)).all()
+                valid = (differences % self.frequency).eq(pd.Timedelta(0)).all()
 
                 if not valid:
                     raise ValueError(
@@ -246,9 +237,7 @@ class TimeGrid:
                     )
 
         misaligned = [
-            timestamp
-            for timestamp in index
-            if not self.is_aligned(timestamp)
+            timestamp for timestamp in index if not self.is_aligned(timestamp)
         ]
 
         if misaligned:

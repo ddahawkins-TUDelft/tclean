@@ -14,11 +14,7 @@ from tclean.validation import (
     validate_time_series,
 )
 
-test_grid = TimeGrid(
-    start = "2026-01-01 00:00",
-    end = "2026-12-01 00:00",
-    frequency="1h"
-)
+test_grid = TimeGrid(start="2026-01-01 00:00", end="2026-12-01 00:00", frequency="1h")
 
 
 def test_validate_time_series_accepts_hourly_numeric_dataframe():
@@ -412,7 +408,14 @@ def test_validate_advanced_source_rejects_incompatible_frequency():
     source = pd.Series([10.0, 20.0], index=index)
 
     with pytest.raises(ValueError, match="integer multiples"):
-        validate_advanced_source(source, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="30min"))
+        validate_advanced_source(
+            source,
+            grid=TimeGrid(
+                start="2026-01-01T00:00:00Z",
+                end="2026-12-01T01:00:00Z",
+                frequency="30min",
+            ),
+        )
 
 
 def test_validate_advanced_source_accepts_sparse_frequency_aligned_data():
@@ -424,7 +427,12 @@ def test_validate_advanced_source_accepts_sparse_frequency_aligned_data():
 
     source = pd.Series([10.0, 20.0, 30.0], index=index)
 
-    result = validate_advanced_source(source, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="30min"))
+    result = validate_advanced_source(
+        source,
+        grid=TimeGrid(
+            start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="30min"
+        ),
+    )
 
     assert result.tolist() == [10.0, 20.0, 30.0]
 
@@ -461,7 +469,12 @@ def test_validate_time_series_accepts_half_hourly_frequency():
 
     data = pd.DataFrame({"A": [1.0, 2.0, 3.0, 4.0]}, index=index)
 
-    result = validate_time_series(data, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T01:00:00Z", frequency="30min"))
+    result = validate_time_series(
+        data,
+        grid=TimeGrid(
+            start="2026-01-01T00:00:00Z", end="2026-12-01T01:00:00Z", frequency="30min"
+        ),
+    )
 
     pd.testing.assert_index_equal(result.index, data.index, exact=False)
 
@@ -476,7 +489,12 @@ def test_validate_time_series_accepts_two_hour_frequency():
 
     data = pd.DataFrame({"A": [1.0, 2.0, 3.0]}, index=index)
 
-    validate_time_series(data, grid=TimeGrid(start="2026-01-01T00:00:00Z", end = "2026-12-01T00:00:00Z", frequency="2h"))
+    validate_time_series(
+        data,
+        grid=TimeGrid(
+            start="2026-01-01T00:00:00Z", end="2026-12-01T00:00:00Z", frequency="2h"
+        ),
+    )
 
 
 def test_validate_time_series_allows_shifted_regular_grid():
@@ -487,4 +505,9 @@ def test_validate_time_series_allows_shifted_regular_grid():
 
     data = pd.DataFrame({"A": [1.0, 2.0, 3.0]}, index=index)
 
-    validate_time_series(data, grid=TimeGrid(start="2026-01-01T00:30:00Z", end = "2026-12-01T01:30:00Z", frequency="1h"))
+    validate_time_series(
+        data,
+        grid=TimeGrid(
+            start="2026-01-01T00:30:00Z", end="2026-12-01T01:30:00Z", frequency="1h"
+        ),
+    )

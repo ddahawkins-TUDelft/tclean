@@ -7,15 +7,12 @@ from tclean.basic.rule_validation import validate_basic_rule, validate_basic_rul
 from tclean.time_grid import TimeGrid
 
 
-def _grid(
-    frequency: str = "1h",
-) -> TimeGrid:
+def _grid(frequency: str = "1h") -> TimeGrid:
     """Return a test grid with the requested frequency."""
     return TimeGrid(
-        start="2026-01-01T00:00:00Z",
-        end="2026-01-03T00:00:00Z",
-        frequency=frequency,
+        start="2026-01-01T00:00:00Z", end="2026-01-03T00:00:00Z", frequency=frequency
     )
+
 
 def test_validate_linear_interpolation_normalizes_max_gap():
     """Normalize the interpolation maximum gap to a timedelta."""
@@ -239,14 +236,8 @@ def test_basic_rule_rejects_numeric_duration_string_without_unit():
         "max_gap": "3600000000000",
     }
 
-    with pytest.raises(
-        ValueError,
-        match="explicit duration unit",
-    ):
-        validate_basic_rule(
-            rule,
-            grid=_grid(),
-        )
+    with pytest.raises(ValueError, match="explicit duration unit"):
+        validate_basic_rule(rule, grid=_grid())
 
 
 def test_copy_periods_accepts_negative_source_offset():
@@ -259,9 +250,6 @@ def test_copy_periods_accepts_negative_source_offset():
         "require_complete_source": True,
     }
 
-    result = validate_basic_rule(
-        rule,
-        grid=_grid(),
-    )
+    result = validate_basic_rule(rule, grid=_grid())
 
     assert result["source_offset"] == pd.Timedelta("-7D")

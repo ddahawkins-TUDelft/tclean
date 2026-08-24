@@ -18,10 +18,7 @@ from tclean.basic.methods.linear_interpolation import (
 from tclean.basic.methods.linear_interpolation import apply_linear_interpolation
 from tclean.basic.rule_validation import validate_basic_rules
 from tclean.time_grid import TimeGrid
-from tclean.validation import (
-    validate_cleaning_method,
-    validate_time_series,
-)
+from tclean.validation import validate_cleaning_method, validate_time_series
 
 logger = logging.getLogger(__name__)
 
@@ -50,20 +47,11 @@ def fill_basic_gaps(
         Data after applying the configured rules and the corresponding
         cleaning-method provenance.
     """
-    data = validate_time_series(
-        data,
-        grid=grid,
-    )
+    data = validate_time_series(data, grid=grid)
 
-    cleaning_method = validate_cleaning_method(
-        cleaning_method,
-        data=data,
-    )
+    cleaning_method = validate_cleaning_method(cleaning_method, data=data)
 
-    rules = validate_basic_rules(
-        rules,
-        grid=grid,
-    )
+    rules = validate_basic_rules(rules, grid=grid)
 
     filled = data.copy()
     cleaning_method = cleaning_method.copy()
@@ -73,10 +61,7 @@ def fill_basic_gaps(
         cleaning_method = cleaning_method.fillna("missing")
         return filled, cleaning_method
 
-    original_gap_duration = calculate_missing_run_durations(
-        data,
-        grid=grid,
-    )
+    original_gap_duration = calculate_missing_run_durations(data, grid=grid)
 
     for rule in rules:
         method = str(rule["method"])
@@ -107,37 +92,23 @@ def fill_basic_gaps(
             )
 
         else:
-            raise ValueError(
-                f"Unsupported gap-filling method: {method!r}"
-            )
+            raise ValueError(f"Unsupported gap-filling method: {method!r}")
 
-        cleaning_method = cleaning_method.mask(
-            newly_filled,
-            rule_name,
-        )
+        cleaning_method = cleaning_method.mask(newly_filled, rule_name)
 
-        _log_rule_results(
-            rule_name=rule_name,
-            method=method,
-            newly_filled=newly_filled,
-        )
+        _log_rule_results(rule_name=rule_name, method=method, newly_filled=newly_filled)
 
     cleaning_method = cleaning_method.fillna("missing")
 
     unresolved = int(filled.isna().to_numpy().sum())
 
-    logger.info(
-        "Gap filling completed with %s unresolved values.",
-        unresolved,
-    )
+    logger.info("Gap filling completed with %s unresolved values.", unresolved)
 
     return filled, cleaning_method
 
 
 def calculate_missing_run_durations(
-    data: pd.DataFrame,
-    *,
-    grid: TimeGrid,
+    data: pd.DataFrame, *, grid: TimeGrid
 ) -> pd.DataFrame:
     """Return the original duration of each contiguous missing run.
 
@@ -150,46 +121,26 @@ def calculate_missing_run_durations(
     Returns:
         Per-cell durations of the original contiguous missing runs.
     """
-    data = validate_time_series(
-        data,
-        grid=grid,
-    )
+    data = validate_time_series(data, grid=grid)
 
-    durations = pd.DataFrame(
-        pd.Timedelta(0),
-        index=data.index,
-        columns=data.columns,
-    )
+    durations = pd.DataFrame(pd.Timedelta(0), index=data.index, columns=data.columns)
 
     for column in data.columns:
         missing = data[column].isna()
-        group_ids = missing.ne(
-            missing.shift(),
-        ).cumsum()
+        group_ids = missing.ne(missing.shift()).cumsum()
 
-        run_lengths = (
-            missing.groupby(group_ids)
-            .transform("sum")
-            .where(missing, 0)
-        )
+        run_lengths = missing.groupby(group_ids).transform("sum").where(missing, 0)
 
-        durations[column] = (
-            run_lengths * grid.frequency
-        )
+        durations[column] = run_lengths * grid.frequency
 
     return durations
 
 
 def _log_rule_results(
-    *,
-    rule_name: str,
-    method: str,
-    newly_filled: pd.DataFrame,
+    *, rule_name: str, method: str, newly_filled: pd.DataFrame
 ) -> None:
     """Log the number of values filled by one cleaning rule."""
-    total = int(
-        newly_filled.to_numpy().sum()
-    )
+    total = int(newly_filled.to_numpy().sum())
 
     logger.info(
         "Gap-filling rule '%s' using method '%s' filled %s values.",
@@ -203,8 +154,5 @@ def _log_rule_results(
 
         if count:
             logger.info(
-                "%s: %s values filled using rule '%s'.",
-                context,
-                count,
-                rule_name,
+                "%s: %s values filled using rule '%s'.", context, count, rule_name
             )
