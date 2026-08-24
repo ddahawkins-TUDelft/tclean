@@ -1,63 +1,99 @@
-"""Tests for advanced source validation."""
+"""Tests for timestamp-index and source-period validation."""
 
 import pandas as pd
 import pandera.errors
 import pytest
 
-from tclean.validation import validate_hourly_timestamp_index, validate_source_periods
+from tclean.validation import validate_source_periods, validate_timestamp_index
 
 
-def test_validate_hourly_timestamp_index_accepts_valid_index():
-    """Accept a canonical hourly UTC timestamp index."""
+def test_validate_timestamp_index_accepts_valid_index():
+    """Accept a canonical fixed-frequency UTC timestamp index."""
     index = pd.date_range(
-        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+        "2026-01-01 00:00", periods=3, freq="1h", tz="UTC", name="timestamp"
     )
 
-    result = validate_hourly_timestamp_index(index)
+    result = validate_timestamp_index(index, frequency=pd.Timedelta("1h"))
 
     pd.testing.assert_index_equal(result, index, exact=False)
 
 
-def test_validate_hourly_timestamp_index_converts_to_utc():
-    """Normalize timezone-aware hourly timestamps to UTC."""
+def test_validate_timestamp_index_accepts_half_hour_frequency():
+    """Accept timestamps spaced at the configured half-hour frequency."""
     index = pd.date_range(
-        "2026-01-01 01:00", periods=3, freq="h", tz="Europe/Amsterdam", name="timestamp"
+        "2026-01-01 00:00", periods=3, freq="30min", tz="UTC", name="timestamp"
     )
 
-    result = validate_hourly_timestamp_index(index)
+    result = validate_timestamp_index(index, frequency=pd.Timedelta("30min"))
+
+    pd.testing.assert_index_equal(result, index, exact=False)
+
+
+def test_validate_timestamp_index_accepts_shifted_grid():
+    """Accept a regular grid that is not aligned to the wall-clock hour."""
+    index = pd.date_range(
+        "2026-01-01 00:30", periods=3, freq="1h", tz="UTC", name="timestamp"
+    )
+
+    result = validate_timestamp_index(index, frequency=pd.Timedelta("1h"))
+
+    pd.testing.assert_index_equal(result, index, exact=False)
+
+
+def test_validate_timestamp_index_converts_to_utc():
+    """Normalize timezone-aware timestamps to UTC."""
+    index = pd.date_range(
+        "2026-01-01 01:00",
+        periods=3,
+        freq="1h",
+        tz="Europe/Amsterdam",
+        name="timestamp",
+    )
+
+    result = validate_timestamp_index(index, frequency=pd.Timedelta("1h"))
 
     assert str(result.tz) == "UTC"
     assert result[0] == pd.Timestamp("2026-01-01T00:00:00Z")
 
 
-def test_validate_hourly_timestamp_index_rejects_missing_hour():
-    """Reject an index containing a break in hourly coverage."""
+def test_validate_timestamp_index_rejects_missing_interval():
+    """Reject an index containing a break in complete coverage."""
     index = pd.DatetimeIndex(
         ["2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z", "2026-01-01T03:00:00Z"],
         name="timestamp",
     )
 
+    with pytest.raises(ValueError, match="exactly one configured interval apart"):
+        validate_timestamp_index(index, frequency=pd.Timedelta("1h"))
+
+
+def test_validate_timestamp_index_rejects_wrong_frequency():
+    """Reject an index whose spacing differs from the configured frequency."""
+    index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="30min", tz="UTC", name="timestamp"
+    )
+
+    with pytest.raises(ValueError, match="exactly one configured interval apart"):
+        validate_timestamp_index(index, frequency=pd.Timedelta("1h"))
+
+
+def test_validate_timestamp_index_rejects_unnamed_index():
+    """Reject an index without the canonical timestamp name."""
+    index = pd.date_range("2026-01-01 00:00", periods=3, freq="1h", tz="UTC")
+
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_hourly_timestamp_index(index)
+        validate_timestamp_index(index, frequency=pd.Timedelta("1h"))
 
 
-def test_validate_hourly_timestamp_index_rejects_unnamed_index():
-    """Reject an hourly index without the canonical timestamp name."""
-    index = pd.date_range("2026-01-01 00:00", periods=3, freq="h", tz="UTC")
-
-    with pytest.raises(pandera.errors.SchemaErrors):
-        validate_hourly_timestamp_index(index)
-
-
-def test_validate_hourly_timestamp_index_rejects_duplicates():
-    """Reject duplicate hourly timestamps."""
+def test_validate_timestamp_index_rejects_duplicates():
+    """Reject duplicate timestamps."""
     index = pd.DatetimeIndex(
         ["2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z", "2026-01-01T01:00:00Z"],
         name="timestamp",
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        validate_hourly_timestamp_index(index)
+        validate_timestamp_index(index, frequency=pd.Timedelta("1h"))
 
 
 def test_validate_source_periods_accepts_valid_sources():
@@ -93,6 +129,53 @@ def test_validate_source_periods_converts_offsets_to_utc():
 
     assert result.loc[0, "start"] == pd.Timestamp("2025-01-01T00:00:00Z")
     assert result.loc[0, "end"] == pd.Timestamp("2025-01-02T00:00:00Z")
+
+
+def test_validate_source_periods_accepts_half_hour_frequency():
+    """Accept periods spanning whole configured half-hour intervals."""
+    source_periods = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T00:15:00Z"],
+            "end": ["2025-01-01T01:45:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    result = validate_source_periods(source_periods, frequency=pd.Timedelta("30min"))
+
+    assert len(result) == 1
+
+
+def test_validate_source_periods_accepts_shifted_hourly_period():
+    """Accept hourly periods without requiring wall-clock-hour alignment."""
+    source_periods = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T00:30:00Z"],
+            "end": ["2025-01-01T03:30:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    result = validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
+
+    assert len(result) == 1
+
+
+def test_validate_source_periods_rejects_incompatible_duration():
+    """Reject periods not divisible by the configured frequency."""
+    source_periods = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T00:00:00Z"],
+            "end": ["2025-01-01T00:45:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="integer number"):
+        validate_source_periods(source_periods, frequency=pd.Timedelta("30min"))
 
 
 def test_validate_source_periods_rejects_missing_weight_column():
@@ -170,7 +253,7 @@ def test_validate_source_periods_rejects_non_numeric_weight():
 
 
 def test_validate_source_periods_rejects_reversed_period():
-    """Reject a source period whose end is not later than its start."""
+    """Reject a source period whose end is earlier than its start."""
     source_periods = pd.DataFrame(
         {
             "context": ["GBR"],
@@ -248,36 +331,6 @@ def test_validate_source_periods_rejects_missing_context():
 def test_validate_source_periods_rejects_empty_sources():
     """Reject an empty source-period configuration."""
     source_periods = pd.DataFrame(columns=["context", "start", "end", "weight"])
-
-    with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
-
-
-def test_validate_source_periods_rejects_subhourly_start():
-    """Reject source periods whose start is not aligned to a whole hour."""
-    source_periods = pd.DataFrame(
-        {
-            "context": ["GBR"],
-            "start": ["2025-01-01T00:30:00Z"],
-            "end": ["2026-01-01T00:00:00Z"],
-            "weight": [1.0],
-        }
-    )
-
-    with pytest.raises(pandera.errors.SchemaErrors):
-        validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))
-
-
-def test_validate_source_periods_rejects_subhourly_end():
-    """Reject source periods whose end is not aligned to a whole hour."""
-    source_periods = pd.DataFrame(
-        {
-            "context": ["GBR"],
-            "start": ["2025-01-01T00:00:00Z"],
-            "end": ["2026-01-01T00:30:00Z"],
-            "weight": [1.0],
-        }
-    )
 
     with pytest.raises(pandera.errors.SchemaErrors):
         validate_source_periods(source_periods, frequency=pd.Timedelta("1h"))

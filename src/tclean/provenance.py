@@ -58,15 +58,3 @@ def derive_cleaning_method_rank(
     cleaning_method_rank = cleaning_method.replace(ranks)
 
     return cleaning_method_rank.astype("int16")
-
-
-def combine_cleaning_rules(
-    *,
-    basic_rules: Sequence[Mapping[str, Any]],
-    advanced_rules: Sequence[Mapping[str, Any]] = (),
-) -> list[dict[str, Any]]:
-    """Combine basic and advanced cleaning rules in provenance order."""
-    return [
-        *(dict(rule) for rule in basic_rules),
-        *(dict(rule) for rule in advanced_rules),
-    ]
