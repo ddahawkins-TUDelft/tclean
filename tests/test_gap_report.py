@@ -3,6 +3,17 @@
 import pandas as pd
 
 from tclean.advanced.gap_report import build_gap_report
+from tclean.time_grid import TimeGrid
+
+
+def _grid(
+    frequency: str = "1h",
+) -> TimeGrid:
+    return TimeGrid(
+        start="2026-01-01T00:00:00Z",
+        end="2026-01-03T00:00:00Z",
+        frequency=frequency,
+    )
 
 EXPECTED_COLUMNS = [
     "context",
@@ -21,7 +32,7 @@ def test_build_gap_report_returns_empty_report_when_disabled():
     )
     data = pd.DataFrame({"ALB": [10.0, float("nan"), 12.0]}, index=index)
 
-    result = build_gap_report(data, enabled=False, frequency=pd.Timedelta("1h"))
+    result = build_gap_report(data, enabled=False, grid=_grid())
 
     assert result.empty
     assert result.columns.tolist() == EXPECTED_COLUMNS
@@ -34,7 +45,7 @@ def test_build_gap_report_returns_empty_report_without_gaps():
     )
     data = pd.DataFrame({"ALB": [10.0, 11.0, 12.0]}, index=index)
 
-    result = build_gap_report(data, enabled=True, frequency=pd.Timedelta("1h"))
+    result = build_gap_report(data, enabled=True, grid=_grid())
 
     assert result.empty
     assert result.columns.tolist() == EXPECTED_COLUMNS
@@ -49,7 +60,7 @@ def test_build_gap_report_describes_internal_gap():
         {"ALB": [10.0, float("nan"), float("nan"), 13.0, 14.0]}, index=index
     )
 
-    result = build_gap_report(data, enabled=True, frequency=pd.Timedelta("1h"))
+    result = build_gap_report(data, enabled=True, grid=_grid())
 
     assert len(result) == 1
 
@@ -70,7 +81,7 @@ def test_build_gap_report_marks_start_boundary_gap():
     )
     data = pd.DataFrame({"ALB": [float("nan"), float("nan"), 12.0, 13.0]}, index=index)
 
-    result = build_gap_report(data, enabled=True, frequency=pd.Timedelta("1h"))
+    result = build_gap_report(data, enabled=True, grid=_grid())
 
     row = result.iloc[0]
 
@@ -85,7 +96,7 @@ def test_build_gap_report_marks_end_boundary_gap():
     )
     data = pd.DataFrame({"ALB": [10.0, 11.0, float("nan"), float("nan")]}, index=index)
 
-    result = build_gap_report(data, enabled=True, frequency=pd.Timedelta("1h"))
+    result = build_gap_report(data, enabled=True, grid=_grid())
 
     row = result.iloc[0]
 
@@ -102,7 +113,7 @@ def test_build_gap_report_separates_multiple_gaps():
         {"ALB": [10.0, float("nan"), 12.0, 13.0, float("nan"), 15.0]}, index=index
     )
 
-    result = build_gap_report(data, enabled=True, frequency=pd.Timedelta("1h"))
+    result = build_gap_report(data, enabled=True, grid=_grid())
 
     assert len(result) == 2
     assert result["gap_start"].tolist() == [index[1], index[4]]
@@ -121,6 +132,6 @@ def test_build_gap_report_sorts_by_context_and_gap_start():
         index=index,
     )
 
-    result = build_gap_report(data, enabled=True, frequency=pd.Timedelta("1h"))
+    result = build_gap_report(data, enabled=True, grid=_grid())
 
     assert result["context"].tolist() == ["ALB", "GBR"]
