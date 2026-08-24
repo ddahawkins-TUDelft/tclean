@@ -6,7 +6,7 @@ import pytest
 from tclean import TCleanConfig
 from tclean.pipeline import clean
 
-config = TCleanConfig(frequency="1h")
+config = TCleanConfig(start="2026-01-01 00:00", end="2026-12-01 00:00", frequency="1h")
 
 
 def _index() -> pd.DatetimeIndex:
@@ -195,9 +195,7 @@ def test_clean_labels_unresolved_values_as_missing():
 
     source = pd.DataFrame({"GBR": [100.0, pd.NA, 120.0]}, index=index, dtype="Float64")
 
-    _, _, cleaning_method = clean(
-        {"primary": source}, config=TCleanConfig(frequency="1h")
-    )
+    _, _, cleaning_method = clean({"primary": source}, config=config)
 
     assert cleaning_method.loc[index[0], "GBR"] == "observed_primary"
     assert cleaning_method.loc[index[1], "GBR"] == "missing"

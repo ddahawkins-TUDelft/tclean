@@ -1,37 +1,10 @@
 """Global configuration for T-Clean."""
 
-import re
 from dataclasses import dataclass
 
 import pandas as pd
 
-
-def _normalize_frequency(value: str | pd.Timedelta) -> pd.Timedelta:
-    """Validate and normalize a fixed time-series frequency."""
-    if pd.isna(value):
-        raise ValueError("'frequency' must not be missing.")
-
-    if isinstance(value, str):
-        value = value.strip()
-
-        if not value:
-            raise ValueError("'frequency' must not be empty.")
-
-        if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)", value):
-            raise ValueError("'frequency' must include an explicit duration unit.")
-
-    elif not isinstance(value, pd.Timedelta):
-        raise TypeError("'frequency' must be a duration string or pandas Timedelta.")
-
-    try:
-        frequency = pd.Timedelta(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError("'frequency' must be a valid fixed duration.") from exc
-
-    if frequency <= pd.Timedelta(0):
-        raise ValueError("'frequency' must be greater than zero.")
-
-    return frequency
+from tclean.time_grid import TimeGrid
 
 
 @dataclass(frozen=True, init=False)
@@ -39,16 +12,34 @@ class TCleanConfig:
     """Global configuration for T-Clean.
 
     Attributes:
-        frequency: Fixed time interval between consecutive observations.
+        grid: Fixed-frequency temporal grid and requested output window.
     """
 
-    frequency: pd.Timedelta
+    grid: TimeGrid
 
-    def __init__(self, *, frequency: str | pd.Timedelta) -> None:
-        """Create a T-Clean configuration.
+    def __init__(
+        self,
+        *,
+        frequency: str | pd.Timedelta,
+        start: str | pd.Timestamp,
+        end: str | pd.Timestamp,
+    ) -> None:
+        """Create a T-Clean configuration."""
+        grid = TimeGrid(start=start, end=end, frequency=frequency)
 
-        Args:
-            frequency: Fixed interval between consecutive observations,
-                such as ``"30min"``, ``"1h"``, or ``"2h"``.
-        """
-        object.__setattr__(self, "frequency", _normalize_frequency(frequency))
+        object.__setattr__(self, "grid", grid)
+
+    @property
+    def start(self) -> pd.Timestamp:
+        """Inclusive start of the requested output period."""
+        return self.grid.start
+
+    @property
+    def end(self) -> pd.Timestamp:
+        """Exclusive end of the requested output period."""
+        return self.grid.end
+
+    @property
+    def frequency(self) -> pd.Timedelta:
+        """Fixed interval between consecutive observations."""
+        return self.grid.frequency
