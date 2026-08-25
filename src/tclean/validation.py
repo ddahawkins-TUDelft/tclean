@@ -13,7 +13,6 @@ from tclean._schemas import (
     TIME_SERIES_SCHEMA,
     TIMESTAMP_INDEX_SCHEMA,
 )
-from tclean._temporal import normalize_temporal_range
 from tclean.time_grid import TimeGrid
 
 
@@ -40,21 +39,6 @@ def validate_time_series(data: pd.DataFrame, *, grid: TimeGrid) -> pd.DataFrame:
     grid.validate_complete_index(index)
 
     return validated
-
-
-def validate_temporal_range(
-    start: object, end: object
-) -> tuple[pd.Timestamp, pd.Timestamp]:
-    """Validate and normalize a temporal range.
-
-    Args:
-        start: Start of the temporal range.
-        end: End of the temporal range.
-
-    Returns:
-        Validated UTC start and end timestamps.
-    """
-    return normalize_temporal_range(start=start, end=end)
 
 
 def validate_timestamp_index(
