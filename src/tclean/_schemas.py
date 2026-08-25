@@ -11,11 +11,6 @@ def _has_data_columns(data: pd.DataFrame) -> bool:
     return data.shape[1] > 0
 
 
-def _has_multiple_timestamps(data: pd.DataFrame) -> bool:
-    """Check that time series data contain enough timestamps to infer a timestep."""
-    return len(data.index) >= 2
-
-
 def _timestamps_are_sorted(data: pd.DataFrame) -> bool:
     """Check that timestamps are monotonically increasing."""
     return data.index.is_monotonic_increasing
@@ -53,10 +48,6 @@ TIME_SERIES_SCHEMA = pa.DataFrameSchema(
     checks=[
         pa.Check(
             _has_data_columns, error="Timeseries must contain at least one data column."
-        ),
-        pa.Check(
-            _has_multiple_timestamps,
-            error="Timeseries must contain at least two timestamps.",
         ),
         pa.Check(
             _timestamps_are_sorted,

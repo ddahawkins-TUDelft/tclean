@@ -80,13 +80,24 @@ def test_validate_time_series_rejects_no_value_columns():
         validate_time_series(data, grid=test_grid)
 
 
-def test_validate_time_series_rejects_single_timestamp():
-    """Reject data with fewer than two timestamps."""
+def test_validate_time_series_accepts_single_timestamp():
+    """Accept a single-period canonical time series."""
     index = pd.DatetimeIndex(["2026-01-01T00:00:00Z"], name="timestamp")
-    data = pd.DataFrame({"ALB": [100.0]}, index=index)
 
-    with pytest.raises(pandera.errors.SchemaErrors):
-        validate_time_series(data, grid=test_grid)
+    data = pd.DataFrame({"GBR": [100.0]}, index=index)
+
+    result = validate_time_series(
+        data,
+        grid=TimeGrid(
+            start="2026-01-01T00:00:00Z", end="2026-01-01T01:00:00Z", frequency="1h"
+        ),
+    )
+
+    pd.testing.assert_index_equal(result.index, data.index, exact=False)
+
+    pd.testing.assert_frame_equal(
+        result.reset_index(drop=True), data.reset_index(drop=True), check_dtype=False
+    )
 
 
 def test_validate_time_series_rejects_unsorted_timestamps():
