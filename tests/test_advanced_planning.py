@@ -11,12 +11,22 @@ from tclean.advanced.planning import (
     get_basic_cleaning_context,
     select_active_advanced_rules,
 )
+from tclean.time_grid import TimeGrid
 from tclean.validation import validate_source_capabilities
+
+
+def _grid(
+    frequency: str = "1h",
+    *,
+    start: str = "2026-01-01T00:00:00Z",
+    end: str = "2026-01-03T00:00:00Z",
+) -> TimeGrid:
+    return TimeGrid(start=start, end=end, frequency=frequency)
 
 
 def test_compile_auxiliary_requirements_returns_empty_for_no_sources():
     """Return an empty canonical requirements table when no sources exist."""
-    result = compile_auxiliary_requirements([], frequency=pd.Timedelta("1h"))
+    result = compile_auxiliary_requirements([], grid=_grid())
 
     assert result.empty
     assert result.columns.tolist() == ["context", "start", "end"]
@@ -42,9 +52,7 @@ def test_compile_auxiliary_requirements_preserves_distinct_periods():
         }
     )
 
-    result = compile_auxiliary_requirements(
-        [first, second], frequency=pd.Timedelta("1h")
-    )
+    result = compile_auxiliary_requirements([first, second], grid=_grid())
 
     assert len(result) == 2
 
@@ -69,9 +77,7 @@ def test_compile_auxiliary_requirements_merges_overlapping_periods():
         }
     )
 
-    result = compile_auxiliary_requirements(
-        [first, second], frequency=pd.Timedelta("1h")
-    )
+    result = compile_auxiliary_requirements([first, second], grid=_grid())
 
     assert len(result) == 1
     assert result.loc[0, "start"] == pd.Timestamp("2025-01-01T00:00:00Z")
@@ -98,9 +104,7 @@ def test_compile_auxiliary_requirements_merges_adjacent_periods():
         }
     )
 
-    result = compile_auxiliary_requirements(
-        [first, second], frequency=pd.Timedelta("1h")
-    )
+    result = compile_auxiliary_requirements([first, second], grid=_grid())
 
     assert len(result) == 1
     assert result.loc[0, "start"] == pd.Timestamp("2025-01-01T00:00:00Z")
@@ -118,7 +122,7 @@ def test_compile_auxiliary_requirements_keeps_contexts_separate():
         }
     )
 
-    result = compile_auxiliary_requirements([sources], frequency=pd.Timedelta("1h"))
+    result = compile_auxiliary_requirements([sources], grid=_grid())
 
     assert result["context"].tolist() == ["FRA", "GBR"]
 
@@ -134,7 +138,7 @@ def test_compile_auxiliary_requirements_deduplicates_periods():
         }
     )
 
-    result = compile_auxiliary_requirements([sources], frequency=pd.Timedelta("1h"))
+    result = compile_auxiliary_requirements([sources], grid=_grid())
 
     assert len(result) == 1
 
@@ -150,12 +154,12 @@ def test_compile_auxiliary_requirements_validates_source_periods():
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
-        compile_auxiliary_requirements([sources], frequency=pd.Timedelta("1h"))
+        compile_auxiliary_requirements([sources], grid=_grid())
 
 
 def test_get_basic_cleaning_context_returns_zero_without_rules():
     """Require no surrounding context when no basic rules are configured."""
-    left, right = get_basic_cleaning_context([], frequency=pd.Timedelta("1h"))
+    left, right = get_basic_cleaning_context([], grid=_grid())
 
     assert left == pd.Timedelta(0)
     assert right == pd.Timedelta(0)
@@ -165,7 +169,7 @@ def test_get_basic_cleaning_context_for_linear_interpolation():
     """Include gap-classification context for linear interpolation."""
     rules = [{"name": "linop", "method": "linear_interpolation", "max_gap": "3h"}]
 
-    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("1h"))
+    left, right = get_basic_cleaning_context(rules, grid=_grid())
 
     assert left == pd.Timedelta(hours=3)
     assert right == pd.Timedelta(hours=3)
@@ -183,7 +187,7 @@ def test_get_basic_cleaning_context_for_previous_period_copy():
         }
     ]
 
-    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("1h"))
+    left, right = get_basic_cleaning_context(rules, grid=_grid())
 
     assert left == pd.Timedelta(hours=24)
     assert right == pd.Timedelta(hours=2)
@@ -201,7 +205,7 @@ def test_get_basic_cleaning_context_for_following_period_copy():
         }
     ]
 
-    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("1h"))
+    left, right = get_basic_cleaning_context(rules, grid=_grid())
 
     assert left == pd.Timedelta(hours=2)
     assert right == pd.Timedelta(hours=24)
@@ -218,7 +222,7 @@ def test_get_basic_cleaning_context_for_average_periods():
         }
     ]
 
-    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("1h"))
+    left, right = get_basic_cleaning_context(rules, grid=_grid())
 
     assert left == pd.Timedelta(hours=24)
     assert right == pd.Timedelta(hours=24)
@@ -243,7 +247,7 @@ def test_get_basic_cleaning_context_accumulates_across_rules():
         },
     ]
 
-    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("1h"))
+    left, right = get_basic_cleaning_context(rules, grid=_grid())
 
     assert left == pd.Timedelta(hours=192)
     assert right == pd.Timedelta(hours=2)
@@ -254,7 +258,7 @@ def test_get_basic_cleaning_context_rejects_unknown_method():
     rules = [{"name": "fake", "method": "unknown", "max_gap": "2h"}]
 
     with pytest.raises(ValueError, match="Unsupported basic cleaning method"):
-        get_basic_cleaning_context(rules, frequency=pd.Timedelta("1h"))
+        get_basic_cleaning_context(rules, grid=_grid())
 
 
 def test_expand_auxiliary_requirements_adds_context():
@@ -277,9 +281,7 @@ def test_expand_auxiliary_requirements_adds_context():
         }
     ]
 
-    result = expand_auxiliary_requirements(
-        requirements, rules=rules, frequency=pd.Timedelta("1h")
-    )
+    result = expand_auxiliary_requirements(requirements, rules=rules, grid=_grid())
 
     assert result.loc[0, "start"] == pd.Timestamp("2025-01-09T00:00:00Z")
 
@@ -307,7 +309,7 @@ def test_expand_auxiliary_requirements_preserves_exact_period_when_disabled():
     ]
 
     result = expand_auxiliary_requirements(
-        requirements, rules=rules, enabled=False, frequency=pd.Timedelta("1h")
+        requirements, rules=rules, enabled=False, grid=_grid()
     )
 
     pd.testing.assert_frame_equal(result, requirements, check_dtype=False)
@@ -338,9 +340,7 @@ def test_expand_auxiliary_requirements_merges_after_expansion():
         }
     ]
 
-    result = expand_auxiliary_requirements(
-        requirements, rules=rules, frequency=pd.Timedelta("1h")
-    )
+    result = expand_auxiliary_requirements(requirements, rules=rules, grid=_grid())
 
     assert len(result) == 1
 
@@ -400,7 +400,7 @@ def test_build_auxiliary_source_requests_maps_explicit_capability():
     capabilities = pd.DataFrame({"source": ["neso"], "context": ["GBR"]})
 
     result = build_auxiliary_source_requests(
-        requirements, source_capabilities=capabilities, frequency=pd.Timedelta("1h")
+        requirements, source_capabilities=capabilities, grid=_grid()
     )
 
     assert list(result[["source", "context"]].itertuples(index=False, name=None)) == [
@@ -427,7 +427,7 @@ def test_build_auxiliary_source_requests_applies_wildcard_to_all_contexts():
     capabilities = pd.DataFrame({"source": ["entsoe"], "context": [None]})
 
     result = build_auxiliary_source_requests(
-        requirements, source_capabilities=capabilities, frequency=pd.Timedelta("1h")
+        requirements, source_capabilities=capabilities, grid=_grid()
     )
 
     assert list(result[["source", "context"]].itertuples(index=False, name=None)) == [
@@ -457,7 +457,7 @@ def test_build_auxiliary_source_requests_combines_wildcard_and_specific_sources(
     )
 
     result = build_auxiliary_source_requests(
-        requirements, source_capabilities=capabilities, frequency=pd.Timedelta("1h")
+        requirements, source_capabilities=capabilities, grid=_grid()
     )
 
     assert list(result[["source", "context"]].itertuples(index=False, name=None)) == [
@@ -481,7 +481,7 @@ def test_build_auxiliary_source_requests_rejects_uncovered_context():
 
     with pytest.raises(ValueError, match="No configured auxiliary source supports"):
         build_auxiliary_source_requests(
-            requirements, source_capabilities=capabilities, frequency=pd.Timedelta("1h")
+            requirements, source_capabilities=capabilities, grid=_grid()
         )
 
 
@@ -498,7 +498,7 @@ def test_build_auxiliary_source_requests_returns_empty_without_requirements():
     capabilities = pd.DataFrame({"source": ["entsoe"], "context": [None]})
 
     result = build_auxiliary_source_requests(
-        requirements, source_capabilities=capabilities, frequency=pd.Timedelta("1h")
+        requirements, source_capabilities=capabilities, grid=_grid()
     )
 
     assert result.empty
@@ -531,9 +531,7 @@ def test_select_active_advanced_rules_keeps_intersecting_rules():
     result = select_active_advanced_rules(
         rules,
         target_contexts=["GBR"],
-        target_start="2026-01-01T00:00:00Z",
-        target_end="2026-02-01T00:00:00Z",
-        frequency=pd.Timedelta("1h"),
+        grid=_grid(start="2026-01-01T00:00:00Z", end="2026-02-01T00:00:00Z"),
     )
 
     assert result["rule_name"].tolist() == ["inside"]
@@ -556,9 +554,7 @@ def test_select_active_advanced_rules_accepts_partial_period_overlap():
     result = select_active_advanced_rules(
         rules,
         target_contexts=["GBR"],
-        target_start="2026-01-01T00:00:00Z",
-        target_end="2026-02-01T00:00:00Z",
-        frequency=pd.Timedelta("1h"),
+        grid=_grid(start="2026-01-01T00:00:00Z", end="2026-02-01T00:00:00Z"),
     )
 
     assert result["rule_name"].tolist() == ["partial"]
@@ -581,9 +577,7 @@ def test_select_active_advanced_rules_excludes_rule_ending_at_target_start():
     result = select_active_advanced_rules(
         rules,
         target_contexts=["GBR"],
-        target_start="2026-01-01T00:00:00Z",
-        target_end="2026-02-01T00:00:00Z",
-        frequency=pd.Timedelta("1h"),
+        grid=_grid(start="2026-01-01T00:00:00Z", end="2026-02-01T00:00:00Z"),
     )
 
     assert result.empty
@@ -606,9 +600,7 @@ def test_select_active_advanced_rules_preserves_rule_order():
     result = select_active_advanced_rules(
         rules,
         target_contexts=["GBR"],
-        target_start="2026-01-01T00:00:00Z",
-        target_end="2026-02-01T00:00:00Z",
-        frequency=pd.Timedelta("1h"),
+        grid=_grid(start="2026-01-01T00:00:00Z", end="2026-02-01T00:00:00Z"),
     )
 
     assert result["rule_name"].tolist() == [
@@ -623,7 +615,7 @@ def test_basic_cleaning_context_uses_configured_frequency():
         {"name": "interpolate", "method": "linear_interpolation", "max_gap": "30min"}
     ]
 
-    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("30min"))
+    left, right = get_basic_cleaning_context(rules, grid=_grid("30min"))
 
     assert left == pd.Timedelta("30min")
     assert right == pd.Timedelta("30min")
@@ -633,7 +625,7 @@ def test_basic_cleaning_context_supports_two_hour_frequency():
     """Use a two-hour timestep for interpolation context."""
     rules = [{"name": "interpolate", "method": "linear_interpolation", "max_gap": "2h"}]
 
-    left, right = get_basic_cleaning_context(rules, frequency=pd.Timedelta("2h"))
+    left, right = get_basic_cleaning_context(rules, grid=_grid("2h"))
 
     assert left == pd.Timedelta("2h")
     assert right == pd.Timedelta("2h")

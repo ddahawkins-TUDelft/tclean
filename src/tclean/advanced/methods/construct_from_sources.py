@@ -2,6 +2,7 @@
 
 import pandas as pd
 
+from tclean.time_grid import TimeGrid
 from tclean.validation import (
     validate_source_periods,
     validate_time_series,
@@ -76,7 +77,7 @@ def _scale_to_reference_total(
             )
 
         source_values = source_data.loc[
-            (source_data.index >= source.start) & (source_data.index < source.end),
+            ((source_data.index >= source.start) & (source_data.index < source.end)),
             source.context,
         ]
 
@@ -95,6 +96,7 @@ def _scale_to_reference_total(
             )
 
         weighted_value += float(source_values.sum()) * source.weight
+
         total_weight += source.weight
 
     target_value = weighted_value / total_weight
@@ -114,21 +116,21 @@ def construct_from_sources(
     target_index: pd.DatetimeIndex,
     sources: pd.DataFrame,
     scaling_sources: pd.DataFrame | None = None,
-    frequency: pd.Timedelta,
+    grid: TimeGrid,
 ) -> pd.Series:
     """Construct a target profile from weighted source periods.
 
     Args:
-        source_data: Canonical source_data data.
+        source_data: Canonical supporting time-series data.
         target_index: Timestamps for the constructed profile.
         sources: Explicit weighted source-period definitions.
         scaling_sources: Optional explicit weighted reference periods
             whose mean value the constructed profile should match.
-        frequency: pd. Timestamp of time series frequency.
+        grid: Temporal grid against which all temporal inputs are
+            validated.
 
     Returns:
-        Constructed floating-point profile indexed by
-        ``target_index``.
+        Constructed floating-point profile indexed by ``target_index``.
 
     Raises:
         ValueError: If a source period does not match the target length,
@@ -137,14 +139,14 @@ def construct_from_sources(
         pandera.errors.SchemaErrors: If any input violates its
             T-Clean data contract.
     """
-    source_data = validate_time_series(source_data, frequency=frequency)
+    source_data = validate_time_series(source_data, grid=grid)
 
-    target_index = validate_timestamp_index(target_index, frequency=frequency)
+    target_index = validate_timestamp_index(target_index, grid=grid)
 
-    sources = validate_source_periods(sources, frequency=frequency)
+    sources = validate_source_periods(sources, grid=grid)
 
     if scaling_sources is not None:
-        scaling_sources = validate_source_periods(scaling_sources, frequency=frequency)
+        scaling_sources = validate_source_periods(scaling_sources, grid=grid)
 
     weighted_sources: list[pd.Series] = []
     weights: list[float] = []
@@ -181,6 +183,7 @@ def construct_from_sources(
         remapped = pd.Series(source_values.to_numpy(), index=target_index, dtype=float)
 
         weighted_sources.append(remapped * source.weight)
+
         weights.append(source.weight)
 
     weighted_sum = sum(weighted_sources[1:], weighted_sources[0].copy())

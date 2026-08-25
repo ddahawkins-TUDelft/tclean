@@ -4,6 +4,13 @@ import pandas as pd
 import pytest
 
 from tclean.advanced.apply import apply_advanced_rules
+from tclean.time_grid import TimeGrid
+
+
+def _grid(frequency: str = "1h") -> TimeGrid:
+    return TimeGrid(
+        start="2026-01-01T00:00:00Z", end="2026-01-03T00:00:00Z", frequency=frequency
+    )
 
 
 def _data() -> pd.DataFrame:
@@ -56,7 +63,7 @@ def test_apply_constructed_profile_fills_only_gaps():
         methods,
         rules=rules,
         advanced_sources={"constructed": profile},
-        frequency=pd.Timedelta("1h"),
+        grid=_grid(),
     )
 
     assert filled["GBR"].tolist() == [10.0, 110.0, 30.0, 130.0]
@@ -91,7 +98,7 @@ def test_apply_constructed_profile_overwrites_values():
         methods,
         rules=rules,
         advanced_sources={"constructed": profile},
-        frequency=pd.Timedelta("1h"),
+        grid=_grid(),
     )
 
     assert filled["GBR"].tolist() == [100.0, 110.0, 120.0, 130.0]
@@ -130,7 +137,7 @@ def test_apply_constructed_profile_requires_exact_index():
             methods,
             rules=rules,
             advanced_sources={"constructed": profile},
-            frequency=pd.Timedelta("1h"),
+            grid=_grid(),
         )
 
 
@@ -163,7 +170,7 @@ def test_apply_external_profile_uses_overlap():
         methods,
         rules=rules,
         advanced_sources={"external": profile},
-        frequency=pd.Timedelta("1h"),
+        grid=_grid(),
     )
 
     assert filled.loc[data.index[1], "GBR"] == 110.0
@@ -202,7 +209,7 @@ def test_apply_external_profile_can_overwrite_overlap():
         methods,
         rules=rules,
         advanced_sources={"external": profile},
-        frequency=pd.Timedelta("1h"),
+        grid=_grid(),
     )
 
     assert filled.loc[data.index[1], "GBR"] == 110.0
@@ -238,7 +245,7 @@ def test_apply_rules_rejects_missing_advanced_source():
             methods,
             rules=rules,
             advanced_sources={},
-            frequency=pd.Timedelta("1h"),
+            grid=_grid(),
         )
 
 
@@ -268,7 +275,7 @@ def test_apply_rule_rejects_unknown_target_context():
             methods,
             rules=rules,
             advanced_sources={"external": profile},
-            frequency=pd.Timedelta("1h"),
+            grid=_grid(),
         )
 
 
@@ -295,7 +302,7 @@ def test_leave_missing_changes_nothing():
         methods,
         rules=rules,
         advanced_sources={},
-        frequency=pd.Timedelta("1h"),
+        grid=_grid(),
     )
 
     pd.testing.assert_index_equal(filled.index, data.index, exact=False)
@@ -336,7 +343,7 @@ def test_advanced_rules_are_applied_sequentially():
         methods,
         rules=rules,
         advanced_sources={"first": first, "second": second},
-        frequency=pd.Timedelta("1h"),
+        grid=_grid(),
     )
 
     assert filled["GBR"].tolist() == [200.0, 200.0, 200.0, 200.0]
@@ -370,7 +377,7 @@ def test_apply_advanced_rule_records_data_source_for_filled_gap():
         methods,
         rules=rules,
         advanced_sources={"fallback": advanced_source},
-        frequency=pd.Timedelta("1h"),
+        grid=_grid(),
     )
 
     assert result_sources.loc[data.index[1], "GBR"] == "fallback"
@@ -402,7 +409,7 @@ def test_apply_advanced_rule_overwrite_replaces_data_source():
         methods,
         rules=rules,
         advanced_sources={"replacement": advanced_source},
-        frequency=pd.Timedelta("1h"),
+        grid=_grid(),
     )
 
     assert filled.loc[data.index[0], "GBR"] == 999.0
@@ -444,7 +451,7 @@ def test_apply_advanced_rules_rejects_invalid_advanced_source():
             methods,
             rules=rules,
             advanced_sources={"fallback": invalid_source},
-            frequency=pd.Timedelta("1h"),
+            grid=_grid(),
         )
 
 
@@ -473,5 +480,5 @@ def test_apply_advanced_rules_rejects_non_series_source():
             methods,
             rules=rules,
             advanced_sources={"fallback": [1.0, 2.0, 3.0]},
-            frequency=pd.Timedelta("1h"),
+            grid=_grid(),
         )

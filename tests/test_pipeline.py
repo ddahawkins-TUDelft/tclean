@@ -6,7 +6,9 @@ import pytest
 from tclean import TCleanConfig
 from tclean.pipeline import clean
 
-config = TCleanConfig(start="2026-01-01 00:00", end="2026-12-01 00:00", frequency="1h")
+config = TCleanConfig(
+    start="2026-01-01T00:00:00Z", end="2026-01-01T05:00:00Z", frequency="1h"
+)
 
 
 def _index() -> pd.DatetimeIndex:

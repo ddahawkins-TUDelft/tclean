@@ -11,13 +11,13 @@ from tclean.basic.methods.linear_interpolation import (
     METHOD_NAME as LINEAR_INTERPOLATION,
 )
 from tclean.basic.rule_validation import validate_basic_rules
+from tclean.time_grid import TimeGrid
 from tclean.validation import (
     validate_advanced_fill_rules,
     validate_auxiliary_requirements,
     validate_auxiliary_source_requests,
     validate_source_capabilities,
     validate_source_periods,
-    validate_temporal_range,
 )
 
 REQUIREMENT_COLUMNS = ["context", "start", "end"]
@@ -26,15 +26,14 @@ SOURCE_REQUEST_COLUMNS = ["source", "context", "start", "end"]
 
 
 def compile_auxiliary_requirements(
-    source_periods: Sequence[pd.DataFrame], *, frequency: pd.Timedelta
+    source_periods: Sequence[pd.DataFrame], *, grid: TimeGrid
 ) -> pd.DataFrame:
     """Compile and merge auxiliary context-period requirements."""
     if not source_periods:
         return _empty_requirements()
 
     validated_periods = [
-        validate_source_periods(periods, frequency=frequency)
-        for periods in source_periods
+        validate_source_periods(periods, grid=grid) for periods in source_periods
     ]
 
     requirements = pd.concat(
@@ -50,7 +49,7 @@ def compile_auxiliary_requirements(
 
     merged = _merge_requirements(requirements)
 
-    return validate_auxiliary_requirements(merged, frequency=frequency)
+    return validate_auxiliary_requirements(merged, grid=grid)
 
 
 def _empty_requirements() -> pd.DataFrame:
@@ -97,7 +96,7 @@ def _merge_requirements(requirements: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_basic_cleaning_context(
-    rules: Sequence[Mapping[str, Any]], frequency: pd.Timedelta
+    rules: Sequence[Mapping[str, Any]], *, grid: TimeGrid
 ) -> tuple[pd.Timedelta, pd.Timedelta]:
     """Calculate context required by ordered basic cleaning rules.
 
@@ -107,7 +106,7 @@ def get_basic_cleaning_context(
 
     Args:
         rules: Ordered basic cleaning-rule definitions.
-        frequency: pd.Timedelta of time series frequency.
+        grid: Temporal grid against which the rules are validated.
 
     Returns:
         Required context before and after the exact auxiliary period.
@@ -115,7 +114,8 @@ def get_basic_cleaning_context(
     Raises:
         ValueError: If a rule uses an unsupported basic cleaning method.
     """
-    rules = validate_basic_rules(rules, frequency=frequency)
+    rules = validate_basic_rules(rules, grid=grid)
+
     left_context = pd.Timedelta(0)
     right_context = pd.Timedelta(0)
 
@@ -129,13 +129,13 @@ def get_basic_cleaning_context(
         rule_right = max_gap
 
         if method == LINEAR_INTERPOLATION:
-            offsets = (-frequency, frequency)
+            offsets = (-grid.frequency, grid.frequency)
 
         elif method == COPY_PERIODS:
             offsets = (rule["source_offset"],)
 
         elif method == AVERAGE_PERIODS:
-            offsets = tuple(offset for offset in rule["source_offsets"])
+            offsets = tuple(rule["source_offsets"])
 
         else:
             raise ValueError(f"Unsupported basic gap-filling method: {method!r}")
@@ -145,9 +145,11 @@ def get_basic_cleaning_context(
 
         for offset in offsets:
             rule_left = min(rule_left, offset + previous_left)
+
             rule_right = max(rule_right, offset + previous_right)
 
         left_context = min(previous_left, rule_left)
+
         right_context = max(previous_right, rule_right)
 
     return -left_context, right_context
@@ -157,7 +159,7 @@ def expand_auxiliary_requirements(
     requirements: pd.DataFrame,
     *,
     rules: Sequence[Mapping[str, Any]],
-    frequency: pd.Timedelta,
+    grid: TimeGrid,
     enabled: bool = True,
 ) -> pd.DataFrame:
     """Expand auxiliary requirements for basic-cleaning context.
@@ -165,34 +167,36 @@ def expand_auxiliary_requirements(
     Args:
         requirements: Exact auxiliary context-period requirements.
         rules: Ordered basic cleaning rules.
-        frequency: pd.Timedelta of time series frequency.
+        grid: Temporal grid against which requirements and rules are
+            validated.
         enabled: Whether basic cleaning will be applied to auxiliary data.
 
     Returns:
         Requirements expanded by the context needed for basic cleaning.
     """
-    requirements = validate_auxiliary_requirements(requirements, frequency=frequency)
+    requirements = validate_auxiliary_requirements(requirements, grid=grid)
 
     if requirements.empty or not enabled or not rules:
         return requirements.copy()
 
-    left_context, right_context = get_basic_cleaning_context(rules, frequency=frequency)
+    left_context, right_context = get_basic_cleaning_context(rules, grid=grid)
 
     expanded = requirements.copy()
 
     expanded["start"] = expanded["start"] - left_context
+
     expanded["end"] = expanded["end"] + right_context
 
     expanded = _merge_requirements(expanded)
 
-    return validate_auxiliary_requirements(expanded, frequency=frequency)
+    return validate_auxiliary_requirements(expanded, grid=grid)
 
 
 def build_auxiliary_acquisition_requirements(
     source_periods: Sequence[pd.DataFrame],
     *,
     basic_rules: Sequence[Mapping[str, Any]],
-    frequency: pd.Timedelta,
+    grid: TimeGrid,
     basic_cleaning_enabled: bool,
 ) -> pd.DataFrame:
     """Build auxiliary periods required for acquisition.
@@ -200,22 +204,18 @@ def build_auxiliary_acquisition_requirements(
     Args:
         source_periods: Source-period tables required by advanced cleaning.
         basic_rules: Ordered rules used to clean acquired auxiliary data.
-        frequency: pd.Timedelta of time series frequency.
+        grid: Temporal grid against which requirements and rules are
+            validated.
         basic_cleaning_enabled: Whether basic cleaning is applied to
             auxiliary data.
 
     Returns:
         Merged acquisition requirements including required cleaning context.
     """
-    exact_requirements = compile_auxiliary_requirements(
-        source_periods, frequency=frequency
-    )
+    exact_requirements = compile_auxiliary_requirements(source_periods, grid=grid)
 
     return expand_auxiliary_requirements(
-        exact_requirements,
-        rules=basic_rules,
-        frequency=frequency,
-        enabled=basic_cleaning_enabled,
+        exact_requirements, rules=basic_rules, grid=grid, enabled=basic_cleaning_enabled
     )
 
 
@@ -232,10 +232,7 @@ def _empty_source_requests() -> pd.DataFrame:
 
 
 def build_auxiliary_source_requests(
-    requirements: pd.DataFrame,
-    *,
-    source_capabilities: pd.DataFrame,
-    frequency: pd.Timedelta,
+    requirements: pd.DataFrame, *, source_capabilities: pd.DataFrame, grid: TimeGrid
 ) -> pd.DataFrame:
     """Map auxiliary requirements onto capable data sources.
 
@@ -245,7 +242,7 @@ def build_auxiliary_source_requests(
     Args:
         requirements: Required auxiliary context-periods.
         source_capabilities: Explicit source capability definitions.
-        frequency: pd.Timedelta of time series frequency.
+        grid: Temporal grid against which requests are validated.
 
     Returns:
         Source-context-period acquisition requests.
@@ -256,7 +253,7 @@ def build_auxiliary_source_requests(
         pandera.errors.SchemaErrors: If an input violates its T-Clean
             data contract.
     """
-    requirements = validate_auxiliary_requirements(requirements, frequency=frequency)
+    requirements = validate_auxiliary_requirements(requirements, grid=grid)
 
     if requirements.empty:
         return _empty_source_requests()
@@ -268,6 +265,7 @@ def build_auxiliary_source_requests(
     for capability in source_capabilities.itertuples(index=False):
         if pd.isna(capability.context):
             applicable = requirements.copy()
+
         else:
             applicable = requirements.loc[
                 requirements["context"] == capability.context
@@ -291,6 +289,7 @@ def build_auxiliary_source_requests(
     requests = pd.concat(request_frames, ignore_index=True)
 
     covered_contexts = set(requests["context"])
+
     required_contexts = set(requirements["context"])
 
     missing_contexts = sorted(required_contexts - covered_contexts)
@@ -307,41 +306,30 @@ def build_auxiliary_source_requests(
         .reset_index(drop=True)
     )
 
-    return validate_auxiliary_source_requests(requests, frequency=frequency)
+    return validate_auxiliary_source_requests(requests, grid=grid)
 
 
 def select_active_advanced_rules(
-    rules: pd.DataFrame,
-    *,
-    target_contexts: Sequence[str],
-    target_start: object,
-    target_end: object,
-    frequency: pd.Timedelta,
+    rules: pd.DataFrame, *, target_contexts: Sequence[str], grid: TimeGrid
 ) -> pd.DataFrame:
     """Select advanced-fill rules intersecting the target model scope.
 
     Args:
         rules: Canonical advanced-fill rules in execution order.
-        target_contexts: contexts included in the target model scope.
-        target_start: Inclusive start of the target model period.
-        target_end: Exclusive end of the target model period.
-        frequency: pd.Timedelta of time series frequency.
+        target_contexts: Contexts included in the target model scope.
+        grid: Temporal grid defining the target model period.
 
     Returns:
         Active advanced-fill rules in their original execution order.
 
     Raises:
-        pandera.errors.SchemaErrors: If the advanced rules or temporal
-            range violate their T-Clean contracts.
+        pandera.errors.SchemaErrors: If the advanced rules violate their
+            T-Clean contract.
     """
-    rules = validate_advanced_fill_rules(rules, frequency=frequency)
-
-    target_start, target_end = validate_temporal_range(
-        start=target_start, end=target_end
-    )
+    rules = validate_advanced_fill_rules(rules, grid=grid)
 
     context_intersects = rules["context"].isin(target_contexts)
 
-    period_intersects = (rules["start"] < target_end) & (rules["end"] > target_start)
+    period_intersects = (rules["start"] < grid.end) & (rules["end"] > grid.start)
 
     return rules.loc[context_intersects & period_intersects].reset_index(drop=True)

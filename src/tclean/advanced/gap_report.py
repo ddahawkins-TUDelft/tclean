@@ -7,10 +7,7 @@ from tclean.validation import validate_time_series
 
 
 def build_gap_report(
-    data: pd.DataFrame,
-    *,
-    grid: TimeGrid,
-    enabled: bool,
+    data: pd.DataFrame, *, grid: TimeGrid, enabled: bool
 ) -> pd.DataFrame:
     """Describe contiguous unresolved gaps in cleaned data.
 
@@ -39,10 +36,7 @@ def build_gap_report(
     if not enabled:
         return pd.DataFrame(columns=columns)
 
-    data = validate_time_series(
-        data,
-        grid=grid,
-    )
+    data = validate_time_series(data, grid=grid)
 
     gaps: list[dict[str, object]] = []
 
@@ -52,9 +46,7 @@ def build_gap_report(
         if not missing.any():
             continue
 
-        group_ids = missing.ne(
-            missing.shift()
-        ).cumsum()
+        group_ids = missing.ne(missing.shift()).cumsum()
 
         for _, group in missing.groupby(group_ids):
             if not bool(group.iloc[0]):
@@ -71,22 +63,16 @@ def build_gap_report(
                     "gap_start": gap_start,
                     "gap_end": gap_end,
                     "gap_duration": len(gap_index) * grid.frequency,
-                    "touches_start_boundary": gap_index[0]
-                    == data.index[0],
-                    "touches_end_boundary": gap_index[-1]
-                    == data.index[-1],
+                    "touches_start_boundary": gap_index[0] == data.index[0],
+                    "touches_end_boundary": gap_index[-1] == data.index[-1],
                 }
             )
 
     if not gaps:
         return pd.DataFrame(columns=columns)
 
-    report = pd.DataFrame(
-        gaps,
-        columns=columns,
-    )
+    report = pd.DataFrame(gaps, columns=columns)
 
-    return report.sort_values(
-        ["context", "gap_start"],
-        kind="stable",
-    ).reset_index(drop=True)
+    return report.sort_values(["context", "gap_start"], kind="stable").reset_index(
+        drop=True
+    )

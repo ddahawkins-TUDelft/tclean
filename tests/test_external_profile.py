@@ -10,14 +10,11 @@ from tclean.advanced.methods.external_profile import read_external_profile
 from tclean.time_grid import TimeGrid
 
 
-def _grid(
-    frequency: str = "1h",
-) -> TimeGrid:
+def _grid(frequency: str = "1h") -> TimeGrid:
     return TimeGrid(
-        start="2026-01-01T00:00:00Z",
-        end="2026-01-03T00:00:00Z",
-        frequency=frequency,
+        start="2026-01-01T00:00:00Z", end="2026-01-03T00:00:00Z", frequency=frequency
     )
+
 
 def test_read_external_profile_reads_valid_csv(tmp_path: Path):
     """Data a valid external profile as a sorted UTC series."""

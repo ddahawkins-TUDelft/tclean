@@ -12,9 +12,7 @@ from tclean.validation import (
 )
 
 
-def _validate_source_alignment(
-    sources: Mapping[str, pd.DataFrame],
-) -> None:
+def _validate_source_alignment(sources: Mapping[str, pd.DataFrame]) -> None:
     """Require all prepared sources to use the same target grid."""
     source_items = list(sources.items())
 
@@ -35,9 +33,7 @@ def _validate_source_alignment(
 
 
 def combine_sources(
-    sources: Mapping[str, pd.DataFrame],
-    *,
-    grid: TimeGrid,
+    sources: Mapping[str, pd.DataFrame], *, grid: TimeGrid
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Combine prepared time-series sources in mapping order.
 
@@ -61,16 +57,10 @@ def combine_sources(
             time-series contract.
     """
     if not sources:
-        raise ValueError(
-            "At least one time-series source must be supplied."
-        )
+        raise ValueError("At least one time-series source must be supplied.")
 
     validated_sources = {
-        name: validate_time_series(
-            data,
-            grid=grid,
-        )
-        for name, data in sources.items()
+        name: validate_time_series(data, grid=grid) for name, data in sources.items()
     }
 
     _validate_source_alignment(validated_sources)
@@ -81,77 +71,45 @@ def combine_sources(
     combined = validated_sources[first_source].copy()
 
     data_source = pd.DataFrame(
-        pd.NA,
-        index=combined.index,
-        columns=combined.columns,
-        dtype="string",
+        pd.NA, index=combined.index, columns=combined.columns, dtype="string"
     )
 
     cleaning_method = pd.DataFrame(
-        pd.NA,
-        index=combined.index,
-        columns=combined.columns,
-        dtype="string",
+        pd.NA, index=combined.index, columns=combined.columns, dtype="string"
     )
 
     first_source_values = combined.notna()
 
-    data_source = data_source.mask(
-        first_source_values,
-        first_source,
-    )
+    data_source = data_source.mask(first_source_values, first_source)
 
     cleaning_method = cleaning_method.mask(
-        first_source_values,
-        f"observed_{first_source}",
+        first_source_values, f"observed_{first_source}"
     )
 
     for source_name in source_names[1:]:
         candidate = validated_sources[source_name]
 
-        newly_supplied = (
-            combined.isna()
-            & candidate.notna()
-        )
+        newly_supplied = combined.isna() & candidate.notna()
 
         combined = combined.combine_first(candidate)
 
-        data_source = data_source.mask(
-            newly_supplied,
-            source_name,
-        )
+        data_source = data_source.mask(newly_supplied, source_name)
 
         cleaning_method = cleaning_method.mask(
-            newly_supplied,
-            f"observed_{source_name}",
+            newly_supplied, f"observed_{source_name}"
         )
 
-    combined = validate_time_series(
-        combined,
-        grid=grid,
-    )
+    combined = validate_time_series(combined, grid=grid)
 
-    data_source = validate_data_source(
-        data_source,
-        data=combined,
-    )
+    data_source = validate_data_source(data_source, data=combined)
 
-    cleaning_method = validate_cleaning_method(
-        cleaning_method,
-        data=combined,
-    )
+    cleaning_method = validate_cleaning_method(cleaning_method, data=combined)
 
-    return (
-        combined,
-        data_source,
-        cleaning_method,
-    )
+    return (combined, data_source, cleaning_method)
 
 
 def combine_auxiliary_sources(
-    datas: Mapping[str, pd.DataFrame],
-    *,
-    grid: TimeGrid,
+    datas: Mapping[str, pd.DataFrame], *, grid: TimeGrid
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Combine available auxiliary sources in mapping order.
 
@@ -170,26 +128,14 @@ def combine_auxiliary_sources(
     if not datas:
         empty = pd.DataFrame()
 
-        return (
-            empty,
-            empty.copy(),
-            empty.copy(),
-        )
+        return (empty, empty.copy(), empty.copy())
 
     validated_datas = {
-        name: validate_time_series(
-            data,
-            grid=grid,
-        )
-        for name, data in datas.items()
+        name: validate_time_series(data, grid=grid) for name, data in datas.items()
     }
 
     columns = sorted(
-        {
-            column
-            for data in validated_datas.values()
-            for column in data.columns
-        }
+        {column for data in validated_datas.values() for column in data.columns}
     )
 
     aligned = {
@@ -197,7 +143,4 @@ def combine_auxiliary_sources(
         for source, data in validated_datas.items()
     }
 
-    return combine_sources(
-        aligned,
-        grid=grid,
-    )
+    return combine_sources(aligned, grid=grid)

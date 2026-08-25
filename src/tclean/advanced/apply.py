@@ -8,6 +8,7 @@ from tclean.advanced.methods.construct_from_sources import (
     METHOD_NAME as CONSTRUCT_FROM_SOURCES,
 )
 from tclean.advanced.methods.external_profile import METHOD_NAME as EXTERNAL_PROFILE
+from tclean.time_grid import TimeGrid
 from tclean.validation import (
     validate_advanced_fill_rules,
     validate_advanced_source,
@@ -86,17 +87,14 @@ def _apply_advanced_source(
 
 
 def _validate_advanced_sources(
-    rules: pd.DataFrame,
-    advanced_sources: Mapping[str, pd.Series],
-    *,
-    frequency: pd.Timedelta,
+    rules: pd.DataFrame, advanced_sources: Mapping[str, pd.Series], *, grid: TimeGrid
 ) -> dict[str, pd.Series]:
     """Validate advanced-source references and source data.
 
     Args:
         rules: Validated advanced cleaning rules.
         advanced_sources: Advanced time-series sources keyed by source name.
-        frequency: pd.Timedelta of time series frequency.
+        grid: Temporal grid against which source timestamps are validated.
 
     Returns:
         Validated advanced sources keyed by source name.
@@ -129,7 +127,7 @@ def _validate_advanced_sources(
         if not isinstance(source, pd.Series):
             raise TypeError(f"Advanced source {name!r} must be a pandas Series.")
 
-        validated_sources[name] = validate_advanced_source(source, frequency=frequency)
+        validated_sources[name] = validate_advanced_source(source, grid=grid)
 
     return validated_sources
 
@@ -145,7 +143,7 @@ def apply_advanced_rule(
     """Apply one validated advanced-fill rule.
 
     Args:
-        data: Canonical hourly time-series data.
+        data: Canonical time-series data.
         data_source: Provenance of data values.
         cleaning_method: Provenance labels aligned with ``data``.
         rule: One validated advanced-fill rule.
@@ -197,17 +195,17 @@ def apply_advanced_rules(
     *,
     rules: pd.DataFrame,
     advanced_sources: Mapping[str, pd.Series],
-    frequency: pd.Timedelta,
+    grid: TimeGrid,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Apply validated advanced-fill rules in table order.
 
     Args:
-        data: Canonical hourly time-series data.
+        data: Canonical time-series data.
         data_source: Data value provenance.
         cleaning_method: Provenance labels aligned with ``data``.
         rules: Advanced-fill rules in the order they should be applied.
         advanced_sources: Advanced time-series sources keyed by source name.
-        frequency: pd.Timedelta of time series frequency.
+        grid: Temporal grid against which all temporal inputs are validated.
 
     Returns:
         Time-series and provenance data after sequential rule application.
@@ -216,17 +214,15 @@ def apply_advanced_rules(
         ValueError: If supplied advanced sources do not exactly match
             the sources referenced by the rules.
     """
-    filled = validate_time_series(data, frequency=frequency)
+    filled = validate_time_series(data, grid=grid)
 
     sources = validate_data_source(data_source, data=filled)
 
     methods = validate_cleaning_method(cleaning_method, data=filled)
 
-    rules = validate_advanced_fill_rules(rules, frequency=frequency)
+    rules = validate_advanced_fill_rules(rules, grid=grid)
 
-    advanced_sources = _validate_advanced_sources(
-        rules, advanced_sources, frequency=frequency
-    )
+    advanced_sources = _validate_advanced_sources(rules, advanced_sources, grid=grid)
 
     filled = filled.copy()
     sources = sources.copy()

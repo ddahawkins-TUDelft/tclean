@@ -11,11 +11,7 @@ from tclean.validation import validate_advanced_source
 METHOD_NAME = "external_profile"
 
 
-def read_external_profile(
-    path: str | Path,
-    *,
-    grid: TimeGrid,
-) -> pd.Series:
+def read_external_profile(path: str | Path, *, grid: TimeGrid) -> pd.Series:
     """Read and validate an external time-series profile.
 
     Args:
@@ -32,26 +28,14 @@ def read_external_profile(
     """
     data = pd.read_csv(path)
 
-    validated = EXTERNAL_PROFILE_SCHEMA.validate(
-        data,
-        lazy=True,
-    )
+    validated = EXTERNAL_PROFILE_SCHEMA.validate(data, lazy=True)
 
-    validated = validated.sort_values(
-        "timestamp",
-        kind="stable",
-    )
+    validated = validated.sort_values("timestamp", kind="stable")
 
     source = pd.Series(
         validated["value"].to_numpy(),
-        index=pd.DatetimeIndex(
-            validated["timestamp"],
-            name="timestamp",
-        ),
+        index=pd.DatetimeIndex(validated["timestamp"], name="timestamp"),
         name="value",
     )
 
-    return validate_advanced_source(
-        source,
-        grid=grid,
-    )
+    return validate_advanced_source(source, grid=grid)

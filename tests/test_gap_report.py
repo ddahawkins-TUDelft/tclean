@@ -6,14 +6,11 @@ from tclean.advanced.gap_report import build_gap_report
 from tclean.time_grid import TimeGrid
 
 
-def _grid(
-    frequency: str = "1h",
-) -> TimeGrid:
+def _grid(frequency: str = "1h") -> TimeGrid:
     return TimeGrid(
-        start="2026-01-01T00:00:00Z",
-        end="2026-01-03T00:00:00Z",
-        frequency=frequency,
+        start="2026-01-01T00:00:00Z", end="2026-01-03T00:00:00Z", frequency=frequency
     )
+
 
 EXPECTED_COLUMNS = [
     "context",

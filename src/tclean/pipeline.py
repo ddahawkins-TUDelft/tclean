@@ -5,10 +5,10 @@ from typing import Any
 
 import pandas as pd
 
-from tclean import TCleanConfig
 from tclean.advanced.apply import apply_advanced_rules
 from tclean.basic.apply import fill_basic_gaps
 from tclean.combine import combine_sources
+from tclean.config import TCleanConfig
 
 
 def clean(
@@ -42,18 +42,12 @@ def clean(
         ValueError: If advanced sources are supplied without advanced rules,
             or advanced rules are supplied without an advanced-source mapping.
     """
-    frequency = config.frequency
-
-    cleaned, data_source, cleaning_method = combine_sources(
-        sources, frequency=frequency
-    )
+    grid = config.grid
+    cleaned, data_source, cleaning_method = combine_sources(sources, grid=grid)
 
     if basic_rules:
         cleaned, cleaning_method = fill_basic_gaps(
-            cleaned,
-            cleaning_method=cleaning_method,
-            rules=basic_rules,
-            frequency=frequency,
+            cleaned, cleaning_method=cleaning_method, rules=basic_rules, grid=grid
         )
 
     if advanced_rules is None:
@@ -71,7 +65,13 @@ def clean(
         cleaning_method,
         rules=advanced_rules,
         advanced_sources=advanced_sources,
-        frequency=frequency,
+        grid=grid,
     )
     cleaning_method = cleaning_method.fillna("missing")
+    grid.validate_target_coverage(cleaned.index)
+
+    cleaned = grid.crop(cleaned)
+    data_source = grid.crop(data_source)
+    cleaning_method = grid.crop(cleaning_method)
+
     return (cleaned, data_source, cleaning_method)

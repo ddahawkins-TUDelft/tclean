@@ -4,7 +4,6 @@ import pandas as pd
 import pandera.errors
 import pytest
 
-from tclean.time import build_time_index
 from tclean.time_grid import TimeGrid
 from tclean.validation import (
     infer_regular_timestep,

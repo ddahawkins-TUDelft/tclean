@@ -76,6 +76,22 @@ def test_time_grid_rejects_wrong_phase_even_when_sparse():
         ["2026-01-01T00:30:00Z", "2026-01-01T02:00:00Z"], name="timestamp"
     )
 
+    with pytest.raises(
+        ValueError, match="integer multiples of the configured interval"
+    ):
+        grid.validate_sparse_index(index)
+
+
+def test_time_grid_rejects_shifted_sparse_grid():
+    """Reject sparse timestamps on the wrong grid phase."""
+    grid = TimeGrid(
+        start="2026-01-01T00:30:00Z", end="2026-01-01T04:30:00Z", frequency="1h"
+    )
+
+    index = pd.DatetimeIndex(
+        ["2026-01-01T01:00:00Z", "2026-01-01T03:00:00Z"], name="timestamp"
+    )
+
     with pytest.raises(ValueError, match="align with the configured time grid"):
         grid.validate_sparse_index(index)
 
