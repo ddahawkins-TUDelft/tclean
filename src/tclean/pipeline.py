@@ -52,26 +52,28 @@ def clean(
 
     if advanced_rules is None:
         if advanced_sources is not None:
-            raise ValueError("Advanced sources were supplied without advanced rules.")
-        cleaning_method = cleaning_method.fillna("missing")
-        return (cleaned, data_source, cleaning_method)
+            raise ValueError(
+                "Advanced sources were supplied without advanced rules."
+            )
+    else:
+        if advanced_sources is None:
+            advanced_sources = {}
 
-    if advanced_sources is None:
-        advanced_sources = {}
+        cleaned, data_source, cleaning_method = apply_advanced_rules(
+            cleaned,
+            data_source,
+            cleaning_method,
+            rules=advanced_rules,
+            advanced_sources=advanced_sources,
+            grid=grid,
+        )
 
-    cleaned, data_source, cleaning_method = apply_advanced_rules(
-        cleaned,
-        data_source,
-        cleaning_method,
-        rules=advanced_rules,
-        advanced_sources=advanced_sources,
-        grid=grid,
-    )
     cleaning_method = cleaning_method.fillna("missing")
+
     grid.validate_target_coverage(cleaned.index)
 
     cleaned = grid.crop(cleaned)
     data_source = grid.crop(data_source)
     cleaning_method = grid.crop(cleaning_method)
 
-    return (cleaned, data_source, cleaning_method)
+    return cleaned, data_source, cleaning_method
