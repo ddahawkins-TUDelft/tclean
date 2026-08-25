@@ -526,3 +526,35 @@ def test_construct_from_sources_rejects_incompatible_leap_day_frequency():
         construct_from_sources(
             source_data, target_index=target_index, sources=sources, grid=grid
         )
+
+
+def test_construct_from_sources_allows_non_daily_frequency_without_leap_adjustment():
+    """Allow non-daily-divisible frequencies when leap adjustment is unnecessary."""
+    source_index = pd.date_range(
+        "2025-01-01T02:00:00Z", periods=3, freq="5h", name="timestamp"
+    )
+
+    source_data = pd.DataFrame({"GBR": [10.0, 20.0, 30.0]}, index=source_index)
+
+    target_index = pd.date_range(
+        "2026-01-01T02:00:00Z", periods=3, freq="5h", name="timestamp"
+    )
+
+    sources = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": [source_index[0]],
+            "end": [source_index[-1] + pd.Timedelta("5h")],
+            "weight": [1.0],
+        }
+    )
+
+    grid = TimeGrid(
+        start=target_index[0], end=target_index[-1] + pd.Timedelta("5h"), frequency="5h"
+    )
+
+    result = construct_from_sources(
+        source_data, target_index=target_index, sources=sources, grid=grid
+    )
+
+    assert result.tolist() == [10.0, 20.0, 30.0]

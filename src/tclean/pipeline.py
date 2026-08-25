@@ -45,13 +45,13 @@ def clean(
     grid = config.grid
     cleaned, data_source, cleaning_method = combine_sources(sources, grid=grid)
 
-    if basic_rules:
+    if basic_rules is not None:
         cleaned, cleaning_method = fill_basic_gaps(
             cleaned, cleaning_method=cleaning_method, rules=basic_rules, grid=grid
         )
 
     if advanced_rules is None:
-        if advanced_sources:
+        if advanced_sources is not None:
             raise ValueError("Advanced sources were supplied without advanced rules.")
         cleaning_method = cleaning_method.fillna("missing")
         return (cleaned, data_source, cleaning_method)

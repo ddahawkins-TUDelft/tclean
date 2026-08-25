@@ -202,3 +202,29 @@ def test_clean_labels_unresolved_values_as_missing():
     assert cleaning_method.loc[index[0], "GBR"] == "observed_primary"
     assert cleaning_method.loc[index[1], "GBR"] == "missing"
     assert cleaning_method.loc[index[2], "GBR"] == "observed_primary"
+
+
+def test_clean_rejects_malformed_falsy_basic_rules():
+    """Do not silently bypass validation for malformed falsy basic rules."""
+    index = _index()
+
+    data = pd.DataFrame({"GBR": [10.0, 20.0, 30.0, 40.0, 50.0]}, index=index)
+
+    with pytest.raises(TypeError, match="ordered sequence"):
+        clean({"primary": data}, basic_rules="", config=config)
+
+
+def test_clean_accepts_empty_basic_rules():
+    """Allow an explicitly empty basic-rule configuration."""
+    index = _index()
+
+    data = pd.DataFrame(
+        {"GBR": [10.0, pd.NA, 30.0, 40.0, 50.0]}, index=index, dtype="Float64"
+    )
+
+    cleaned, _, cleaning_method = clean(
+        {"primary": data}, basic_rules=[], config=config
+    )
+
+    assert pd.isna(cleaned.loc[index[1], "GBR"])
+    assert cleaning_method.loc[index[1], "GBR"] == "missing"
