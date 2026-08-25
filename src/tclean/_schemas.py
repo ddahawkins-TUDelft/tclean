@@ -1,5 +1,6 @@
 """Pandera schemas defining T-Clean data contracts."""
 
+import numpy as np
 import pandas as pd
 import pandera.pandas as pa
 from pandera.engines.pandas_engine import DateTime
@@ -28,6 +29,16 @@ def _source_period_ends_after_start(data: pd.DataFrame) -> pd.Series:
 def _has_rows(data: pd.DataFrame) -> bool:
     """Check that a tabular contract contains at least one row."""
     return not data.empty
+
+
+def _is_nonblank_string(series: pd.Series) -> pd.Series:
+    """Check that present string values contain non-whitespace characters."""
+    return series.isna() | series.astype("string").str.strip().ne("")
+
+
+def _is_finite(series: pd.Series) -> pd.Series:
+    """Check that numeric values are finite."""
+    return pd.Series(np.isfinite(series), index=series.index)
 
 
 TIME_SERIES_SCHEMA = pa.DataFrameSchema(
@@ -121,7 +132,13 @@ TIMESTAMP_INDEX_SCHEMA = pa.DataFrameSchema(
 
 SOURCE_PERIODS_SCHEMA = pa.DataFrameSchema(
     {
-        "context": pa.Column(str, nullable=False),
+        "context": pa.Column(
+            str,
+            checks=pa.Check(
+                _is_nonblank_string, error="Source-period context must not be blank."
+            ),
+            nullable=False,
+        ),
         "start": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
             nullable=False,
@@ -132,7 +149,15 @@ SOURCE_PERIODS_SCHEMA = pa.DataFrameSchema(
             nullable=False,
             coerce=True,
         ),
-        "weight": pa.Column(float, checks=pa.Check.gt(0), nullable=False, coerce=True),
+        "weight": pa.Column(
+            float,
+            checks=[
+                pa.Check.gt(0),
+                pa.Check(_is_finite, error="Source-period weight must be finite."),
+            ],
+            nullable=False,
+            coerce=True,
+        ),
     },
     checks=[
         pa.Check(_has_rows, error="At least one source period must be configured."),
@@ -181,7 +206,13 @@ def _advanced_rule_sources_match_methods(data: pd.DataFrame) -> bool:
 
 ADVANCED_FILL_RULES_SCHEMA = pa.DataFrameSchema(
     {
-        "rule_name": pa.Column(str, nullable=False),
+        "rule_name": pa.Column(
+            str,
+            checks=pa.Check(
+                _is_nonblank_string, error="Advanced-fill rule name must not be blank."
+            ),
+            nullable=False,
+        ),
         "method": pa.Column(
             str,
             checks=pa.Check(
@@ -189,8 +220,20 @@ ADVANCED_FILL_RULES_SCHEMA = pa.DataFrameSchema(
             ),
             nullable=False,
         ),
-        "source": pa.Column(str, nullable=True),
-        "context": pa.Column(str, nullable=False),
+        "source": pa.Column(
+            str,
+            checks=pa.Check(
+                _is_nonblank_string, error="Advanced-fill source must not be blank."
+            ),
+            nullable=True,
+        ),
+        "context": pa.Column(
+            str,
+            checks=pa.Check(
+                _is_nonblank_string, error="Advanced-fill context must not be blank."
+            ),
+            nullable=False,
+        ),
         "start": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
             nullable=False,
@@ -235,7 +278,14 @@ ADVANCED_FILL_RULES_SCHEMA = pa.DataFrameSchema(
 
 AUXILIARY_REQUIREMENTS_SCHEMA = pa.DataFrameSchema(
     {
-        "context": pa.Column(str, nullable=False),
+        "context": pa.Column(
+            str,
+            checks=pa.Check(
+                _is_nonblank_string,
+                error="Auxiliary requirement context must not be blank.",
+            ),
+            nullable=False,
+        ),
         "start": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
             nullable=False,
@@ -274,8 +324,21 @@ def _source_capabilities_do_not_mix_wildcard_and_explicit(data: pd.DataFrame) ->
 
 SOURCE_CAPABILITIES_SCHEMA = pa.DataFrameSchema(
     {
-        "source": pa.Column(str, nullable=False),
-        "context": pa.Column(str, nullable=True),
+        "source": pa.Column(
+            str,
+            checks=pa.Check(
+                _is_nonblank_string, error="Source capability source must not be blank."
+            ),
+            nullable=False,
+        ),
+        "context": pa.Column(
+            str,
+            checks=pa.Check(
+                _is_nonblank_string,
+                error="Source capability context must not be blank.",
+            ),
+            nullable=True,
+        ),
     },
     checks=[
         pa.Check(_has_rows, error="At least one source capability must be configured."),
@@ -299,8 +362,22 @@ SOURCE_CAPABILITIES_SCHEMA = pa.DataFrameSchema(
 
 AUXILIARY_SOURCE_REQUESTS_SCHEMA = pa.DataFrameSchema(
     {
-        "source": pa.Column(str, nullable=False),
-        "context": pa.Column(str, nullable=False),
+        "source": pa.Column(
+            str,
+            checks=pa.Check(
+                _is_nonblank_string,
+                error="Auxiliary source-request source must not be blank.",
+            ),
+            nullable=False,
+        ),
+        "context": pa.Column(
+            str,
+            checks=pa.Check(
+                _is_nonblank_string,
+                error="Auxiliary source-request context must not be blank.",
+            ),
+            nullable=False,
+        ),
         "start": pa.Column(
             DateTime(tz="UTC", to_datetime_kwargs={"utc": True}),
             nullable=False,
