@@ -52,9 +52,7 @@ def clean(
 
     if advanced_rules is None:
         if advanced_sources is not None:
-            raise ValueError(
-                "Advanced sources were supplied without advanced rules."
-            )
+            raise ValueError("Advanced sources were supplied without advanced rules.")
     else:
         if advanced_sources is None:
             advanced_sources = {}

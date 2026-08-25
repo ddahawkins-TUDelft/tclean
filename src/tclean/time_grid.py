@@ -74,9 +74,35 @@ class TimeGrid:
     @property
     def target_index(self) -> pd.DatetimeIndex:
         """Return the complete end-exclusive index for the output window."""
+        return self.index_for_period(start=self.start, end=self.end)
+
+    def index_for_period(
+        self, *, start: str | pd.Timestamp, end: str | pd.Timestamp
+    ) -> pd.DatetimeIndex:
+        """Return a complete grid-aligned index for a period.
+
+        The requested period may lie outside the target output window.
+
+        Args:
+            start: Inclusive period start.
+            end: Exclusive period end.
+
+        Returns:
+            Complete end-exclusive index on the configured time grid.
+
+        Raises:
+            ValueError: If the period is invalid or its boundaries do not
+                align with the configured grid.
+        """
+        normalized_start, normalized_end = normalize_temporal_range(
+            start=start, end=end
+        )
+
+        self.validate_period(start=normalized_start, end=normalized_end)
+
         return pd.date_range(
-            start=self.start,
-            end=self.end,
+            start=normalized_start,
+            end=normalized_end,
             freq=self.frequency,
             inclusive="left",
             name="timestamp",

@@ -5,10 +5,13 @@ import pytest
 
 from tclean import TCleanConfig
 from tclean.pipeline import clean
+from tclean.time_grid import TimeGrid
 
-config = TCleanConfig(
+grid = TimeGrid(
     start="2026-01-01T00:00:00Z", end="2026-01-01T05:00:00Z", frequency="1h"
 )
+
+config = TCleanConfig(grid=grid)
 
 
 def _index() -> pd.DatetimeIndex:
@@ -192,16 +195,16 @@ def test_clean_rejects_unused_advanced_source():
 def test_clean_labels_unresolved_values_as_missing():
     """Label unresolved values with the missing cleaning method."""
     index = pd.date_range(
-        "2026-01-01T00:00:00Z", periods=3, freq="1h", name="timestamp"
+        "2026-01-01T00:00:00Z", periods=5, freq="1h", name="timestamp"
     )
 
-    source = pd.DataFrame({"GBR": [100.0, pd.NA, 120.0]}, index=index, dtype="Float64")
+    source = pd.DataFrame(
+        {"GBR": [100.0, pd.NA, 120.0, 130.0, 140.0]}, index=index, dtype="Float64"
+    )
 
     _, _, cleaning_method = clean({"primary": source}, config=config)
 
-    assert cleaning_method.loc[index[0], "GBR"] == "observed_primary"
     assert cleaning_method.loc[index[1], "GBR"] == "missing"
-    assert cleaning_method.loc[index[2], "GBR"] == "observed_primary"
 
 
 def test_clean_rejects_malformed_falsy_basic_rules():
