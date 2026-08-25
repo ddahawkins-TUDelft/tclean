@@ -57,18 +57,6 @@ def validate_temporal_range(
     return normalize_temporal_range(start=start, end=end)
 
 
-def infer_regular_timestep(index: pd.Index) -> pd.Timedelta:
-    """Return the timestep of an already validated datetime index.
-
-    Args:
-        index: Validated regular datetime index.
-
-    Returns:
-        The temporal difference between consecutive timestamps.
-    """
-    return index[1] - index[0]
-
-
 def validate_timestamp_index(
     index: pd.DatetimeIndex, *, grid: TimeGrid
 ) -> pd.DatetimeIndex:

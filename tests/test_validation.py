@@ -6,7 +6,6 @@ import pytest
 
 from tclean.time_grid import TimeGrid
 from tclean.validation import (
-    infer_regular_timestep,
     validate_advanced_fill_rules,
     validate_advanced_source,
     validate_cleaning_method,
@@ -156,17 +155,6 @@ def test_validate_time_series_converts_timestamp_index_to_utc():
     )
 
     pd.testing.assert_index_equal(result.index, expected, exact=False)
-
-
-def test_infer_regular_timestep_returns_hourly_timestep():
-    """Return one hour for a validated hourly index."""
-    index = pd.date_range(
-        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
-    )
-
-    result = infer_regular_timestep(index)
-
-    assert result == pd.Timedelta(hours=1)
 
 
 def test_validate_time_series_rejects_unnamed_timestamp_index():

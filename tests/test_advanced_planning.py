@@ -85,7 +85,7 @@ def test_compile_auxiliary_requirements_merges_overlapping_periods():
 
 
 def test_compile_auxiliary_requirements_merges_adjacent_periods():
-    """Merge adjacent requirements without an hourly gap."""
+    """Merge adjacent requirements without a gap."""
     first = pd.DataFrame(
         {
             "context": ["GBR"],

@@ -203,8 +203,8 @@ def test_validate_source_periods_accepts_half_hour_frequency():
     assert len(result) == 1
 
 
-def test_validate_source_periods_accepts_shifted_hourly_period():
-    """Accept hourly periods without requiring wall-clock-hour alignment."""
+def test_validate_source_periods_accepts_shifted_period():
+    """Accept periods without requiring wall-clock-hour alignment."""
     source_periods = pd.DataFrame(
         {
             "context": ["GBR"],

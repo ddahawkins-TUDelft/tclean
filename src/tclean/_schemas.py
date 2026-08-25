@@ -20,18 +20,6 @@ def _timestamps_are_sorted(data: pd.DataFrame) -> bool:
     return data.index.is_monotonic_increasing
 
 
-def _timestamps_are_hourly(data: pd.DataFrame) -> bool:
-    """Check that timestamps form a complete hourly sequence."""
-    differences = data.index.to_series().diff().dropna()
-
-    return bool(not differences.empty and differences.eq(pd.Timedelta(hours=1)).all())
-
-
-def _timestamps_are_on_hour(series: pd.Series) -> pd.Series:
-    """Check that timestamps are aligned exactly to whole hours."""
-    return series.dt.minute.eq(0) & series.dt.second.eq(0) & series.dt.microsecond.eq(0)
-
-
 def _source_period_ends_after_start(data: pd.DataFrame) -> pd.Series:
     """Check that every source period ends after it starts."""
     return data["end"] > data["start"]
