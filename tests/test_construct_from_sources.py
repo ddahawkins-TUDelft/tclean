@@ -495,3 +495,34 @@ def test_construct_from_sources_rejects_zero_energy_profile():
             scaling_sources=scaling_sources,
             grid=_grid(),
         )
+
+
+def test_construct_from_sources_rejects_incompatible_leap_day_frequency():
+    """Reject leap-day alignment when frequency does not divide one day."""
+    source_data_index = pd.date_range(
+        "2025-02-28T01:00:00Z", periods=10, freq="5h", name="timestamp"
+    )
+
+    source_data = pd.DataFrame({"GBR": range(10)}, index=source_data_index, dtype=float)
+
+    target_index = pd.date_range(
+        "2024-02-28T00:00:00Z", periods=10, freq="5h", name="timestamp"
+    )
+
+    sources = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": [source_data_index[0]],
+            "end": [source_data_index[-1] + pd.Timedelta("5h")],
+            "weight": [1.0],
+        }
+    )
+
+    grid = TimeGrid(
+        start="2024-02-28T00:00:00Z", end="2024-03-04T00:00:00Z", frequency="5h"
+    )
+
+    with pytest.raises(ValueError, match="divide one calendar day exactly"):
+        construct_from_sources(
+            source_data, target_index=target_index, sources=sources, grid=grid
+        )

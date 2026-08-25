@@ -12,12 +12,24 @@ from tclean.validation import (
 METHOD_NAME = "construct_from_sources"
 
 
+def _validate_leap_day_frequency(frequency: pd.Timedelta) -> None:
+    """Require whole calendar days to contain an integer number of periods."""
+    one_day = pd.Timedelta(days=1)
+
+    if one_day % frequency != pd.Timedelta(0):
+        raise ValueError(
+            "Leap-day alignment requires the configured frequency "
+            "to divide one calendar day exactly."
+        )
+
+
 def _align_leap_day(
     source_data: pd.Series,
     *,
     start: pd.Timestamp,
     end: pd.Timestamp,
     target_index: pd.DatetimeIndex,
+    frequency: pd.Timedelta,
 ) -> pd.Series:
     """Align source values with the target calendar around February 29."""
     source_values = source_data.loc[
@@ -29,6 +41,9 @@ def _align_leap_day(
     ).any()
 
     target_has_leap_day = ((target_index.month == 2) & (target_index.day == 29)).any()
+
+    if source_has_leap_day != target_has_leap_day:
+        _validate_leap_day_frequency(frequency)
 
     if source_has_leap_day and not target_has_leap_day:
         leap_day = (source_values.index.month == 2) & (source_values.index.day == 29)
@@ -162,6 +177,7 @@ def construct_from_sources(
             start=source.start,
             end=source.end,
             target_index=target_index,
+            frequency=grid.frequency,
         )
 
         if len(source_values) != len(target_index):
