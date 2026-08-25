@@ -310,7 +310,7 @@ def build_auxiliary_source_requests(
 
 
 def select_active_advanced_rules(
-    rules: pd.DataFrame, *, target_contexts: Sequence[str], grid: TimeGrid
+    rules: pd.DataFrame, *, target_contexts: Sequence[str], grid: TimeGrid,
 ) -> pd.DataFrame:
     """Select advanced-fill rules intersecting the target model scope.
 
