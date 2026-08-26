@@ -17,6 +17,8 @@ hatchling = "*"
 
 [feature.dev.pypi-dependencies]
 tclean = { path = ".", editable = true }
+build = ">=1.5.0, <2"
+twine = ">=7.0.0, <8"
 
 [environments]
 default = { features = ["dev"] }

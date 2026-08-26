@@ -1,14 +1,10 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
 name = "tclean"
-version = "0.0.0"
+version = "0.1.0"
 description = "Tools for cleaning, validating, and reconstructing time series."
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
     { name = "Dano Hawkins" }
 ]
@@ -16,9 +12,19 @@ dependencies = [
     "pandas>=3.0.3",
     "pandera>=0.31.1",
 ]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+]
+keywords = ["time-series", "data-cleaning", "data-validation"]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/tclean"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
+[project.urls]
+Homepage = "https://github.com/ddahawkins-TUDelft/tclean"
+Repository = "https://github.com/ddahawkins-TUDelft/tclean"
+Issues = "https://github.com/ddahawkins-TUDelft/tclean/issues"
