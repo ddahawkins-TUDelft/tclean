@@ -125,11 +125,69 @@ def _scale_to_reference_total(
     return profile * (target_value / profile_value)
 
 
+def _normalise_mean(profile: pd.Series) -> pd.Series:
+    """Scale a profile so that its arithmetic mean equals one."""
+    profile_mean = float(profile.mean())
+
+    if profile_mean == 0:
+        raise ValueError("Cannot normalise a constructed profile with zero mean.")
+
+    return profile / profile_mean
+
+
+def _normalise_max(profile: pd.Series) -> pd.Series:
+    """Scale a profile so that its maximum equals one."""
+    profile_max = float(profile.max())
+
+    if profile_max <= 0:
+        raise ValueError(
+            "Cannot normalise a constructed profile whose maximum is not positive."
+        )
+
+    return profile / profile_max
+
+
+def _apply_scaling(
+    profile: pd.Series,
+    *,
+    method: str,
+    source_data: pd.DataFrame,
+    scaling_sources: pd.DataFrame | None,
+) -> pd.Series:
+    """Scale a constructed profile using the requested method."""
+    if method == "match_total":
+        if scaling_sources is None:
+            raise ValueError("Scaling method 'match_total' requires scaling_sources.")
+
+        return _scale_to_reference_total(
+            profile, source_data=source_data, reference_sources=scaling_sources
+        )
+
+    if method == "normalise_mean":
+        if scaling_sources is not None:
+            raise ValueError(
+                "Scaling method 'normalise_mean' does not use scaling_sources."
+            )
+
+        return _normalise_mean(profile)
+
+    if method == "normalise_max":
+        if scaling_sources is not None:
+            raise ValueError(
+                "Scaling method 'normalise_max' does not use scaling_sources."
+            )
+
+        return _normalise_max(profile)
+
+    raise ValueError(f"Unsupported scaling method: {method!r}.")
+
+
 def construct_from_sources(
     source_data: pd.DataFrame,
     *,
     target_index: pd.DatetimeIndex,
     sources: pd.DataFrame,
+    scaling_method: str | None = None,
     scaling_sources: pd.DataFrame | None = None,
     grid: TimeGrid,
 ) -> pd.Series:
@@ -139,8 +197,9 @@ def construct_from_sources(
         source_data: Canonical supporting time-series data.
         target_index: Timestamps for the constructed profile.
         sources: Explicit weighted source-period definitions.
-        scaling_sources: Optional explicit weighted reference periods
-            whose mean value the constructed profile should match.
+        scaling_method: Optional method used to scale the constructed profile.
+        scaling_sources: Optional weighted reference periods used by
+            scaling methods that require external reference data.
         grid: Temporal grid against which all temporal inputs are
             validated.
 
@@ -206,9 +265,14 @@ def construct_from_sources(
 
     profile = weighted_sum / sum(weights)
 
-    if scaling_sources is not None:
-        profile = _scale_to_reference_total(
-            profile, source_data=source_data, reference_sources=scaling_sources
+    if scaling_method is not None:
+        profile = _apply_scaling(
+            profile,
+            method=scaling_method,
+            source_data=source_data,
+            scaling_sources=scaling_sources,
         )
+    elif scaling_sources is not None:
+        raise ValueError("scaling_sources were supplied without a scaling_method.")
 
     return profile

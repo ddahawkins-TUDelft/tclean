@@ -105,7 +105,11 @@ def test_construct_from_sources_rejects_unknown_context():
         ValueError, match="source_data data do not contain requested context"
     ):
         construct_from_sources(
-            source_data, target_index=target_index, sources=sources, grid=_grid()
+            source_data,
+            target_index=target_index,
+            sources=sources,
+            grid=_grid(),
+            scaling_method="match_total",
         )
 
 
@@ -237,8 +241,8 @@ def test_construct_from_sources_inserts_leap_day_for_leap_target():
     pd.testing.assert_series_equal(result, expected, check_index_type=False)
 
 
-def test_construct_from_sources_matches_reference_energy():
-    """Scale the constructed profile to weighted reference-period energy."""
+def test_construct_from_sources_matches_reference_total():
+    """Scale the constructed profile to the weighted reference-period total."""
     source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=6, freq="h", tz="UTC", name="timestamp"
     )
@@ -273,6 +277,7 @@ def test_construct_from_sources_matches_reference_energy():
         source_data,
         target_index=target_index,
         sources=sources,
+        scaling_method="match_total",
         scaling_sources=scaling_sources,
         grid=_grid(),
     )
@@ -282,8 +287,8 @@ def test_construct_from_sources_matches_reference_energy():
     pd.testing.assert_series_equal(result, expected, check_index_type=False)
 
 
-def test_construct_from_sources_uses_weighted_reference_energy():
-    """Use explicit weights when combining scaling reference energies."""
+def test_construct_from_sources_uses_weighted_reference_total():
+    """Use explicit weights when combining scaling reference totals."""
     source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=6, freq="h", tz="UTC", name="timestamp"
     )
@@ -322,13 +327,14 @@ def test_construct_from_sources_uses_weighted_reference_energy():
         source_data,
         target_index=target_index,
         sources=sources,
+        scaling_method="match_total",
         scaling_sources=scaling_sources,
         grid=_grid(),
     )
 
-    expected_energy = ((60.0 * 1.0) + (120.0 * 3.0)) / 4.0
+    expected_total = ((60.0 * 1.0) + (120.0 * 3.0)) / 4.0
 
-    assert result.sum() == pytest.approx(expected_energy)
+    assert result.sum() == pytest.approx(expected_total)
 
 
 def test_construct_from_sources_rejects_unknown_scaling_context():
@@ -368,6 +374,7 @@ def test_construct_from_sources_rejects_unknown_scaling_context():
             target_index=target_index,
             sources=sources,
             scaling_sources=scaling_sources,
+            scaling_method="match_total",
             grid=_grid(),
         )
 
@@ -412,6 +419,7 @@ def test_construct_from_sources_rejects_missing_scaling_values():
             target_index=target_index,
             sources=sources,
             scaling_sources=scaling_sources,
+            scaling_method="match_total",
             grid=_grid(),
         )
 
@@ -451,12 +459,13 @@ def test_construct_from_sources_rejects_empty_scaling_period():
             target_index=target_index,
             sources=sources,
             scaling_sources=scaling_sources,
+            scaling_method="match_total",
             grid=_grid(),
         )
 
 
-def test_construct_from_sources_rejects_zero_energy_profile():
-    """Reject energy matching when the constructed profile has zero value."""
+def test_construct_from_sources_rejects_zero_total_profile():
+    """Reject total matching when the constructed profile has zero total."""
     source_data_index = pd.date_range(
         "2025-01-01 00:00", periods=6, freq="h", tz="UTC", name="timestamp"
     )
@@ -493,6 +502,315 @@ def test_construct_from_sources_rejects_zero_energy_profile():
             target_index=target_index,
             sources=sources,
             scaling_sources=scaling_sources,
+            scaling_method="match_total",
+            grid=_grid(),
+        )
+
+
+def test_construct_from_sources_normalises_mean():
+    """Scale a constructed profile so that its arithmetic mean equals one."""
+    source_index = pd.date_range(
+        "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+    source_data = pd.DataFrame({"GBR": [1.0, 2.0, 3.0]}, index=source_index)
+
+    target_index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    sources = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T00:00:00Z"],
+            "end": ["2025-01-01T03:00:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    result = construct_from_sources(
+        source_data,
+        target_index=target_index,
+        sources=sources,
+        scaling_method="normalise_mean",
+        grid=_grid(),
+    )
+
+    expected = pd.Series([0.5, 1.0, 1.5], index=target_index, dtype=float)
+
+    pd.testing.assert_series_equal(result, expected, check_index_type=False)
+    assert result.mean() == pytest.approx(1.0)
+
+
+def test_construct_from_sources_normalises_max():
+    """Scale a constructed profile so that its maximum equals one."""
+    source_index = pd.date_range(
+        "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+    source_data = pd.DataFrame({"GBR": [2.0, 4.0, 8.0]}, index=source_index)
+
+    target_index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    sources = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T00:00:00Z"],
+            "end": ["2025-01-01T03:00:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    result = construct_from_sources(
+        source_data,
+        target_index=target_index,
+        sources=sources,
+        scaling_method="normalise_max",
+        grid=_grid(),
+    )
+
+    expected = pd.Series([0.25, 0.5, 1.0], index=target_index, dtype=float)
+
+    pd.testing.assert_series_equal(result, expected, check_index_type=False)
+    assert result.max() == pytest.approx(1.0)
+
+
+def test_construct_from_sources_normalise_max_allows_negative_values():
+    """Allow negative values when the constructed profile maximum is positive."""
+    source_index = pd.date_range(
+        "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+    source_data = pd.DataFrame({"GBR": [-2.0, 4.0, 8.0]}, index=source_index)
+
+    target_index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    sources = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T00:00:00Z"],
+            "end": ["2025-01-01T03:00:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    result = construct_from_sources(
+        source_data,
+        target_index=target_index,
+        sources=sources,
+        scaling_method="normalise_max",
+        grid=_grid(),
+    )
+
+    expected = pd.Series([-0.25, 0.5, 1.0], index=target_index, dtype=float)
+
+    pd.testing.assert_series_equal(result, expected, check_index_type=False)
+
+
+def test_construct_from_sources_rejects_zero_mean_normalisation():
+    """Reject mean normalisation when the constructed profile mean is zero."""
+    source_index = pd.date_range(
+        "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+    source_data = pd.DataFrame({"GBR": [-1.0, 0.0, 1.0]}, index=source_index)
+
+    target_index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    sources = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T00:00:00Z"],
+            "end": ["2025-01-01T03:00:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="zero mean"):
+        construct_from_sources(
+            source_data,
+            target_index=target_index,
+            sources=sources,
+            scaling_method="normalise_mean",
+            grid=_grid(),
+        )
+
+
+@pytest.mark.parametrize("values", [[0.0, 0.0, 0.0], [-3.0, -2.0, -1.0]])
+def test_construct_from_sources_rejects_non_positive_max_normalisation(values):
+    """Reject maximum normalisation when the profile maximum is not positive."""
+    source_index = pd.date_range(
+        "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+    source_data = pd.DataFrame({"GBR": values}, index=source_index)
+
+    target_index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    sources = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T00:00:00Z"],
+            "end": ["2025-01-01T03:00:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="maximum is not positive"):
+        construct_from_sources(
+            source_data,
+            target_index=target_index,
+            sources=sources,
+            scaling_method="normalise_max",
+            grid=_grid(),
+        )
+
+
+def test_construct_from_sources_rejects_match_total_without_scaling_sources():
+    """Require reference periods when using total-matching scaling."""
+    source_index = pd.date_range(
+        "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+    source_data = pd.DataFrame({"GBR": [10.0, 20.0, 30.0]}, index=source_index)
+
+    target_index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    sources = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T00:00:00Z"],
+            "end": ["2025-01-01T03:00:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="requires scaling_sources"):
+        construct_from_sources(
+            source_data,
+            target_index=target_index,
+            sources=sources,
+            scaling_method="match_total",
+            grid=_grid(),
+        )
+
+
+@pytest.mark.parametrize("scaling_method", ["normalise_mean", "normalise_max"])
+def test_construct_from_sources_rejects_scaling_sources_for_normalisation(
+    scaling_method,
+):
+    """Reject reference periods for normalisation methods that do not use them."""
+    source_index = pd.date_range(
+        "2025-01-01 00:00", periods=6, freq="h", tz="UTC", name="timestamp"
+    )
+    source_data = pd.DataFrame(
+        {"GBR": [10.0, 20.0, 30.0, 40.0, 50.0, 60.0]}, index=source_index
+    )
+
+    target_index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    sources = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T00:00:00Z"],
+            "end": ["2025-01-01T03:00:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    scaling_sources = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T03:00:00Z"],
+            "end": ["2025-01-01T06:00:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="does not use scaling_sources"):
+        construct_from_sources(
+            source_data,
+            target_index=target_index,
+            sources=sources,
+            scaling_method=scaling_method,
+            scaling_sources=scaling_sources,
+            grid=_grid(),
+        )
+
+
+def test_construct_from_sources_rejects_scaling_sources_without_method():
+    """Reject reference periods when no scaling method is configured."""
+    source_index = pd.date_range(
+        "2025-01-01 00:00", periods=6, freq="h", tz="UTC", name="timestamp"
+    )
+    source_data = pd.DataFrame(
+        {"GBR": [10.0, 20.0, 30.0, 40.0, 50.0, 60.0]}, index=source_index
+    )
+
+    target_index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    sources = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T00:00:00Z"],
+            "end": ["2025-01-01T03:00:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    scaling_sources = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T03:00:00Z"],
+            "end": ["2025-01-01T06:00:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="without a scaling_method"):
+        construct_from_sources(
+            source_data,
+            target_index=target_index,
+            sources=sources,
+            scaling_sources=scaling_sources,
+            grid=_grid(),
+        )
+
+
+def test_construct_from_sources_rejects_unknown_scaling_method():
+    """Reject unsupported constructed-profile scaling methods."""
+    source_index = pd.date_range(
+        "2025-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+    source_data = pd.DataFrame({"GBR": [10.0, 20.0, 30.0]}, index=source_index)
+
+    target_index = pd.date_range(
+        "2026-01-01 00:00", periods=3, freq="h", tz="UTC", name="timestamp"
+    )
+
+    sources = pd.DataFrame(
+        {
+            "context": ["GBR"],
+            "start": ["2025-01-01T00:00:00Z"],
+            "end": ["2025-01-01T03:00:00Z"],
+            "weight": [1.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="Unsupported scaling method"):
+        construct_from_sources(
+            source_data,
+            target_index=target_index,
+            sources=sources,
+            scaling_method="mystery_scaling",
             grid=_grid(),
         )
 

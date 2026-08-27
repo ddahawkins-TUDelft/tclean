@@ -1,4 +1,5 @@
 """Tests for import functionality."""
+
 from tclean import TCleanConfig, TimeGrid, clean
 from tclean.advanced import (
     build_auxiliary_acquisition_requirements,

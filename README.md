@@ -135,9 +135,7 @@ For example:
 from tclean import TimeGrid
 
 grid = TimeGrid(
-    start="2026-01-01T00:00:00Z",
-    end="2026-01-03T00:00:00Z",
-    frequency="1h",
+    start="2026-01-01T00:00:00Z", end="2026-01-03T00:00:00Z", frequency="1h"
 )
 ```
 
@@ -174,10 +172,7 @@ A source is a named provider of time-series values.
 For example:
 
 ```python
-sources = {
-    "primary": primary_data,
-    "secondary": secondary_data,
-}
+sources = {"primary": primary_data, "secondary": secondary_data}
 ```
 
 Mapping order defines source priority: earlier sources have priority over later sources.
@@ -233,10 +228,7 @@ from tclean.basic.rule_validation import validate_basic_rules
 Provenance helpers are available from:
 
 ```python
-from tclean.provenance import (
-    build_cleaning_method_ranks,
-    derive_cleaning_method_rank,
-)
+from tclean.provenance import build_cleaning_method_ranks, derive_cleaning_method_rank
 ```
 
 The distinction is intentional:
@@ -257,20 +249,10 @@ Primary sources are supplied as pandas DataFrames:
 ```python
 import pandas as pd
 
-index = pd.date_range(
-    "2026-01-01",
-    periods=4,
-    freq="1h",
-    tz="UTC",
-    name="timestamp",
-)
+index = pd.date_range("2026-01-01", periods=4, freq="1h", tz="UTC", name="timestamp")
 
 primary = pd.DataFrame(
-    {
-        "A": [10.0, None, 12.0, 13.0],
-        "B": [20.0, 21.0, None, 23.0],
-    },
-    index=index,
+    {"A": [10.0, None, 12.0, 13.0], "B": [20.0, 21.0, None, 23.0]}, index=index
 )
 ```
 
@@ -314,9 +296,7 @@ Support data may therefore have a broader temporal extent, but it must use the *
 from tclean import TimeGrid
 
 grid = TimeGrid(
-    start="2026-01-01T00:30:00Z",
-    end="2026-01-02T00:30:00Z",
-    frequency="1h",
+    start="2026-01-01T00:30:00Z", end="2026-01-02T00:30:00Z", frequency="1h"
 )
 ```
 
@@ -379,11 +359,7 @@ Typical use:
 ```python
 from tclean import TCleanConfig, TimeGrid
 
-grid = TimeGrid(
-    start="2026-01-01",
-    end="2026-02-01",
-    frequency="1h",
-)
+grid = TimeGrid(start="2026-01-01", end="2026-02-01", frequency="1h")
 
 config = TCleanConfig(grid=grid)
 ```
@@ -441,11 +417,7 @@ The application remains responsible for any advanced acquisition that must occur
 Given:
 
 ```python
-sources = {
-    "source_a": a,
-    "source_b": b,
-    "source_c": c,
-}
+sources = {"source_a": a, "source_b": b, "source_c": c}
 ```
 
 T-Clean combines them in mapping order.
@@ -525,11 +497,7 @@ Fills sufficiently short gaps using linear interpolation.
 Example:
 
 ```python
-{
-    "name": "interpolate_short_gaps",
-    "method": "linear_interpolation",
-    "max_gap": "3h",
-}
+{"name": "interpolate_short_gaps", "method": "linear_interpolation", "max_gap": "3h"}
 ```
 
 `max_gap` limits which contiguous missing runs are eligible.
@@ -668,12 +636,7 @@ profile = construct_from_sources(
     auxiliary,
     target_index=target_index,
     sources=[
-        {
-            "context": "A",
-            "start": "2024-01-01",
-            "end": "2024-02-01",
-            "weight": 1.0,
-        }
+        {"context": "A", "start": "2024-01-01", "end": "2024-02-01", "weight": 1.0}
     ],
     grid=grid,
 )
@@ -761,12 +724,7 @@ Example concept:
 scaling = {
     "method": "match_energy",
     "periods": [
-        {
-            "context": "A",
-            "start": "2024-01-01",
-            "end": "2024-02-01",
-            "weight": 1.0,
-        }
+        {"context": "A", "start": "2024-01-01", "end": "2024-02-01", "weight": 1.0}
     ],
 }
 ```
@@ -795,9 +753,7 @@ profile = profile / profile.mean()
 Example:
 
 ```python
-scaling = {
-    "method": "normalise_mean",
-}
+scaling = {"method": "normalise_mean"}
 ```
 
 Unlike `match_energy`, this method requires no reference periods.
@@ -823,9 +779,7 @@ profile = profile / profile.max()
 Example:
 
 ```python
-scaling = {
-    "method": "normalise_max",
-}
+scaling = {"method": "normalise_max"}
 ```
 
 It also requires no reference periods.
@@ -868,10 +822,7 @@ T-Clean does **not** decide where external profile files live.
 The application resolves the path:
 
 ```python
-profile = read_external_profile(
-    resolved_path,
-    grid=grid,
-)
+profile = read_external_profile(resolved_path, grid=grid)
 ```
 
 For example, Modelblocks may resolve a file through a Snakemake pathvar. T-Clean sees only the resolved path.
@@ -907,10 +858,7 @@ Use:
 
 ```python
 build_auxiliary_acquisition_requirements(
-    source_periods,
-    basic_rules=basic_rules,
-    grid=grid,
-    basic_cleaning_enabled=True,
+    source_periods, basic_rules=basic_rules, grid=grid, basic_cleaning_enabled=True
 )
 ```
 
@@ -939,9 +887,7 @@ Use:
 
 ```python
 build_auxiliary_source_requests(
-    requirements,
-    source_capabilities=source_capabilities,
-    grid=grid,
+    requirements, source_capabilities=source_capabilities, grid=grid
 )
 ```
 
@@ -1023,10 +969,7 @@ ranks = build_cleaning_method_ranks(
     advanced_rule_names=advanced_rule_names,
 )
 
-rank_frame = derive_cleaning_method_rank(
-    cleaning_method=cleaning_method,
-    ranks=ranks,
-)
+rank_frame = derive_cleaning_method_rank(cleaning_method=cleaning_method, ranks=ranks)
 ```
 
 The ordering is deterministic and follows the configured source/rule order.
@@ -1063,10 +1006,7 @@ This provides validation for both structure and semantic constraints.
 Basic-rule configuration can be validated independently:
 
 ```python
-validated = validate_basic_rules(
-    rules,
-    grid=grid,
-)
+validated = validate_basic_rules(rules, grid=grid)
 ```
 
 This is useful before an expensive workflow begins.
@@ -1125,18 +1065,12 @@ It then constructs a T-Clean grid/config and passes the prepared source mapping 
 Conceptually:
 
 ```python
-grid = TimeGrid(
-    start=temporal_start,
-    end=temporal_end,
-    frequency=frequency,
-)
+grid = TimeGrid(start=temporal_start, end=temporal_end, frequency=frequency)
 
 config = TCleanConfig(grid=grid)
 
 cleaned, data_source, cleaning_method = clean(
-    prepared_sources,
-    basic_rules=basic_rules,
-    config=config,
+    prepared_sources, basic_rules=basic_rules, config=config
 )
 ```
 
