@@ -8,6 +8,8 @@ from tclean._schemas import (
     AUXILIARY_REQUIREMENTS_SCHEMA,
     AUXILIARY_SOURCE_REQUESTS_SCHEMA,
     PROVENANCE_SCHEMA,
+    QUALITY_FAILURES_SCHEMA,
+    QUALITY_ISSUES_SCHEMA,
     SOURCE_CAPABILITIES_SCHEMA,
     SOURCE_PERIODS_SCHEMA,
     TIME_SERIES_SCHEMA,
@@ -275,3 +277,53 @@ def _require_datetime_index(index: pd.Index, *, field: str) -> pd.DatetimeIndex:
         raise TypeError(f"{field} must be a pandas DatetimeIndex.")
 
     return index
+
+
+def validate_quality_failures(
+    failures: pd.DataFrame, *, grid: TimeGrid
+) -> pd.DataFrame:
+    """Validate canonical data-quality failure events.
+
+    Args:
+        failures: Quality-test failures containing source, context,
+            period, test identity, and structured diagnostic details.
+        grid: Temporal grid against which failure periods are validated.
+
+    Returns:
+        Validated quality-failure events with canonical UTC timestamps.
+
+    Raises:
+        pandera.errors.SchemaErrors: If failures violate the canonical
+            T-Clean quality-failure contract.
+        ValueError: If failure periods do not align with the configured grid.
+    """
+    validated = QUALITY_FAILURES_SCHEMA.validate(failures, lazy=True)
+
+    _validate_periods_against_grid(validated, grid=grid)
+
+    return validated
+
+
+def validate_quality_issues(
+    issues: pd.DataFrame, *, grid: TimeGrid
+) -> pd.DataFrame:
+    """Validate canonical data-quality evaluation issues.
+
+    Args:
+        issues: Evaluation issues describing warnings or periods where
+            a quality test could not be evaluated.
+        grid: Temporal grid against which issue periods are validated.
+
+    Returns:
+        Validated quality-evaluation issues with canonical UTC timestamps.
+
+    Raises:
+        pandera.errors.SchemaErrors: If issues violate the canonical
+            T-Clean quality-issue contract.
+        ValueError: If issue periods do not align with the configured grid.
+    """
+    validated = QUALITY_ISSUES_SCHEMA.validate(issues, lazy=True)
+
+    _validate_periods_against_grid(validated, grid=grid)
+
+    return validated

@@ -9,6 +9,8 @@ from tclean.validation import (
     validate_advanced_fill_rules,
     validate_advanced_source,
     validate_cleaning_method,
+    validate_quality_failures,
+    validate_quality_issues,
     validate_time_series,
 )
 
@@ -509,3 +511,237 @@ def test_validate_time_series_allows_shifted_regular_grid():
             start="2026-01-01T00:30:00Z", end="2026-12-01T01:30:00Z", frequency="1h"
         ),
     )
+
+
+def test_validate_quality_failures_accepts_canonical_events():
+    """Accept canonical source-specific quality failures."""
+    failures = pd.DataFrame(
+        {
+            "context": ["ALB"],
+            "source": ["entsoe"],
+            "start": ["2026-01-01T12:00:00Z"],
+            "end": ["2026-01-01T15:00:00Z"],
+            "test_name": ["zero_run"],
+            "method": ["value_run"],
+            "details": [
+                {
+                    "value": 0.0,
+                    "duration": "3h",
+                    "minimum_duration": "3h",
+                }
+            ],
+        }
+    )
+
+    result = validate_quality_failures(failures, grid=test_grid)
+
+    assert result.loc[0, "source"] == "entsoe"
+    assert result.loc[0, "details"]["duration"] == "3h"
+    assert str(result["start"].dtype) == "datetime64[ns, UTC]"
+
+
+def test_validate_quality_issues_accepts_canonical_events():
+    """Accept canonical quality-evaluation issues."""
+    issues = pd.DataFrame(
+        {
+            "context": ["ALB"],
+            "source": ["entsoe"],
+            "start": ["2026-01-01T00:00:00Z"],
+            "end": ["2026-02-01T00:00:00Z"],
+            "test_name": ["unusual_level"],
+            "method": ["contextual_level"],
+            "severity": ["warning"],
+            "code": ["limited_reference_data"],
+            "details": [
+                {
+                    "observations": 87,
+                    "recommended_observations": 200,
+                }
+            ],
+        }
+    )
+
+    result = validate_quality_issues(issues, grid=test_grid)
+
+    assert result.loc[0, "severity"] == "warning"
+    assert result.loc[0, "details"]["observations"] == 87
+
+
+def test_validate_quality_failures_rejects_missing_source():
+    """Reject quality failures without an attributable source."""
+    failures = pd.DataFrame(
+        {
+            "context": ["ALB"],
+            "source": [None],
+            "start": ["2026-01-01T12:00:00Z"],
+            "end": ["2026-01-01T15:00:00Z"],
+            "test_name": ["zero_run"],
+            "method": ["value_run"],
+            "details": [
+                {
+                    "value": 0.0,
+                    "duration": "3h",
+                    "minimum_duration": "3h",
+                }
+            ],
+        }
+    )
+
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_quality_failures(failures, grid=test_grid)
+
+def test_validate_quality_failures_accepts_temporal_details():
+    """Allow pandas temporal objects in quality-failure details."""
+    previous_timestamp = pd.Timestamp("2026-01-01T11:00:00Z")
+    duration = pd.Timedelta("3h")
+
+    failures = pd.DataFrame(
+        {
+            "context": ["ALB"],
+            "source": ["entsoe"],
+            "start": ["2026-01-01T12:00:00Z"],
+            "end": ["2026-01-01T15:00:00Z"],
+            "test_name": ["abrupt_change"],
+            "method": ["rate_of_change"],
+            "details": [
+                {
+                    "previous_timestamp": previous_timestamp,
+                    "duration": duration,
+                    "previous_value": 505.0,
+                    "value": 900.0,
+                }
+            ],
+        }
+    )
+
+    result = validate_quality_failures(failures, grid=test_grid)
+
+    assert result.loc[0, "details"]["previous_timestamp"] == previous_timestamp
+    assert result.loc[0, "details"]["duration"] == duration
+
+def test_validate_quality_failures_rejects_non_dictionary_details():
+    """Reject quality-failure details that are not dictionaries."""
+    failures = pd.DataFrame(
+        {
+            "context": ["ALB"],
+            "source": ["entsoe"],
+            "start": ["2026-01-01T12:00:00Z"],
+            "end": ["2026-01-01T15:00:00Z"],
+            "test_name": ["zero_run"],
+            "method": ["value_run"],
+            "details": ["three-hour zero run"],
+        }
+    )
+
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_quality_failures(failures, grid=test_grid)
+
+
+def test_validate_quality_issues_rejects_unknown_severity():
+    """Reject unsupported quality-evaluation issue severities."""
+    issues = pd.DataFrame(
+        {
+            "context": ["ALB"],
+            "source": ["entsoe"],
+            "start": ["2026-01-01T00:00:00Z"],
+            "end": ["2026-02-01T00:00:00Z"],
+            "test_name": ["unusual_level"],
+            "method": ["contextual_level"],
+            "severity": ["critical"],
+            "code": ["limited_reference_data"],
+            "details": [
+                {
+                    "observations": 87,
+                    "recommended_observations": 200,
+                }
+            ],
+        }
+    )
+
+    with pytest.raises(pandera.errors.SchemaErrors):
+        validate_quality_issues(issues, grid=test_grid)
+
+
+def test_validate_quality_issues_rejects_off_grid_period():
+    """Reject quality-evaluation issue periods that are not grid aligned."""
+    issues = pd.DataFrame(
+        {
+            "context": ["ALB"],
+            "source": ["entsoe"],
+            "start": ["2026-01-01T00:30:00Z"],
+            "end": ["2026-01-01T04:30:00Z"],
+            "test_name": ["unusual_level"],
+            "method": ["contextual_level"],
+            "severity": ["not_evaluable"],
+            "code": ["insufficient_reference_data"],
+            "details": [
+                {
+                    "observations": 3,
+                    "minimum_observations": 50,
+                }
+            ],
+        }
+    )
+
+    with pytest.raises(ValueError, match="does not align with"):
+        validate_quality_issues(issues, grid=test_grid)
+
+
+def test_validate_quality_failures_accepts_empty_table():
+    """Accept an empty canonical quality-failure table."""
+    failures = pd.DataFrame(
+        {
+            "context": pd.Series(dtype="string"),
+            "source": pd.Series(dtype="string"),
+            "start": pd.Series(dtype="datetime64[ns, UTC]"),
+            "end": pd.Series(dtype="datetime64[ns, UTC]"),
+            "test_name": pd.Series(dtype="string"),
+            "method": pd.Series(dtype="string"),
+            "details": pd.Series(dtype="object"),
+        }
+    )
+
+    result = validate_quality_failures(failures, grid=test_grid)
+
+    assert result.empty
+    assert result.columns.tolist() == [
+        "context",
+        "source",
+        "start",
+        "end",
+        "test_name",
+        "method",
+        "details",
+    ]
+
+
+def test_validate_quality_issues_accepts_empty_table():
+    """Accept an empty canonical quality-issue table."""
+    issues = pd.DataFrame(
+        {
+            "context": pd.Series(dtype="string"),
+            "source": pd.Series(dtype="string"),
+            "start": pd.Series(dtype="datetime64[ns, UTC]"),
+            "end": pd.Series(dtype="datetime64[ns, UTC]"),
+            "test_name": pd.Series(dtype="string"),
+            "method": pd.Series(dtype="string"),
+            "severity": pd.Series(dtype="string"),
+            "code": pd.Series(dtype="string"),
+            "details": pd.Series(dtype="object"),
+        }
+    )
+
+    result = validate_quality_issues(issues, grid=test_grid)
+
+    assert result.empty
+    assert result.columns.tolist() == [
+        "context",
+        "source",
+        "start",
+        "end",
+        "test_name",
+        "method",
+        "severity",
+        "code",
+        "details",
+    ]
