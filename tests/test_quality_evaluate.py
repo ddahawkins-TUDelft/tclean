@@ -554,3 +554,152 @@ def test_evaluate_reports_low_variability_failure():
     assert failure["details"]["maximum_window_range"] == pytest.approx(
         0.2
     )
+
+
+def test_evaluate_reports_repeated_pattern_failures():
+    """Evaluate repeated-pattern tests through the public quality API."""
+    sources = {
+        "primary": _source(
+            {
+                "A": [1, 2, 9, 8, 1, 2],
+            }
+        )
+    }
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "duplicate_block",
+                "method": "repeated_pattern",
+                "pattern_duration": "2h",
+                "minimum_matches": 2,
+            }
+        ],
+        grid=_grid(),
+    )
+
+    assert len(result.failures) == 2
+
+    assert result.failures["start"].tolist() == [
+        pd.Timestamp("2026-01-01T00:00:00Z"),
+        pd.Timestamp("2026-01-01T04:00:00Z"),
+    ]
+
+    assert result.failures["end"].tolist() == [
+        pd.Timestamp("2026-01-01T02:00:00Z"),
+        pd.Timestamp("2026-01-01T06:00:00Z"),
+    ]
+
+    assert all(
+        method == "repeated_pattern"
+        for method in result.failures["method"]
+    )
+
+
+def test_evaluate_reports_fixed_rate_of_change_failure():
+    """Evaluate fixed rate-of-change tests through the public quality API."""
+    sources = {
+        "primary": _source(
+            {
+                "A": [100, 130, 170, 175, 180, 185],
+            }
+        )
+    }
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "large_change",
+                "method": "fixed_rate_of_change",
+                "threshold": 20,
+            }
+        ],
+        grid=_grid(),
+    )
+
+    assert len(result.failures) == 1
+
+    failure = result.failures.iloc[0]
+
+    assert failure["source"] == "primary"
+    assert failure["context"] == "A"
+    assert failure["test_name"] == "large_change"
+    assert failure["method"] == "fixed_rate_of_change"
+
+    assert failure["start"] == pd.Timestamp(
+        "2026-01-01T01:00:00Z"
+    )
+    assert failure["end"] == pd.Timestamp(
+        "2026-01-01T03:00:00Z"
+    )
+
+    assert failure["details"]["threshold"] == 20
+    assert failure["details"]["transition_count"] == 2
+
+    assert [
+        transition["change"]
+        for transition in failure["details"]["transitions"]
+    ] == [
+        30.0,
+        40.0,
+    ]
+
+
+def test_evaluate_reports_relative_rate_of_change_failure():
+    """Evaluate relative rate-of-change tests through the public quality API."""
+    sources = {
+        "primary": _source(
+            {
+                "A": [100, 150, 240, 245, 250, 255],
+            }
+        )
+    }
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "large_relative_change",
+                "method": "relative_rate_of_change",
+                "threshold": 0.2,
+            }
+        ],
+        grid=_grid(),
+    )
+
+    assert len(result.failures) == 1
+
+    failure = result.failures.iloc[0]
+
+    assert failure["source"] == "primary"
+    assert failure["context"] == "A"
+    assert failure["test_name"] == "large_relative_change"
+    assert failure["method"] == "relative_rate_of_change"
+
+    assert failure["start"] == pd.Timestamp(
+        "2026-01-01T01:00:00Z"
+    )
+    assert failure["end"] == pd.Timestamp(
+        "2026-01-01T03:00:00Z"
+    )
+
+    assert failure["details"]["threshold"] == 0.2
+    assert (
+        failure["details"]["reference_magnitude_threshold"]
+        == 0.0
+    )
+    assert failure["details"]["transition_count"] == 2
+
+    assert [
+        transition["relative_change"]
+        for transition in failure["details"]["transitions"]
+    ] == pytest.approx(
+        [
+            0.5,
+            0.6,
+        ]
+    )
+
+

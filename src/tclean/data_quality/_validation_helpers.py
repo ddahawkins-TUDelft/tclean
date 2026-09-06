@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping, Sequence
 from math import isfinite
-from numbers import Real
+from numbers import Integral, Real
 from typing import Any
 
 import pandas as pd
@@ -143,3 +143,26 @@ def positive_timedelta(
     grid.validate_duration_multiple(delta, field=field)
 
     return delta
+
+
+def integer_at_least(
+    value: object,
+    *,
+    field: str,
+    minimum: int,
+) -> int:
+    """Require an integer greater than or equal to a minimum value."""
+    if isinstance(value, bool) or not isinstance(value, Integral):
+        raise ValueError(
+            f"{field!r} must be an integer greater than or equal to "
+            f"{minimum}."
+        )
+
+    normalized = int(value)
+
+    if normalized < minimum:
+        raise ValueError(
+            f"{field!r} must be greater than or equal to {minimum}."
+        )
+
+    return normalized

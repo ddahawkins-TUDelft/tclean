@@ -775,3 +775,283 @@ def test_validate_low_variability_rejects_failed_period_inclusion():
         )
 
 
+def test_validate_repeated_pattern_normalizes_parameters():
+    """Normalize repeated-pattern configuration."""
+    result = validate_quality_test(
+        {
+            "name": "repeated_day",
+            "method": "repeated_pattern",
+            "pattern_duration": "24h",
+            "minimum_matches": 3,
+        },
+        grid=_grid(),
+    )
+
+    assert result["pattern_duration"] == pd.Timedelta("24h")
+    assert result["minimum_matches"] == 3
+    assert result["tolerance"] == 0.0
+
+
+def test_validate_repeated_pattern_accepts_tolerance():
+    """Accept a finite non-negative pointwise tolerance."""
+    result = validate_quality_test(
+        {
+            "name": "repeated_day",
+            "method": "repeated_pattern",
+            "pattern_duration": "24h",
+            "minimum_matches": 2,
+            "tolerance": 0.1,
+        },
+        grid=_grid(),
+    )
+
+    assert result["tolerance"] == 0.1
+
+
+def test_validate_repeated_pattern_rejects_single_step_pattern():
+    """Require a repeated pattern to span at least two observations."""
+    with pytest.raises(
+        ValueError,
+        match="at least two grid steps",
+    ):
+        validate_quality_test(
+            {
+                "name": "repeated_value",
+                "method": "repeated_pattern",
+                "pattern_duration": "1h",
+                "minimum_matches": 2,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_repeated_pattern_rejects_off_grid_duration():
+    """Require pattern duration to align with the grid."""
+    with pytest.raises(
+        ValueError,
+        match="integer multiple",
+    ):
+        validate_quality_test(
+            {
+                "name": "repeated_pattern",
+                "method": "repeated_pattern",
+                "pattern_duration": "150min",
+                "minimum_matches": 2,
+            },
+            grid=_grid(),
+        )
+
+
+@pytest.mark.parametrize(
+    "minimum_matches",
+    [0, 1, -1],
+)
+def test_validate_repeated_pattern_requires_at_least_two_matches(
+    minimum_matches,
+):
+    """Require at least two occurrences of a repeated pattern."""
+    with pytest.raises(
+        ValueError,
+        match="greater than or equal to 2",
+    ):
+        validate_quality_test(
+            {
+                "name": "repeated_pattern",
+                "method": "repeated_pattern",
+                "pattern_duration": "2h",
+                "minimum_matches": minimum_matches,
+            },
+            grid=_grid(),
+        )
+
+
+@pytest.mark.parametrize(
+    "minimum_matches",
+    [2.0, "2", True],
+)
+def test_validate_repeated_pattern_requires_integer_match_count(
+    minimum_matches,
+):
+    """Require minimum_matches to be an integer."""
+    with pytest.raises(
+        ValueError,
+        match="must be an integer",
+    ):
+        validate_quality_test(
+            {
+                "name": "repeated_pattern",
+                "method": "repeated_pattern",
+                "pattern_duration": "2h",
+                "minimum_matches": minimum_matches,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_repeated_pattern_rejects_negative_tolerance():
+    """Reject a negative repeated-pattern tolerance."""
+    with pytest.raises(
+        ValueError,
+        match="greater than or equal to zero",
+    ):
+        validate_quality_test(
+            {
+                "name": "repeated_pattern",
+                "method": "repeated_pattern",
+                "pattern_duration": "2h",
+                "minimum_matches": 2,
+                "tolerance": -0.1,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_repeated_pattern_rejects_failed_period_inclusion():
+    """Do not allow prior-failure controls on this direct method."""
+    with pytest.raises(ValueError, match="unknown keys"):
+        validate_quality_test(
+            {
+                "name": "repeated_pattern",
+                "method": "repeated_pattern",
+                "pattern_duration": "2h",
+                "minimum_matches": 2,
+                "include_failed_periods_from": ["earlier_test"],
+            },
+            grid=_grid(),
+        )
+
+def test_validate_fixed_rate_of_change_normalizes_threshold():
+    """Normalize the fixed rate-of-change threshold."""
+    result = validate_quality_test(
+        {
+            "name": "large_change",
+            "method": "fixed_rate_of_change",
+            "threshold": 20,
+        },
+        grid=_grid(),
+    )
+
+    assert result["threshold"] == 20
+
+
+def test_validate_fixed_rate_of_change_rejects_zero_threshold():
+    """Require a strictly positive fixed change threshold."""
+    with pytest.raises(
+        ValueError,
+        match="must be greater than zero",
+    ):
+        validate_quality_test(
+            {
+                "name": "large_change",
+                "method": "fixed_rate_of_change",
+                "threshold": 0,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_fixed_rate_of_change_rejects_negative_threshold():
+    """Reject a negative fixed change threshold."""
+    with pytest.raises(
+        ValueError,
+        match="greater than or equal to zero",
+    ):
+        validate_quality_test(
+            {
+                "name": "large_change",
+                "method": "fixed_rate_of_change",
+                "threshold": -1,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_fixed_rate_of_change_rejects_failed_period_inclusion():
+    """Do not allow prior-failure controls on this direct method."""
+    with pytest.raises(ValueError, match="unknown keys"):
+        validate_quality_test(
+            {
+                "name": "large_change",
+                "method": "fixed_rate_of_change",
+                "threshold": 20,
+                "include_failed_periods_from": ["earlier_test"],
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_relative_rate_of_change_supplies_default_reference_threshold():
+    """Supply zero reference magnitude threshold by default."""
+    result = validate_quality_test(
+        {
+            "name": "large_relative_change",
+            "method": "relative_rate_of_change",
+            "threshold": 0.2,
+        },
+        grid=_grid(),
+    )
+
+    assert result["threshold"] == 0.2
+    assert result["reference_magnitude_threshold"] == 0.0
+
+
+def test_validate_relative_rate_of_change_accepts_reference_threshold():
+    """Accept a finite non-negative reference magnitude threshold."""
+    result = validate_quality_test(
+        {
+            "name": "large_relative_change",
+            "method": "relative_rate_of_change",
+            "threshold": 0.2,
+            "reference_magnitude_threshold": 10,
+        },
+        grid=_grid(),
+    )
+
+    assert result["reference_magnitude_threshold"] == 10
+
+
+def test_validate_relative_rate_of_change_rejects_zero_threshold():
+    """Require a strictly positive relative change threshold."""
+    with pytest.raises(
+        ValueError,
+        match="must be greater than zero",
+    ):
+        validate_quality_test(
+            {
+                "name": "large_relative_change",
+                "method": "relative_rate_of_change",
+                "threshold": 0,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_relative_rate_of_change_rejects_negative_reference_threshold():
+    """Reject a negative reference magnitude threshold."""
+    with pytest.raises(
+        ValueError,
+        match="greater than or equal to zero",
+    ):
+        validate_quality_test(
+            {
+                "name": "large_relative_change",
+                "method": "relative_rate_of_change",
+                "threshold": 0.2,
+                "reference_magnitude_threshold": -1,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_relative_rate_of_change_rejects_failed_period_inclusion():
+    """Do not allow prior-failure controls on this direct method."""
+    with pytest.raises(ValueError, match="unknown keys"):
+        validate_quality_test(
+            {
+                "name": "large_relative_change",
+                "method": "relative_rate_of_change",
+                "threshold": 0.2,
+                "include_failed_periods_from": ["earlier_test"],
+            },
+            grid=_grid(),
+        )
