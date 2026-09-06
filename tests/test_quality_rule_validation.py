@@ -644,3 +644,134 @@ def test_validate_flatline_rejects_failed_period_inclusion():
             grid=_grid(),
         )
 
+
+def test_validate_low_variability_normalizes_parameters():
+    """Normalize low-variability window and range threshold."""
+    result = validate_quality_test(
+        {
+            "name": "stable_values",
+            "method": "low_variability",
+            "window_duration": "3h",
+            "maximum_range": 5,
+        },
+        grid=_grid(),
+    )
+
+    assert result["window_duration"] == pd.Timedelta("3h")
+    assert result["maximum_range"] == 5
+
+
+def test_validate_low_variability_accepts_zero_maximum_range():
+    """Allow zero range as an exact-constancy criterion."""
+    result = validate_quality_test(
+        {
+            "name": "exactly_constant",
+            "method": "low_variability",
+            "window_duration": "3h",
+            "maximum_range": 0,
+        },
+        grid=_grid(),
+    )
+
+    assert result["maximum_range"] == 0
+
+
+def test_validate_low_variability_rejects_single_step_window():
+    """Require variability windows to contain at least two observations."""
+    with pytest.raises(
+        ValueError,
+        match="at least two grid steps",
+    ):
+        validate_quality_test(
+            {
+                "name": "stable_values",
+                "method": "low_variability",
+                "window_duration": "1h",
+                "maximum_range": 5,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_low_variability_rejects_zero_window():
+    """Reject a zero-duration variability window."""
+    with pytest.raises(
+        ValueError,
+        match="must be greater than zero",
+    ):
+        validate_quality_test(
+            {
+                "name": "stable_values",
+                "method": "low_variability",
+                "window_duration": "0h",
+                "maximum_range": 5,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_low_variability_rejects_off_grid_window():
+    """Require variability windows to align with the grid."""
+    with pytest.raises(
+        ValueError,
+        match="integer multiple",
+    ):
+        validate_quality_test(
+            {
+                "name": "stable_values",
+                "method": "low_variability",
+                "window_duration": "150min",
+                "maximum_range": 5,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_low_variability_rejects_negative_maximum_range():
+    """Reject a negative variability threshold."""
+    with pytest.raises(
+        ValueError,
+        match="greater than or equal to zero",
+    ):
+        validate_quality_test(
+            {
+                "name": "stable_values",
+                "method": "low_variability",
+                "window_duration": "3h",
+                "maximum_range": -1,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_low_variability_requires_maximum_range():
+    """Require an explicit variability threshold."""
+    with pytest.raises(
+        ValueError,
+        match="Missing keys",
+    ):
+        validate_quality_test(
+            {
+                "name": "stable_values",
+                "method": "low_variability",
+                "window_duration": "3h",
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_low_variability_rejects_failed_period_inclusion():
+    """Do not allow prior-failure controls on this direct method."""
+    with pytest.raises(ValueError, match="unknown keys"):
+        validate_quality_test(
+            {
+                "name": "stable_values",
+                "method": "low_variability",
+                "window_duration": "3h",
+                "maximum_range": 5,
+                "include_failed_periods_from": ["earlier_test"],
+            },
+            grid=_grid(),
+        )
+
+

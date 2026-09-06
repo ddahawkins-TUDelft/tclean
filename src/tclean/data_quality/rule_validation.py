@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from tclean.data_quality.methods import flatline as flatline_method
+from tclean.data_quality.methods import low_variability as low_variability_method
 from tclean.data_quality.methods import range as range_method
 from tclean.data_quality.methods import value_run as value_run_method
 from tclean.time_grid import TimeGrid
@@ -12,6 +13,7 @@ _TEST_VALIDATORS = {
     range_method.METHOD_NAME: range_method.validate,
     value_run_method.METHOD_NAME: value_run_method.validate,
     flatline_method.METHOD_NAME: flatline_method.validate,
+    low_variability_method.METHOD_NAME: low_variability_method.validate,
 }
 
 
