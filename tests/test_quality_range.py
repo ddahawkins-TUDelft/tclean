@@ -2,7 +2,17 @@
 
 import pandas as pd
 
+from tclean import TimeGrid
 from tclean.data_quality.methods.range import evaluate
+
+
+def _grid() -> TimeGrid:
+    """Return an eight-hour test grid."""
+    return TimeGrid(
+        start="2026-01-01T00:00:00Z",
+        end="2026-01-01T08:00:00Z",
+        frequency="1h",
+    )
 
 
 def _data() -> pd.DataFrame:
@@ -31,6 +41,7 @@ def test_evaluate_range_flags_values_below_minimum():
             "method": "range",
             "minimum": 0,
         },
+        grid = _grid()
     )
 
     expected = pd.DataFrame(
@@ -54,6 +65,7 @@ def test_evaluate_range_flags_values_above_maximum():
             "method": "range",
             "maximum": 10,
         },
+        grid = _grid()
     )
 
     expected = pd.DataFrame(
@@ -78,6 +90,7 @@ def test_evaluate_range_flags_values_outside_both_bounds():
             "minimum": 0,
             "maximum": 10,
         },
+        grid = _grid()
     )
 
     expected = pd.DataFrame(
@@ -113,6 +126,7 @@ def test_evaluate_range_treats_bounds_as_inclusive():
             "minimum": 0,
             "maximum": 10,
         },
+        grid = _grid()
     )
 
     expected = pd.DataFrame(
@@ -147,6 +161,7 @@ def test_evaluate_range_does_not_flag_missing_values():
             "minimum": 0,
             "maximum": 10,
         },
+        grid = _grid()
     )
 
     expected = pd.DataFrame(
@@ -171,6 +186,7 @@ def test_evaluate_range_preserves_index_and_columns():
             "method": "range",
             "minimum": 0,
         },
+        grid = _grid()
     )
 
     assert result.index.equals(data.index)

@@ -3,18 +3,8 @@
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from tclean.data_quality.methods import flatline as flatline_method
-from tclean.data_quality.methods import low_variability as low_variability_method
-from tclean.data_quality.methods import range as range_method
-from tclean.data_quality.methods import value_run as value_run_method
+from tclean.data_quality.methods import METHODS
 from tclean.time_grid import TimeGrid
-
-_TEST_VALIDATORS = {
-    range_method.METHOD_NAME: range_method.validate,
-    value_run_method.METHOD_NAME: value_run_method.validate,
-    flatline_method.METHOD_NAME: flatline_method.validate,
-    low_variability_method.METHOD_NAME: low_variability_method.validate,
-}
 
 
 def _validate_common_fields(test: Mapping[str, Any]) -> None:
@@ -44,16 +34,16 @@ def validate_quality_test(
 
     _validate_common_fields(test)
 
-    method = test["method"]
+    method_name = test["method"]
 
     try:
-        validator = _TEST_VALIDATORS[method]
+        method = METHODS[method_name]
     except KeyError as exc:
         raise ValueError(
-            f"Unsupported data-quality method: {method!r}."
+            f"Unsupported data-quality method: {method_name!r}."
         ) from exc
 
-    return validator(test, grid=grid)
+    return method.validate(test, grid=grid)
 
 
 def _validate_prior_failure_references(
@@ -63,7 +53,10 @@ def _validate_prior_failure_references(
     preceding_names: set[str] = set()
 
     for test in tests:
-        references = test.get("include_failed_periods_from", [])
+        references = test.get(
+            "include_failed_periods_from",
+            [],
+        )
 
         unavailable = [
             name
@@ -105,8 +98,13 @@ def validate_quality_tests(
         ValueError: If a test is invalid, test names are duplicated, or
             failure references do not point exclusively to preceding tests.
     """
-    if isinstance(tests, (str, bytes)) or not isinstance(tests, Sequence):
-        raise TypeError("Data-quality tests must be an ordered sequence.")
+    if isinstance(tests, (str, bytes)) or not isinstance(
+        tests,
+        Sequence,
+    ):
+        raise TypeError(
+            "Data-quality tests must be an ordered sequence."
+        )
 
     normalized = [
         validate_quality_test(test, grid=grid)

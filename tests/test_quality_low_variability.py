@@ -4,10 +4,7 @@ import pandas as pd
 import pytest
 
 from tclean import TimeGrid
-from tclean.data_quality.methods.low_variability import (
-    build_details,
-    evaluate,
-)
+from tclean.data_quality.methods.low_variability import build_details, evaluate
 
 
 def _grid() -> TimeGrid:

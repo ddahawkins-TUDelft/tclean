@@ -121,8 +121,11 @@ def build_details(
     start: pd.Timestamp,
     end: pd.Timestamp,
     test: Mapping[str, Any],
+    grid: TimeGrid,
 ) -> dict[str, Any]:
     """Build structured diagnostics for one failed flatline period."""
+    del grid
+
     failed_values = data.loc[
         (data.index >= start) & (data.index < end)
     ].dropna()

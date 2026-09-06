@@ -70,6 +70,7 @@ def evaluate(
     data: pd.DataFrame,
     *,
     test: Mapping[str, Any],
+    grid: TimeGrid,
 ) -> pd.DataFrame:
     """Evaluate whether observed values fall outside configured bounds.
 
@@ -79,11 +80,14 @@ def evaluate(
         data: Time-series values indexed by timestamp and with contexts
             represented by columns.
         test: Validated range-test configuration.
+        grid: Tclean TimeGrid
 
     Returns:
         Boolean DataFrame aligned exactly to ``data`` where ``True`` marks
         observations that fail the configured range test.
     """
+    del grid  # Range evaluation is independent of temporal resolution.
+
     failures = pd.DataFrame(
         False,
         index=data.index,
@@ -108,9 +112,14 @@ def build_details(
     start: pd.Timestamp,
     end: pd.Timestamp,
     test: Mapping[str, Any],
+    grid: TimeGrid,
 ) -> dict[str, Any]:
     """Build structured diagnostics for one failed range period."""
-    failed_values = data.loc[(data.index >= start) & (data.index < end)].dropna()
+    del grid
+
+    failed_values = data.loc[
+        (data.index >= start) & (data.index < end)
+    ].dropna()
 
     details: dict[str, Any] = {
         "observed_minimum": float(failed_values.min()),
@@ -136,4 +145,3 @@ def build_details(
         )
 
     return details
-

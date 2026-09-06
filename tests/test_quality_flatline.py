@@ -277,6 +277,7 @@ def test_build_details_reports_flatline_diagnostics():
         start=pd.Timestamp("2026-01-01T01:00:00Z"),
         end=pd.Timestamp("2026-01-01T04:00:00Z"),
         test=_test(tolerance=0.1),
+        grid = _grid(),
     )
 
     assert details["duration"] == pd.Timedelta("3h")

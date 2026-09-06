@@ -437,3 +437,120 @@ def test_evaluate_rejects_blank_source_name():
             tests=[],
             grid=_grid(),
         )
+
+
+def test_evaluate_reports_value_run_failure():
+    """Evaluate value-run tests through the public quality API."""
+    sources = {
+        "primary": _source(
+            {
+                "A": [5, 0, 0, 0, 5, 6],
+            }
+        )
+    }
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "zero_run",
+                "method": "value_run",
+                "value": 0,
+                "minimum_duration": "3h",
+            }
+        ],
+        grid=_grid(),
+    )
+
+    assert len(result.failures) == 1
+
+    failure = result.failures.iloc[0]
+
+    assert failure["source"] == "primary"
+    assert failure["context"] == "A"
+    assert failure["test_name"] == "zero_run"
+    assert failure["method"] == "value_run"
+    assert failure["start"] == pd.Timestamp(
+        "2026-01-01T01:00:00Z"
+    )
+    assert failure["end"] == pd.Timestamp(
+        "2026-01-01T04:00:00Z"
+    )
+    assert failure["details"]["duration"] == pd.Timedelta("3h")
+
+
+def test_evaluate_reports_flatline_failure():
+    """Evaluate flatline tests through the public quality API."""
+    sources = {
+        "primary": _source(
+            {
+                "A": [1, 5, 5, 5, 2, 3],
+            }
+        )
+    }
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "flat_values",
+                "method": "flatline",
+                "minimum_duration": "3h",
+            }
+        ],
+        grid=_grid(),
+    )
+
+    assert len(result.failures) == 1
+
+    failure = result.failures.iloc[0]
+
+    assert failure["method"] == "flatline"
+    assert failure["start"] == pd.Timestamp(
+        "2026-01-01T01:00:00Z"
+    )
+    assert failure["end"] == pd.Timestamp(
+        "2026-01-01T04:00:00Z"
+    )
+    assert failure["details"]["observed_range"] == 0.0
+
+
+def test_evaluate_reports_low_variability_failure():
+    """Evaluate low-variability tests through the public quality API."""
+    sources = {
+        "primary": _source(
+            {
+                "A": [10, 1.0, 1.1, 1.2, 10, 20],
+            }
+        )
+    }
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "stable_values",
+                "method": "low_variability",
+                "window_duration": "3h",
+                "maximum_range": 0.2,
+            }
+        ],
+        grid=_grid(),
+    )
+
+    assert len(result.failures) == 1
+
+    failure = result.failures.iloc[0]
+
+    assert failure["method"] == "low_variability"
+    assert failure["start"] == pd.Timestamp(
+        "2026-01-01T01:00:00Z"
+    )
+    assert failure["end"] == pd.Timestamp(
+        "2026-01-01T04:00:00Z"
+    )
+
+    assert failure["details"]["qualifying_window_count"] == 1
+    assert failure["details"]["maximum_window_range"] == pytest.approx(
+        0.2
+    )

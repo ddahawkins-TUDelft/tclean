@@ -7,7 +7,11 @@ from typing import Any
 import pandas as pd
 
 from tclean.data_quality._periods import failure_mask_to_periods
+from tclean.data_quality.methods import METHODS
+from tclean.data_quality.methods import flatline as flatline_method
+from tclean.data_quality.methods import low_variability as low_variability_method
 from tclean.data_quality.methods import range as range_method
+from tclean.data_quality.methods import value_run as value_run_method
 from tclean.data_quality.rule_validation import validate_quality_tests
 from tclean.time_grid import TimeGrid
 from tclean.validation import (
@@ -179,7 +183,7 @@ def _selected_contexts(
     ]
 
 
-def _evaluate_range_test(
+def _evaluate_test_for_source(
     data: pd.DataFrame,
     *,
     source_name: str,
@@ -187,15 +191,18 @@ def _evaluate_range_test(
     test: Mapping[str, Any],
     grid: TimeGrid,
 ) -> list[dict[str, Any]]:
-    """Evaluate one range test for one source."""
+    """Evaluate one quality test for one source."""
     if not contexts:
         return []
 
+    method = METHODS[test["method"]]
+
     selected = data.loc[:, list(contexts)]
 
-    mask = range_method.evaluate(
+    mask = method.evaluate(
         selected,
         test=test,
+        grid=grid,
     )
 
     failures: list[dict[str, Any]] = []
@@ -215,21 +222,17 @@ def _evaluate_range_test(
                     "end": end,
                     "test_name": test["name"],
                     "method": test["method"],
-                    "details": range_method.build_details(
+                    "details": method.build_details(
                         data[context],
                         start=start,
                         end=end,
                         test=test,
+                        grid=grid,
                     ),
                 }
             )
 
     return failures
-
-
-_METHOD_EVALUATORS = {
-    range_method.METHOD_NAME: _evaluate_range_test,
-}
 
 
 def _build_failure_frame(
@@ -314,8 +317,6 @@ def evaluate(
             test=test,
         )
 
-        evaluator = _METHOD_EVALUATORS[test["method"]]
-
         for source_name in source_names:
             data = validated_sources[source_name]
 
@@ -325,7 +326,7 @@ def evaluate(
             )
 
             failure_rows.extend(
-                evaluator(
+                _evaluate_test_for_source(
                     data,
                     source_name=source_name,
                     contexts=contexts,
