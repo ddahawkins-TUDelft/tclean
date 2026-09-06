@@ -8,10 +8,6 @@ import pandas as pd
 
 from tclean.data_quality._periods import failure_mask_to_periods
 from tclean.data_quality.methods import METHODS
-from tclean.data_quality.methods import flatline as flatline_method
-from tclean.data_quality.methods import low_variability as low_variability_method
-from tclean.data_quality.methods import range as range_method
-from tclean.data_quality.methods import value_run as value_run_method
 from tclean.data_quality.rule_validation import validate_quality_tests
 from tclean.time_grid import TimeGrid
 from tclean.validation import (
