@@ -18,12 +18,11 @@ from tclean.data_quality.methods._lattice import (
     normalize_reference_orders,
     reference_timestamps,
 )
+from tclean.data_quality.methods._robust import robust_location_scale
 from tclean.time_grid import TimeGrid
 
 METHOD_NAME = "contextual_level"
 USES_REFERENCE_DATA = True
-
-_MAD_NORMAL_SCALE = 1.4826
 
 
 @dataclass(frozen=True)
@@ -146,13 +145,11 @@ def _robust_deviation(
 
     values = reference.to_numpy(dtype=float)
 
-    reference_median = float(np.median(values))
+    robust_reference = robust_location_scale(values)
 
-    absolute_deviations = np.abs(values - reference_median)
-
-    reference_mad = float(np.median(absolute_deviations))
-
-    robust_scale = _MAD_NORMAL_SCALE * reference_mad
+    reference_median = robust_reference.median
+    reference_mad = robust_reference.mad
+    robust_scale = robust_reference.scale
 
     deviation = float(target - reference_median)
 

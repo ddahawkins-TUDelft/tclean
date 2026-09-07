@@ -117,3 +117,15 @@ def integer_at_least(value: object, *, field: str, minimum: int) -> int:
         raise ValueError(f"{field!r} must be greater than or equal to {minimum}.")
 
     return normalized
+
+
+def nonnegative_timedelta(value: object, *, field: str, grid: TimeGrid) -> pd.Timedelta:
+    """Normalize a non-negative duration aligned with the configured grid."""
+    delta = normalize_fixed_duration(value, field=field)
+
+    if delta < pd.Timedelta(0):
+        raise ValueError(f"{field!r} must be greater than or equal to zero.")
+
+    grid.validate_duration_multiple(delta, field=field)
+
+    return delta

@@ -1007,3 +1007,204 @@ def test_validate_contextual_level_accepts_failed_period_inclusion():
     )
 
     assert result[1]["include_failed_periods_from"] == ["negative"]
+
+
+def test_validate_contextual_profile_normalizes_configuration():
+    """Normalize contextual-profile duration, offset, lattice, and criteria."""
+    result = validate_quality_test(
+        {
+            "name": "unusual_daily_shape",
+            "method": "contextual_profile",
+            "profile_duration": "4h",
+            "profile_offset": "1h",
+            "reference_orders": [{"period": "8h", "radius": 2}],
+            "robust_deviation_threshold": 6,
+            "maximum_predictive_probability": 0.1,
+        },
+        grid=_grid(),
+    )
+
+    assert result["profile_duration"] == pd.Timedelta("4h")
+    assert result["profile_offset"] == pd.Timedelta("1h")
+    assert result["robust_deviation_threshold"] == 6
+    assert result["maximum_predictive_probability"] == 0.1
+    assert len(result["reference_orders"]) == 1
+
+
+def test_validate_contextual_profile_defaults_zero_offset():
+    """Align profiles to the grid start when no offset is configured."""
+    result = validate_quality_test(
+        {
+            "name": "unusual_shape",
+            "method": "contextual_profile",
+            "profile_duration": "4h",
+            "reference_orders": [{"period": "8h", "radius": 2}],
+            "robust_deviation_threshold": 6,
+        },
+        grid=_grid(),
+    )
+
+    assert result["profile_offset"] == pd.Timedelta(0)
+
+
+def test_validate_contextual_profile_accepts_predictive_only():
+    """Allow the rank-based predictive criterion without robust evidence."""
+    result = validate_quality_test(
+        {
+            "name": "unusual_shape",
+            "method": "contextual_profile",
+            "profile_duration": "4h",
+            "reference_orders": [{"period": "8h", "radius": 2}],
+            "maximum_predictive_probability": 0.1,
+        },
+        grid=_grid(),
+    )
+
+    assert "robust_deviation_threshold" not in result
+    assert result["maximum_predictive_probability"] == 0.1
+
+
+def test_validate_contextual_profile_requires_criterion():
+    """Require at least one contextual-profile anomaly criterion."""
+    with pytest.raises(ValueError, match="at least one"):
+        validate_quality_test(
+            {
+                "name": "unusual_shape",
+                "method": "contextual_profile",
+                "profile_duration": "4h",
+                "reference_orders": [{"period": "8h", "radius": 2}],
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_contextual_profile_requires_two_step_duration():
+    """Require enough values for a profile shape."""
+    with pytest.raises(ValueError, match="at least two grid steps"):
+        validate_quality_test(
+            {
+                "name": "unusual_shape",
+                "method": "contextual_profile",
+                "profile_duration": "1h",
+                "reference_orders": [{"period": "8h", "radius": 2}],
+                "robust_deviation_threshold": 6,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_contextual_profile_rejects_off_grid_duration():
+    """Require profile duration to contain complete grid steps."""
+    with pytest.raises(ValueError, match="integer multiple"):
+        validate_quality_test(
+            {
+                "name": "unusual_shape",
+                "method": "contextual_profile",
+                "profile_duration": "150min",
+                "reference_orders": [{"period": "8h", "radius": 2}],
+                "robust_deviation_threshold": 6,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_contextual_profile_rejects_negative_offset():
+    """Require a canonical non-negative profile offset."""
+    with pytest.raises(ValueError, match="greater than or equal to zero"):
+        validate_quality_test(
+            {
+                "name": "unusual_shape",
+                "method": "contextual_profile",
+                "profile_duration": "4h",
+                "profile_offset": "-1h",
+                "reference_orders": [{"period": "8h", "radius": 2}],
+                "robust_deviation_threshold": 6,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_contextual_profile_rejects_off_grid_offset():
+    """Require profile offset to align with the configured frequency."""
+    with pytest.raises(ValueError, match="integer multiple"):
+        validate_quality_test(
+            {
+                "name": "unusual_shape",
+                "method": "contextual_profile",
+                "profile_duration": "4h",
+                "profile_offset": "30min",
+                "reference_orders": [{"period": "8h", "radius": 2}],
+                "robust_deviation_threshold": 6,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_contextual_profile_requires_offset_below_duration():
+    """Keep equivalent profile phases in one canonical offset range."""
+    with pytest.raises(ValueError, match="less than 'profile_duration'"):
+        validate_quality_test(
+            {
+                "name": "unusual_shape",
+                "method": "contextual_profile",
+                "profile_duration": "4h",
+                "profile_offset": "4h",
+                "reference_orders": [{"period": "8h", "radius": 2}],
+                "robust_deviation_threshold": 6,
+            },
+            grid=_grid(),
+        )
+
+
+@pytest.mark.parametrize("threshold", [0, -1])
+def test_validate_contextual_profile_requires_positive_robust_threshold(threshold):
+    """Require a positive robust profile-deviation threshold."""
+    with pytest.raises(ValueError, match="greater than zero"):
+        validate_quality_test(
+            {
+                "name": "unusual_shape",
+                "method": "contextual_profile",
+                "profile_duration": "4h",
+                "reference_orders": [{"period": "8h", "radius": 2}],
+                "robust_deviation_threshold": threshold,
+            },
+            grid=_grid(),
+        )
+
+
+@pytest.mark.parametrize("probability", [0, 1, -0.1, 1.1])
+def test_validate_contextual_profile_requires_probability_strictly_between_zero_and_one(
+    probability,
+):
+    """Require a proper predictive-probability threshold."""
+    with pytest.raises(ValueError, match="greater than zero and less than one"):
+        validate_quality_test(
+            {
+                "name": "unusual_shape",
+                "method": "contextual_profile",
+                "profile_duration": "4h",
+                "reference_orders": [{"period": "8h", "radius": 2}],
+                "maximum_predictive_probability": probability,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_contextual_profile_accepts_prior_failure_inclusion():
+    """Allow reference-aware profile tests to restore named prior failures."""
+    result = validate_quality_tests(
+        [
+            {"name": "plausible_range", "method": "range", "minimum": 0},
+            {
+                "name": "unusual_shape",
+                "method": "contextual_profile",
+                "profile_duration": "4h",
+                "reference_orders": [{"period": "8h", "radius": 2}],
+                "robust_deviation_threshold": 6,
+                "include_failed_periods_from": ["plausible_range"],
+            },
+        ],
+        grid=_grid(),
+    )
+
+    assert result[1]["include_failed_periods_from"] == ["plausible_range"]

@@ -2,6 +2,7 @@
 
 from . import (
     contextual_level,
+    contextual_profile,
     fixed_rate_of_change,
     flatline,
     level_shift,
@@ -22,6 +23,7 @@ METHODS = {
     relative_rate_of_change.METHOD_NAME: relative_rate_of_change,
     level_shift.METHOD_NAME: level_shift,
     contextual_level.METHOD_NAME: contextual_level,
+    contextual_profile.METHOD_NAME: contextual_profile,
 }
 
 __all__ = ["METHODS"]

@@ -678,3 +678,171 @@ def test_contextual_level_can_include_named_preceding_failures():
     ]
 
     assert contextual_failures.empty
+
+
+def _profile_grid() -> TimeGrid:
+    """Return an hourly grid for contextual-profile integration tests."""
+    return TimeGrid(
+        start="2026-01-01T00:00:00Z", end="2026-01-02T16:00:00Z", frequency="1h"
+    )
+
+
+def _profile_source() -> pd.DataFrame:
+    """Return repeated four-hour profile shapes across the integration grid."""
+    grid = _profile_grid()
+    pattern = [0.0, 1.0, 3.0, 1.0]
+    values = pattern * (len(grid.target_index) // len(pattern))
+    return pd.DataFrame({"A": values}, index=grid.target_index)
+
+
+def test_evaluate_reports_contextual_profile_whole_block_failure():
+    """Report a contextual shape anomaly as its complete profile period."""
+    grid = _profile_grid()
+    source = _profile_source()
+    target = pd.Timestamp("2026-01-01T20:00:00Z")
+    source.loc[target : target + pd.Timedelta("3h"), "A"] = [3, 0, 0, 3]
+
+    result = evaluate(
+        {"primary": source},
+        tests=[
+            {
+                "name": "unusual_shape",
+                "method": "contextual_profile",
+                "profile_duration": "4h",
+                "reference_orders": [{"period": "8h", "radius": 2}],
+                "robust_deviation_threshold": 6,
+            }
+        ],
+        grid=grid,
+    )
+
+    failures = result.failures.loc[
+        (result.failures["test_name"] == "unusual_shape")
+        & (result.failures["start"] == target)
+    ]
+
+    assert len(failures) == 1
+
+    failure = failures.iloc[0]
+    assert failure["source"] == "primary"
+    assert failure["context"] == "A"
+    assert failure["method"] == "contextual_profile"
+    assert failure["end"] == target + pd.Timedelta("4h")
+    assert failure["details"]["failed_profiles"] == 1
+    assert failure["details"]["failed_criteria"] == ["robust_deviation"]
+
+
+def test_evaluate_decorates_contextual_profile_issue():
+    """Decorate method-level incomplete-profile issues through the public API."""
+    grid = _profile_grid()
+    source = _profile_source()
+    target = pd.Timestamp("2026-01-01T20:00:00Z")
+    source.loc[target + pd.Timedelta("1h"), "A"] = None
+
+    result = evaluate(
+        {"primary": source},
+        tests=[
+            {
+                "name": "unusual_shape",
+                "method": "contextual_profile",
+                "profile_duration": "4h",
+                "reference_orders": [{"period": "8h", "radius": 2}],
+                "robust_deviation_threshold": 6,
+            }
+        ],
+        grid=grid,
+    )
+
+    issues = result.issues.loc[
+        (result.issues["test_name"] == "unusual_shape")
+        & (result.issues["start"] == target)
+    ]
+
+    assert len(issues) == 1
+
+    issue = issues.iloc[0]
+    assert issue["source"] == "primary"
+    assert issue["context"] == "A"
+    assert issue["method"] == "contextual_profile"
+    assert issue["severity"] == "not_evaluable"
+    assert issue["code"] == "incomplete_target_profile"
+    assert issue["end"] == target + pd.Timedelta("4h")
+
+
+def test_contextual_profile_excludes_preceding_failures_from_reference_profiles():
+    """Drop a reference profile containing observations failed by an earlier test."""
+    grid = _profile_grid()
+    source = _profile_source()
+    scaled_reference = pd.Timestamp("2026-01-01T12:00:00Z")
+    target = pd.Timestamp("2026-01-01T20:00:00Z")
+
+    source.loc[scaled_reference : scaled_reference + pd.Timedelta("3h"), "A"] = [
+        0,
+        100,
+        300,
+        100,
+    ]
+    source.loc[target : target + pd.Timedelta("3h"), "A"] = [3, 0, 0, 3]
+
+    result = evaluate(
+        {"primary": source},
+        tests=[
+            {"name": "implausibly_high", "method": "range", "maximum": 50},
+            {
+                "name": "unusual_shape",
+                "method": "contextual_profile",
+                "profile_duration": "4h",
+                "reference_orders": [{"period": "8h", "radius": 2}],
+                "robust_deviation_threshold": 6,
+            },
+        ],
+        grid=grid,
+    )
+
+    failure = result.failures.loc[
+        (result.failures["test_name"] == "unusual_shape")
+        & (result.failures["start"] == target)
+    ].iloc[0]
+
+    profile = failure["details"]["profiles"][0]
+    assert profile["reference_profiles"] == 3
+
+
+def test_contextual_profile_can_restore_named_preceding_failures():
+    """Restore a failed reference profile when explicitly configured to do so."""
+    grid = _profile_grid()
+    source = _profile_source()
+    scaled_reference = pd.Timestamp("2026-01-01T12:00:00Z")
+    target = pd.Timestamp("2026-01-01T20:00:00Z")
+
+    source.loc[scaled_reference : scaled_reference + pd.Timedelta("3h"), "A"] = [
+        0,
+        100,
+        300,
+        100,
+    ]
+    source.loc[target : target + pd.Timedelta("3h"), "A"] = [3, 0, 0, 3]
+
+    result = evaluate(
+        {"primary": source},
+        tests=[
+            {"name": "implausibly_high", "method": "range", "maximum": 50},
+            {
+                "name": "unusual_shape",
+                "method": "contextual_profile",
+                "profile_duration": "4h",
+                "reference_orders": [{"period": "8h", "radius": 2}],
+                "robust_deviation_threshold": 6,
+                "include_failed_periods_from": ["implausibly_high"],
+            },
+        ],
+        grid=grid,
+    )
+
+    failure = result.failures.loc[
+        (result.failures["test_name"] == "unusual_shape")
+        & (result.failures["start"] == target)
+    ].iloc[0]
+
+    profile = failure["details"]["profiles"][0]
+    assert profile["reference_profiles"] == 4
