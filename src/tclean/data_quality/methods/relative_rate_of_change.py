@@ -5,14 +5,13 @@ from typing import Any
 
 import pandas as pd
 
+from tclean.data_quality._method import MethodContext, MethodResult, MethodSpec
 from tclean.data_quality._validation_helpers import (
     nonnegative_real,
     normalize_common_selectors,
     validate_keys,
 )
 from tclean.time_grid import TimeGrid
-
-METHOD_NAME = "relative_rate_of_change"
 
 
 def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
@@ -65,11 +64,10 @@ def _analyse(
     return (previous, change, relative_change, failures.astype(bool))
 
 
-def evaluate(
-    data: pd.DataFrame, *, test: Mapping[str, Any], grid: TimeGrid
-) -> pd.DataFrame:
+def evaluate(context: MethodContext) -> MethodResult:
     """Flag excessive changes relative to the preceding value."""
-    del grid
+    data = context.target_data
+    test = context.test
 
     failures = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
 
@@ -82,18 +80,24 @@ def evaluate(
 
         failures[context] = context_failures
 
-    return failures
+    return MethodResult(mask=failures)
 
 
 def build_details(
-    data: pd.Series,
+    context: MethodContext,
+    result: MethodResult,
     *,
+    context_name: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
 ) -> dict[str, Any]:
     """Build structured diagnostics for relative rate-of-change failures."""
+    del result
+
+    data = context.target_data[context_name]
+    test = context.test
+    grid = context.grid
+
     (previous, change, relative_change, failures) = _analyse(
         data,
         threshold=test["threshold"],
@@ -122,3 +126,11 @@ def build_details(
         "transition_count": len(transitions),
         "transitions": transitions,
     }
+
+
+METHOD = MethodSpec(
+    name="relative_rate_of_change",
+    validate=validate,
+    evaluate=evaluate,
+    build_details=build_details,
+)

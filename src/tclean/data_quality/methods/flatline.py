@@ -5,6 +5,7 @@ from typing import Any
 
 import pandas as pd
 
+from tclean.data_quality._method import MethodContext, MethodResult, MethodSpec
 from tclean.data_quality._validation_helpers import (
     nonnegative_real,
     normalize_common_selectors,
@@ -12,8 +13,6 @@ from tclean.data_quality._validation_helpers import (
     validate_keys,
 )
 from tclean.time_grid import TimeGrid
-
-METHOD_NAME = "flatline"
 
 
 def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
@@ -44,24 +43,17 @@ def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
     return normalized
 
 
-def evaluate(
-    data: pd.DataFrame, *, test: Mapping[str, Any], grid: TimeGrid
-) -> pd.DataFrame:
+def evaluate(context: MethodContext) -> MethodResult:
     """Flag sufficiently long runs of effectively unchanged values.
 
     Consecutive observed values belong to the same flatline run when their
     absolute difference is less than or equal to the configured tolerance.
     Missing observations break a run and do not themselves fail.
-
-    Args:
-        data: Time-series values indexed by timestamp with contexts as columns.
-        test: Validated flatline-test configuration.
-        grid: Temporal grid defining the observation frequency.
-
-    Returns:
-        Boolean DataFrame aligned exactly to ``data``. Every observation in a
-        qualifying flatline run is marked ``True``.
     """
+    data = context.target_data
+    test = context.test
+    grid = context.grid
+
     minimum_steps = int(test["minimum_duration"] / grid.frequency)
 
     failures = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
@@ -83,19 +75,22 @@ def evaluate(
 
         failures[context] = observed & run_lengths.ge(minimum_steps)
 
-    return failures
+    return MethodResult(mask=failures)
 
 
 def build_details(
-    data: pd.Series,
+    context: MethodContext,
+    result: MethodResult,
     *,
+    context_name: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
 ) -> dict[str, Any]:
     """Build structured diagnostics for one failed flatline period."""
-    del grid
+    del result
+
+    data = context.target_data[context_name]
+    test = context.test
 
     failed_values = data.loc[(data.index >= start) & (data.index < end)].dropna()
 
@@ -112,3 +107,8 @@ def build_details(
             float(step_changes.max()) if not step_changes.empty else 0.0
         ),
     }
+
+
+METHOD = MethodSpec(
+    name="flatline", validate=validate, evaluate=evaluate, build_details=build_details
+)

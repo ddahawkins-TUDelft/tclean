@@ -1,6 +1,7 @@
 """Tests for fixed rate-of-change data-quality evaluation."""
 
 import pandas as pd
+from _method_helpers import method_details, method_mask
 
 from tclean import TimeGrid
 from tclean.data_quality.methods.fixed_rate_of_change import build_details, evaluate
@@ -31,7 +32,7 @@ def test_evaluate_flags_upward_change():
     """Flag an upward transition exceeding the threshold."""
     data = _data([100, 130, 135, 140, 145, 150])
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert result["A"].tolist() == [False, True, False, False, False, False]
 
@@ -40,7 +41,7 @@ def test_evaluate_flags_downward_change():
     """Flag a downward transition based on its magnitude."""
     data = _data([100, 70, 65, 60, 55, 50])
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert result["A"].tolist() == [False, True, False, False, False, False]
 
@@ -49,7 +50,7 @@ def test_evaluate_treats_threshold_as_exclusive():
     """Do not flag a change exactly equal to the threshold."""
     data = _data([100, 120, 125, 130, 135, 140])
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert not result["A"].any()
 
@@ -58,7 +59,7 @@ def test_evaluate_does_not_bridge_missing_values():
     """Require the immediately preceding observation to exist."""
     data = _data([100, None, 500, 505, 510, 515])
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert not result["A"].any()
 
@@ -70,7 +71,7 @@ def test_evaluate_applies_independently_to_contexts():
         index=pd.DatetimeIndex(_grid().target_index),
     )
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert result["A"].tolist() == [False, True, False, False, False, False]
     assert result["B"].tolist() == [False, False, False, True, False, False]
@@ -80,7 +81,9 @@ def test_build_details_preserves_adjacent_transitions():
     """Preserve each transition inside a merged failure period."""
     data = _data([100, 130, 170, 175, 180, 185])
 
-    details = build_details(
+    details = method_details(
+        evaluate,
+        build_details,
         data["A"],
         start=pd.Timestamp("2026-01-01T01:00:00Z"),
         end=pd.Timestamp("2026-01-01T03:00:00Z"),

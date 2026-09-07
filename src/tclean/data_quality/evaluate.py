@@ -5,9 +5,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
+from pandas.api.types import is_bool_dtype
 
+from tclean.data_quality._method import MethodContext, MethodIssue, MethodResult
 from tclean.data_quality._periods import failure_mask_to_periods
-from tclean.data_quality._reference import build_reference_data
 from tclean.data_quality.methods import METHODS
 from tclean.data_quality.rule_validation import validate_quality_tests
 from tclean.time_grid import TimeGrid
@@ -107,7 +108,7 @@ def _validate_sources(
 def _selected_source_names(
     sources: Mapping[str, pd.DataFrame], *, test: Mapping[str, Any]
 ) -> list[str]:
-    """Resolve selected sources in supplied source-mapping order."""
+    """Resolve selected focal sources in supplied source-mapping order."""
     if "sources" not in test:
         return list(sources)
 
@@ -129,7 +130,7 @@ def _validate_requested_contexts_exist(
     source_names: Sequence[str],
     test: Mapping[str, Any],
 ) -> None:
-    """Require requested contexts to exist in at least one selected source."""
+    """Require requested contexts to exist in at least one focal source."""
     if "contexts" not in test:
         return
 
@@ -150,7 +151,7 @@ def _validate_requested_contexts_exist(
 
 
 def _selected_contexts(data: pd.DataFrame, *, test: Mapping[str, Any]) -> list[str]:
-    """Resolve selected contexts in source-column order."""
+    """Resolve selected contexts in focal-source column order."""
     if "contexts" not in test:
         return list(data.columns)
 
@@ -159,8 +160,59 @@ def _selected_contexts(data: pd.DataFrame, *, test: Mapping[str, Any]) -> list[s
     return [context for context in data.columns if context in requested]
 
 
+def _validate_method_result(result: MethodResult, *, context: MethodContext) -> None:
+    """Require a method result to satisfy the framework mask contract."""
+    if not isinstance(result, MethodResult):
+        raise TypeError(
+            f"Data-quality method {context.test['method']!r} must return MethodResult."
+        )
+
+    mask = result.mask
+    target = context.target_data
+
+    if not isinstance(mask, pd.DataFrame):
+        raise TypeError(
+            f"Data-quality method {context.test['method']!r} returned a non-DataFrame "
+            "failure mask."
+        )
+
+    if not mask.index.equals(target.index) or not mask.columns.equals(target.columns):
+        raise ValueError(
+            f"Data-quality method {context.test['method']!r} returned a failure mask "
+            "that is not aligned with its focal data."
+        )
+
+    if any(not is_bool_dtype(dtype) for dtype in mask.dtypes):
+        raise TypeError(
+            f"Data-quality method {context.test['method']!r} returned a failure mask "
+            "with non-Boolean columns."
+        )
+
+    if mask.isna().to_numpy().any():
+        raise ValueError(
+            f"Data-quality method {context.test['method']!r} returned a failure mask "
+            "containing missing values."
+        )
+
+    if any(not isinstance(issue, MethodIssue) for issue in result.issues):
+        raise TypeError(
+            f"Data-quality method {context.test['method']!r} returned an invalid "
+            "method issue."
+        )
+
+    unknown_issue_contexts = {
+        issue.context for issue in result.issues if issue.context not in target.columns
+    }
+
+    if unknown_issue_contexts:
+        raise ValueError(
+            f"Data-quality method {context.test['method']!r} returned issues for "
+            f"unknown focal contexts: {sorted(unknown_issue_contexts)!r}."
+        )
+
+
 def _evaluate_test_for_source(
-    data: pd.DataFrame,
+    sources: Mapping[str, pd.DataFrame],
     *,
     source_name: str,
     contexts: Sequence[str],
@@ -168,92 +220,60 @@ def _evaluate_test_for_source(
     grid: TimeGrid,
     preceding_failures: Sequence[Mapping[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Evaluate one quality test for one source."""
+    """Evaluate one quality test for one focal source."""
     if not contexts:
         return [], []
 
     method = METHODS[test["method"]]
 
-    selected = data.loc[:, list(contexts)]
+    context = MethodContext(
+        source_name=source_name,
+        sources=sources,
+        contexts=tuple(contexts),
+        test=test,
+        grid=grid,
+        preceding_failures=tuple(preceding_failures),
+    )
 
-    uses_reference_data = bool(getattr(method, "USES_REFERENCE_DATA", False))
-
-    evaluate_with_issues = getattr(method, "evaluate_with_issues", None)
-
-    method_issues: Sequence[Mapping[str, Any]] = ()
-
-    reference = None
-
-    if uses_reference_data:
-        reference = build_reference_data(
-            data,
-            source_name=source_name,
-            contexts=contexts,
-            preceding_failures=preceding_failures,
-            include_failed_periods_from=test.get("include_failed_periods_from", []),
-        )
-
-        if evaluate_with_issues is not None:
-            mask, method_issues = evaluate_with_issues(
-                selected, reference=reference, test=test, grid=grid
-            )
-        else:
-            mask = method.evaluate(selected, reference=reference, test=test, grid=grid)
-
-    else:
-        if evaluate_with_issues is not None:
-            mask, method_issues = evaluate_with_issues(selected, test=test, grid=grid)
-        else:
-            mask = method.evaluate(selected, test=test, grid=grid)
+    result = method.evaluate(context)
+    _validate_method_result(result, context=context)
 
     failures: list[dict[str, Any]] = []
 
-    for context in contexts:
-        periods = failure_mask_to_periods(mask[context], grid=grid)
+    for context_name in contexts:
+        periods = failure_mask_to_periods(result.mask[context_name], grid=grid)
 
         for start, end in periods:
-            if uses_reference_data:
-                details = method.build_details(
-                    data[context],
-                    reference=reference[context],
-                    start=start,
-                    end=end,
-                    test=test,
-                    grid=grid,
-                )
-            else:
-                details = method.build_details(
-                    data[context], start=start, end=end, test=test, grid=grid
-                )
+            details = method.build_details(
+                context, result, context_name=context_name, start=start, end=end
+            )
 
             failures.append(
                 {
-                    "context": context,
+                    "context": context_name,
                     "source": source_name,
                     "start": start,
                     "end": end,
                     "test_name": test["name"],
-                    "method": test["method"],
+                    "method": method.name,
                     "details": details,
                 }
             )
 
-    issues: list[dict[str, Any]] = []
-
-    for issue in method_issues:
-        issues.append(
-            {
-                "context": issue["context"],
-                "source": source_name,
-                "start": issue["start"],
-                "end": issue["end"],
-                "test_name": test["name"],
-                "method": test["method"],
-                "severity": issue["severity"],
-                "code": issue["code"],
-                "details": issue["details"],
-            }
-        )
+    issues = [
+        {
+            "context": issue.context,
+            "source": source_name,
+            "start": issue.start,
+            "end": issue.end,
+            "test_name": test["name"],
+            "method": method.name,
+            "severity": issue.severity,
+            "code": issue.code,
+            "details": dict(issue.details),
+        }
+        for issue in result.issues
+    ]
 
     return failures, issues
 
@@ -285,7 +305,6 @@ def _build_issue_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
         issues[column] = issues[column].astype("string")
 
     issues["start"] = pd.to_datetime(issues["start"], utc=True)
-
     issues["end"] = pd.to_datetime(issues["end"], utc=True)
 
     return issues
@@ -299,8 +318,9 @@ def evaluate(
 ) -> QualityEvaluation:
     """Evaluate configured data-quality tests across named sources.
 
-    Tests execute in configured order. Source-specific tests are evaluated
-    independently for every selected source and applicable context.
+    Tests execute in configured order. ``sources`` selectors choose focal
+    sources for a test; every supplied source remains available to the method
+    through its execution context for cross-source evidence when needed.
 
     This function does not modify source data.
 
@@ -321,7 +341,6 @@ def evaluate(
             canonical T-Clean schemas.
     """
     validated_sources = _validate_sources(sources, grid=grid)
-
     validated_tests = validate_quality_tests(tests, grid=grid)
 
     failure_rows: list[dict[str, Any]] = []
@@ -329,9 +348,7 @@ def evaluate(
 
     for test in validated_tests:
         preceding_failures = tuple(failure_rows)
-
         current_test_failure_rows: list[dict[str, Any]] = []
-
         current_test_issue_rows: list[dict[str, Any]] = []
 
         source_names = _selected_source_names(validated_sources, test=test)
@@ -342,11 +359,10 @@ def evaluate(
 
         for source_name in source_names:
             data = validated_sources[source_name]
-
             contexts = _selected_contexts(data, test=test)
 
             source_failures, source_issues = _evaluate_test_for_source(
-                data,
+                validated_sources,
                 source_name=source_name,
                 contexts=contexts,
                 test=test,
@@ -355,15 +371,12 @@ def evaluate(
             )
 
             current_test_failure_rows.extend(source_failures)
-
             current_test_issue_rows.extend(source_issues)
 
         failure_rows.extend(current_test_failure_rows)
-
         issue_rows.extend(current_test_issue_rows)
 
     failures = validate_quality_failures(_build_failure_frame(failure_rows), grid=grid)
-
     issues = validate_quality_issues(_build_issue_frame(issue_rows), grid=grid)
 
     return QualityEvaluation(failures=failures, issues=issues)

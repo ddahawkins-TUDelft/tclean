@@ -1,6 +1,7 @@
 """Tests for level-shift data-quality evaluation."""
 
 import pandas as pd
+from _method_helpers import method_details, method_mask
 
 from tclean import TimeGrid
 from tclean.data_quality.methods.level_shift import build_details, evaluate
@@ -32,7 +33,7 @@ def test_evaluate_localizes_upward_level_shift():
     """Localize one persistent upward level shift."""
     data = _data([100] * 6 + [150] * 10)
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert result.index[result["A"]].tolist() == [pd.Timestamp("2026-01-01T06:00:00Z")]
 
@@ -41,11 +42,13 @@ def test_evaluate_localizes_downward_level_shift():
     """Preserve the direction of a persistent downward level shift."""
     data = _data([150] * 6 + [100] * 10)
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert result.index[result["A"]].tolist() == [pd.Timestamp("2026-01-01T06:00:00Z")]
 
-    details = build_details(
+    details = method_details(
+        evaluate,
+        build_details,
         data["A"],
         start=pd.Timestamp("2026-01-01T06:00:00Z"),
         end=pd.Timestamp("2026-01-01T07:00:00Z"),
@@ -60,7 +63,7 @@ def test_evaluate_treats_threshold_as_exclusive():
     """Do not flag a shift exactly equal to the threshold."""
     data = _data([100] * 6 + [150] * 10)
 
-    result = evaluate(data, test=_test(threshold=50), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(threshold=50), grid=_grid())
 
     assert not result["A"].any()
 
@@ -71,8 +74,8 @@ def test_evaluate_uses_paired_profile_offset():
         [100, 80, 120, 200, 100, 80, 120, 200, 150, 130, 170, 250, 150, 130, 170, 250]
     )
 
-    result = evaluate(
-        data, test=_test(window_duration="4h", threshold=40), grid=_grid()
+    result = method_mask(
+        evaluate, data, test=_test(window_duration="4h", threshold=40), grid=_grid()
     )
 
     assert result.index[result["A"]].tolist() == [pd.Timestamp("2026-01-01T08:00:00Z")]
@@ -84,8 +87,8 @@ def test_evaluate_does_not_treat_shape_change_as_level_shift():
         [100, 80, 120, 200, 100, 80, 120, 200, 80, 120, 200, 100, 80, 120, 200, 100]
     )
 
-    result = evaluate(
-        data, test=_test(window_duration="4h", threshold=30), grid=_grid()
+    result = method_mask(
+        evaluate, data, test=_test(window_duration="4h", threshold=30), grid=_grid()
     )
 
     assert not result["A"].any()
@@ -114,7 +117,7 @@ def test_evaluate_requires_complete_paired_windows():
         ]
     )
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert not result["A"].any()
 
@@ -125,9 +128,9 @@ def test_evaluate_requires_evidence_on_both_sides():
 
     near_end = _data([100] * 15 + [150])
 
-    start_result = evaluate(near_start, test=_test(), grid=_grid())
+    start_result = method_mask(evaluate, near_start, test=_test(), grid=_grid())
 
-    end_result = evaluate(near_end, test=_test(), grid=_grid())
+    end_result = method_mask(evaluate, near_end, test=_test(), grid=_grid())
 
     assert not start_result["A"].any()
     assert not end_result["A"].any()
@@ -140,7 +143,7 @@ def test_evaluate_applies_independently_to_contexts():
         index=pd.DatetimeIndex(_grid().target_index),
     )
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert result.index[result["A"]].tolist() == [pd.Timestamp("2026-01-01T06:00:00Z")]
 
@@ -151,7 +154,7 @@ def test_evaluate_localizes_separate_level_shifts():
     """Return one localized failure for each disconnected shift event."""
     data = _data([100] * 5 + [160] * 6 + [100] * 5)
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert result.index[result["A"]].tolist() == [
         pd.Timestamp("2026-01-01T05:00:00Z"),
@@ -163,7 +166,9 @@ def test_build_details_uses_full_support_region():
     """Describe evidence from every boundary supporting the localized shift."""
     data = _data([100] * 6 + [150] * 10)
 
-    details = build_details(
+    details = method_details(
+        evaluate,
+        build_details,
         data["A"],
         start=pd.Timestamp("2026-01-01T06:00:00Z"),
         end=pd.Timestamp("2026-01-01T07:00:00Z"),

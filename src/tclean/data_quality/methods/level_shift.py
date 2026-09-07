@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from tclean.data_quality._method import MethodContext, MethodResult, MethodSpec
 from tclean.data_quality._validation_helpers import (
     nonnegative_real,
     normalize_common_selectors,
@@ -13,8 +14,6 @@ from tclean.data_quality._validation_helpers import (
     validate_keys,
 )
 from tclean.time_grid import TimeGrid
-
-METHOD_NAME = "level_shift"
 
 
 def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
@@ -140,10 +139,12 @@ def _analyse(
     return shift_scores, qualifying, failures, events
 
 
-def evaluate(
-    data: pd.DataFrame, *, test: Mapping[str, Any], grid: TimeGrid
-) -> pd.DataFrame:
+def evaluate(context: MethodContext) -> MethodResult:
     """Flag localized boundaries supported by persistent paired level shifts."""
+    data = context.target_data
+    test = context.test
+    grid = context.grid
+
     window_steps = int(test["window_duration"] / grid.frequency)
 
     failures = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
@@ -155,18 +156,24 @@ def evaluate(
 
         failures[context] = context_failures
 
-    return failures
+    return MethodResult(mask=failures)
 
 
 def build_details(
-    data: pd.Series,
+    context: MethodContext,
+    result: MethodResult,
     *,
+    context_name: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
 ) -> dict[str, Any]:
     """Build structured diagnostics for one localized level-shift event."""
+    del result
+
+    data = context.target_data[context_name]
+    test = context.test
+    grid = context.grid
+
     del end
 
     window_steps = int(test["window_duration"] / grid.frequency)
@@ -214,3 +221,11 @@ def build_details(
         "pre_evidence_start": pre_evidence_start,
         "post_evidence_end": post_evidence_end,
     }
+
+
+METHOD = MethodSpec(
+    name="level_shift",
+    validate=validate,
+    evaluate=evaluate,
+    build_details=build_details,
+)

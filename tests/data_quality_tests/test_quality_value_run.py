@@ -1,6 +1,7 @@
 """Tests for repeated-value data-quality evaluation."""
 
 import pandas as pd
+from _method_helpers import method_mask
 
 from tclean import TimeGrid
 from tclean.data_quality.methods.value_run import evaluate
@@ -22,7 +23,8 @@ def test_evaluate_flags_run_meeting_minimum_duration():
     """Flag every value in a run that meets the duration threshold."""
     data = _data([5, 0, 0, 0, 5, 5, 5, 5])
 
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         data,
         test={
             "name": "zero_run",
@@ -47,7 +49,8 @@ def test_evaluate_does_not_flag_short_run():
     """Do not flag a run shorter than the configured duration."""
     data = _data([5, 0, 0, 5, 5, 5, 5, 5])
 
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         data,
         test={
             "name": "zero_run",
@@ -66,7 +69,8 @@ def test_evaluate_flags_run_longer_than_minimum_duration():
     """Flag the complete run when it exceeds the minimum duration."""
     data = _data([0, 0, 0, 0, 5, 5, 5, 5])
 
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         data,
         test={
             "name": "zero_run",
@@ -85,7 +89,8 @@ def test_evaluate_handles_multiple_qualifying_runs():
     """Flag multiple qualifying runs independently."""
     data = _data([0, 0, 0, 5, 0, 0, 0, 5])
 
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         data,
         test={
             "name": "zero_run",
@@ -104,7 +109,8 @@ def test_evaluate_uses_tolerance():
     """Treat values within the configured tolerance as part of one run."""
     data = _data([5, 0.0, 0.05, -0.08, 5, 5, 5, 5])
 
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         data,
         test={
             "name": "near_zero_run",
@@ -123,7 +129,8 @@ def test_evaluate_breaks_run_when_value_exceeds_tolerance():
     """Break a run when an observation lies outside tolerance."""
     data = _data([0, 0, 0.2, 0, 0, 5, 5, 5])
 
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         data,
         test={
             "name": "near_zero_run",
@@ -142,7 +149,8 @@ def test_evaluate_breaks_run_at_missing_value():
     """Treat missing observations as boundaries between value runs."""
     data = _data([0, 0, None, 0, 0, 0, 5, 5])
 
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         data,
         test={
             "name": "zero_run",
@@ -164,7 +172,8 @@ def test_evaluate_applies_independently_to_contexts():
         index=pd.DatetimeIndex(_grid().target_index),
     )
 
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         data,
         test={
             "name": "zero_run",

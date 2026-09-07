@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from tclean.data_quality._method import MethodContext, MethodResult, MethodSpec
 from tclean.data_quality._validation_helpers import (
     nonnegative_real,
     normalize_common_selectors,
@@ -13,8 +14,6 @@ from tclean.data_quality._validation_helpers import (
     validate_keys,
 )
 from tclean.time_grid import TimeGrid
-
-METHOD_NAME = "low_variability"
 
 
 def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
@@ -80,26 +79,17 @@ def _qualifying_windows(
     )
 
 
-def evaluate(
-    data: pd.DataFrame, *, test: Mapping[str, Any], grid: TimeGrid
-) -> pd.DataFrame:
+def evaluate(context: MethodContext) -> MethodResult:
     """Flag observations belonging to qualifying low-variability windows.
 
     A window qualifies when every expected observation is present and the
     range between its maximum and minimum values is less than or equal to the
-    configured maximum range.
-
-    Overlapping qualifying windows are combined, so an observation fails when
-    it belongs to at least one qualifying window.
-
-    Args:
-        data: Time-series values indexed by timestamp with contexts as columns.
-        test: Validated low-variability test configuration.
-        grid: Temporal grid defining the observation frequency.
-
-    Returns:
-        Boolean DataFrame aligned exactly to ``data``.
+    configured maximum range. Overlapping qualifying windows are combined.
     """
+    data = context.target_data
+    test = context.test
+    grid = context.grid
+
     window_steps = int(test["window_duration"] / grid.frequency)
 
     failures = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
@@ -122,18 +112,24 @@ def evaluate(
 
         failures[context] = np.cumsum(difference[:-1]) > 0
 
-    return failures
+    return MethodResult(mask=failures)
 
 
 def build_details(
-    data: pd.Series,
+    context: MethodContext,
+    result: MethodResult,
     *,
+    context_name: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
 ) -> dict[str, Any]:
     """Build structured diagnostics for one low-variability period."""
+    del result
+
+    data = context.target_data[context_name]
+    test = context.test
+    grid = context.grid
+
     window_steps = int(test["window_duration"] / grid.frequency)
 
     ranges, complete = _window_ranges(data, window_steps=window_steps)
@@ -165,3 +161,11 @@ def build_details(
         "period_observed_maximum": float(period_values.max()),
         "period_observed_range": float(period_values.max() - period_values.min()),
     }
+
+
+METHOD = MethodSpec(
+    name="low_variability",
+    validate=validate,
+    evaluate=evaluate,
+    build_details=build_details,
+)

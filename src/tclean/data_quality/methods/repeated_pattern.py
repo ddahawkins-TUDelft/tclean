@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from tclean.data_quality._method import MethodContext, MethodResult, MethodSpec
 from tclean.data_quality._validation_helpers import (
     integer_at_least,
     nonnegative_real,
@@ -15,8 +16,6 @@ from tclean.data_quality._validation_helpers import (
     validate_keys,
 )
 from tclean.time_grid import TimeGrid
-
-METHOD_NAME = "repeated_pattern"
 
 
 @dataclass(frozen=True)
@@ -203,26 +202,17 @@ def _qualifying_indices(
     ]
 
 
-def evaluate(
-    data: pd.DataFrame, *, test: Mapping[str, Any], grid: TimeGrid
-) -> pd.DataFrame:
+def evaluate(context: MethodContext) -> MethodResult:
     """Flag complete blocks that reproduce patterns found elsewhere.
 
-    Candidate blocks are non-overlapping and aligned to the start of the
-    configured TimeGrid. A block fails when it directly matches enough other
-    complete blocks to reach ``minimum_matches``, counting itself.
-
-    Missing observations make a candidate block ineligible. No matching block
-    is treated as the original or reference.
-
-    Args:
-        data: Time-series values indexed by timestamp with contexts as columns.
-        test: Validated repeated-pattern test configuration.
-        grid: Temporal grid defining block alignment and temporal resolution.
-
-    Returns:
-        Boolean DataFrame aligned exactly to ``data``.
+    Candidate blocks are non-overlapping and grid-aligned. A block fails when
+    it directly matches enough other complete blocks to reach
+    ``minimum_matches``, counting itself.
     """
+    data = context.target_data
+    test = context.test
+    grid = context.grid
+
     failures = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
 
     for context_position, context in enumerate(data.columns):
@@ -239,18 +229,24 @@ def evaluate(
                 block.start_position : block.end_position, context_position
             ] = True
 
-    return failures
+    return MethodResult(mask=failures)
 
 
 def build_details(
-    data: pd.Series,
+    context: MethodContext,
+    result: MethodResult,
     *,
+    context_name: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
 ) -> dict[str, Any]:
     """Build structured diagnostics for repeated-pattern failures."""
+    del result
+
+    data = context.target_data[context_name]
+    test = context.test
+    grid = context.grid
+
     blocks, matches = _analyse(data, test=test, grid=grid)
 
     qualifying = set(
@@ -296,3 +292,11 @@ def build_details(
         "matched_block_count": len(failed_blocks),
         "matched_blocks": failed_blocks,
     }
+
+
+METHOD = MethodSpec(
+    name="repeated_pattern",
+    validate=validate,
+    evaluate=evaluate,
+    build_details=build_details,
+)

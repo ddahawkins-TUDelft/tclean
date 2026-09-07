@@ -5,14 +5,13 @@ from typing import Any
 
 import pandas as pd
 
+from tclean.data_quality._method import MethodContext, MethodResult, MethodSpec
 from tclean.data_quality._validation_helpers import (
     finite_real,
     normalize_common_selectors,
     validate_keys,
 )
 from tclean.time_grid import TimeGrid
-
-METHOD_NAME = "range"
 
 
 def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
@@ -48,24 +47,13 @@ def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
     return normalized
 
 
-def evaluate(
-    data: pd.DataFrame, *, test: Mapping[str, Any], grid: TimeGrid
-) -> pd.DataFrame:
+def evaluate(context: MethodContext) -> MethodResult:
     """Evaluate whether observed values fall outside configured bounds.
 
     Missing observations do not fail the test.
-
-    Args:
-        data: Time-series values indexed by timestamp and with contexts
-            represented by columns.
-        test: Validated range-test configuration.
-        grid: Tclean TimeGrid
-
-    Returns:
-        Boolean DataFrame aligned exactly to ``data`` where ``True`` marks
-        observations that fail the configured range test.
     """
-    del grid  # Range evaluation is independent of temporal resolution.
+    data = context.target_data
+    test = context.test
 
     failures = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
 
@@ -77,19 +65,22 @@ def evaluate(
     if "maximum" in test:
         failures |= observed & data.gt(test["maximum"])
 
-    return failures
+    return MethodResult(mask=failures)
 
 
 def build_details(
-    data: pd.Series,
+    context: MethodContext,
+    result: MethodResult,
     *,
+    context_name: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
 ) -> dict[str, Any]:
     """Build structured diagnostics for one failed range period."""
-    del grid
+    del result
+
+    data = context.target_data[context_name]
+    test = context.test
 
     failed_values = data.loc[(data.index >= start) & (data.index < end)].dropna()
 
@@ -115,3 +106,8 @@ def build_details(
         )
 
     return details
+
+
+METHOD = MethodSpec(
+    name="range", validate=validate, evaluate=evaluate, build_details=build_details
+)

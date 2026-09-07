@@ -1,6 +1,7 @@
 """Tests for range-based data-quality evaluation."""
 
 import pandas as pd
+from _method_helpers import method_mask
 from pandas.api.types import is_bool_dtype
 
 from tclean import TimeGrid
@@ -26,7 +27,8 @@ def _data() -> pd.DataFrame:
 
 def test_evaluate_range_flags_values_below_minimum():
     """Flag observed values below the configured minimum."""
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         _data(),
         test={"name": "non_negative", "method": "range", "minimum": 0},
         grid=_grid(),
@@ -46,7 +48,8 @@ def test_evaluate_range_flags_values_below_minimum():
 
 def test_evaluate_range_flags_values_above_maximum():
     """Flag observed values above the configured maximum."""
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         _data(),
         test={"name": "maximum_value", "method": "range", "maximum": 10},
         grid=_grid(),
@@ -66,7 +69,8 @@ def test_evaluate_range_flags_values_above_maximum():
 
 def test_evaluate_range_flags_values_outside_both_bounds():
     """Flag observed values outside a bounded interval."""
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         _data(),
         test={"name": "bounded_values", "method": "range", "minimum": 0, "maximum": 10},
         grid=_grid(),
@@ -88,7 +92,8 @@ def test_evaluate_range_treats_bounds_as_inclusive():
         index=pd.date_range("2026-01-01T00:00:00Z", periods=2, freq="1h"),
     )
 
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         data,
         test={
             "name": "inclusive_bounds",
@@ -111,7 +116,8 @@ def test_evaluate_range_does_not_flag_missing_values():
         index=pd.date_range("2026-01-01T00:00:00Z", periods=3, freq="1h"),
     )
 
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         data,
         test={"name": "bounded_values", "method": "range", "minimum": 0, "maximum": 10},
         grid=_grid(),
@@ -126,7 +132,8 @@ def test_evaluate_range_preserves_index_and_columns():
     """Return a Boolean mask aligned exactly to the input frame."""
     data = _data()
 
-    result = evaluate(
+    result = method_mask(
+        evaluate,
         data,
         test={"name": "non_negative", "method": "range", "minimum": 0},
         grid=_grid(),

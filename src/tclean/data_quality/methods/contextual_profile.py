@@ -7,6 +7,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from tclean.data_quality._method import (
+    MethodContext,
+    MethodIssue,
+    MethodResult,
+    MethodSpec,
+)
 from tclean.data_quality._validation_helpers import (
     finite_real,
     nonnegative_timedelta,
@@ -21,9 +27,6 @@ from tclean.data_quality.methods._lattice import (
 )
 from tclean.data_quality.methods._robust import robust_location_scale
 from tclean.time_grid import TimeGrid
-
-METHOD_NAME = "contextual_profile"
-USES_REFERENCE_DATA = True
 
 _DISTANCE_ZERO_ATOL = 1e-12
 
@@ -488,24 +491,22 @@ def _unavailable_criteria(
     return unavailable
 
 
-def evaluate_with_issues(
-    data: pd.DataFrame,
-    *,
-    reference: pd.DataFrame,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
-) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
+def evaluate(context: MethodContext) -> MethodResult:
     """Evaluate contextual profiles and report evaluation limitations."""
+    data = context.target_data
+    reference = context.reference_data(context.source_name)
+    test = context.test
+    grid = context.grid
+
     mask = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
-    issues: list[dict[str, Any]] = []
+    issues: list[MethodIssue] = []
 
     starts = _target_profile_starts(data.index, test=test, grid=grid)
     duration = test["profile_duration"]
 
-    for context in data.columns:
-        values = data[context]
-        reference_values = reference[context]
-
+    for context_name in data.columns:
+        values = data[context_name]
+        reference_values = reference[context_name]
         reference_profile_cache: _ProfileCache = {}
 
         for start in starts:
@@ -522,17 +523,17 @@ def evaluate_with_issues(
                 missing_observations = int(observed.isna().sum())
 
                 issues.append(
-                    {
-                        "context": context,
-                        "start": start,
-                        "end": end,
-                        "severity": "not_evaluable",
-                        "code": "incomplete_target_profile",
-                        "details": {
+                    MethodIssue(
+                        context=context_name,
+                        start=start,
+                        end=end,
+                        severity="not_evaluable",
+                        code="incomplete_target_profile",
+                        details={
                             "profile_observations": len(expected),
                             "missing_observations": missing_observations,
                         },
-                    }
+                    )
                 )
                 continue
 
@@ -555,52 +556,40 @@ def evaluate_with_issues(
 
             if not evidence.evaluable:
                 issues.append(
-                    {
-                        "context": context,
-                        "start": start,
-                        "end": end,
-                        "severity": "not_evaluable",
-                        "code": "insufficient_reference_profiles",
-                        "details": {
+                    MethodIssue(
+                        context=context_name,
+                        start=start,
+                        end=end,
+                        severity="not_evaluable",
+                        code="insufficient_reference_profiles",
+                        details={
                             "reference_profiles": reference_profiles,
                             "configured_criteria": _configured_criteria(test),
                         },
-                    }
+                    )
                 )
                 continue
 
             if evidence.failed:
                 profile_index = grid.index_for_period(start=start, end=end)
-                mask.loc[profile_index, context] = True
+                mask.loc[profile_index, context_name] = True
 
             for criterion in _unavailable_criteria(evidence, test=test):
                 issues.append(
-                    {
-                        "context": context,
-                        "start": start,
-                        "end": end,
-                        "severity": "warning",
-                        "code": "criterion_not_evaluable",
-                        "details": {
+                    MethodIssue(
+                        context=context_name,
+                        start=start,
+                        end=end,
+                        severity="warning",
+                        code="criterion_not_evaluable",
+                        details={
                             "criterion": criterion,
                             "reference_profiles": reference_profiles,
                         },
-                    }
+                    )
                 )
 
-    return mask, issues
-
-
-def evaluate(
-    data: pd.DataFrame,
-    *,
-    reference: pd.DataFrame,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
-) -> pd.DataFrame:
-    """Evaluate contextual-profile failures."""
-    mask, _ = evaluate_with_issues(data, reference=reference, test=test, grid=grid)
-    return mask
+    return MethodResult(mask=mask, issues=tuple(issues))
 
 
 def _profile_details(
@@ -654,15 +643,21 @@ def _profile_details(
 
 
 def build_details(
-    data: pd.Series,
+    context: MethodContext,
+    result: MethodResult,
     *,
-    reference: pd.Series,
+    context_name: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
 ) -> dict[str, Any]:
     """Build evidence for one contextual-profile failure period."""
+    del result
+
+    data = context.target_data[context_name]
+    reference = context.reference_data(context.source_name)[context_name]
+    test = context.test
+    grid = context.grid
+
     failed_profiles: list[dict[str, Any]] = []
     failed_criteria: list[str] = []
 
@@ -710,3 +705,11 @@ def build_details(
         "failed_criteria": failed_criteria,
         "profiles": failed_profiles,
     }
+
+
+METHOD = MethodSpec(
+    name="contextual_profile",
+    validate=validate,
+    evaluate=evaluate,
+    build_details=build_details,
+)

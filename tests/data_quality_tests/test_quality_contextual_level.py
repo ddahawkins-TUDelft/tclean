@@ -2,6 +2,7 @@
 
 import pandas as pd
 import pytest
+from _method_helpers import method_details, method_evaluation_pair
 
 from tclean import TimeGrid
 from tclean.data_quality.methods.contextual_level import (
@@ -9,7 +10,7 @@ from tclean.data_quality.methods.contextual_level import (
     _predictive_probability,
     _robust_deviation,
     build_details,
-    evaluate_with_issues,
+    evaluate,
     validate,
 )
 
@@ -361,8 +362,6 @@ def test_contextual_level_evaluates_lattice_reference():
     )
 
     data = series.to_frame("A")
-    reference = data.copy()
-
     test = validate(
         {
             "name": "unusual_level",
@@ -373,12 +372,12 @@ def test_contextual_level_evaluates_lattice_reference():
         grid=grid,
     )
 
-    mask, issues = evaluate_with_issues(data, reference=reference, test=test, grid=grid)
+    mask, issues = method_evaluation_pair(evaluate, data, test=test, grid=grid)
 
     target = pd.Timestamp("2026-01-22T12:00:00Z")
 
     assert mask.loc[target, "A"]
-    assert issues == []
+    assert issues == ()
 
 
 def test_contextual_level_ignores_missing_target():
@@ -399,12 +398,10 @@ def test_contextual_level_ignores_missing_target():
         grid=grid,
     )
 
-    mask, issues = evaluate_with_issues(
-        data, reference=data.copy(), test=test, grid=grid
-    )
+    mask, issues = method_evaluation_pair(evaluate, data, test=test, grid=grid)
 
     assert not mask.to_numpy().any()
-    assert issues == []
+    assert issues == ()
 
 
 def test_contextual_level_reports_insufficient_predictive_reference():
@@ -416,8 +413,6 @@ def test_contextual_level_reports_insufficient_predictive_reference():
     )
 
     data = series.to_frame("A")
-    reference = data.copy()
-
     test = validate(
         {
             "name": "unusual_level",
@@ -428,22 +423,22 @@ def test_contextual_level_reports_insufficient_predictive_reference():
         grid=grid,
     )
 
-    mask, issues = evaluate_with_issues(data, reference=reference, test=test, grid=grid)
+    mask, issues = method_evaluation_pair(evaluate, data, test=test, grid=grid)
 
     target = pd.Timestamp("2026-01-22T12:00:00Z")
 
     assert not mask.loc[target, "A"]
 
-    target_issues = [issue for issue in issues if issue["start"] == target]
+    target_issues = [issue for issue in issues if issue.start == target]
 
     assert len(target_issues) == 1
 
     issue = target_issues[0]
 
-    assert issue["severity"] == "not_evaluable"
-    assert issue["code"] == "insufficient_reference_data"
-    assert issue["details"]["reference_observations"] == 1
-    assert issue["details"]["configured_criteria"] == ["predictive_probability"]
+    assert issue.severity == "not_evaluable"
+    assert issue.code == "insufficient_reference_data"
+    assert issue.details["reference_observations"] == 1
+    assert issue.details["configured_criteria"] == ["predictive_probability"]
 
 
 def test_contextual_level_warns_when_one_criterion_is_unavailable():
@@ -455,8 +450,6 @@ def test_contextual_level_warns_when_one_criterion_is_unavailable():
     )
 
     data = series.to_frame("A")
-    reference = data.copy()
-
     test = validate(
         {
             "name": "unusual_level",
@@ -468,21 +461,21 @@ def test_contextual_level_warns_when_one_criterion_is_unavailable():
         grid=grid,
     )
 
-    mask, issues = evaluate_with_issues(data, reference=reference, test=test, grid=grid)
+    mask, issues = method_evaluation_pair(evaluate, data, test=test, grid=grid)
 
     target = pd.Timestamp("2026-01-22T12:00:00Z")
 
     assert mask.loc[target, "A"]
 
-    target_issues = [issue for issue in issues if issue["start"] == target]
+    target_issues = [issue for issue in issues if issue.start == target]
 
     assert len(target_issues) == 1
 
     issue = target_issues[0]
 
-    assert issue["severity"] == "warning"
-    assert issue["code"] == "criterion_not_evaluable"
-    assert issue["details"] == {
+    assert issue.severity == "warning"
+    assert issue.code == "criterion_not_evaluable"
+    assert issue.details == {
         "criterion": "predictive_probability",
         "reference_observations": 1,
     }
@@ -513,9 +506,10 @@ def test_contextual_level_build_details_reports_robust_evidence():
 
     target = pd.Timestamp("2026-01-22T12:00:00Z")
 
-    details = build_details(
+    details = method_details(
+        evaluate,
+        build_details,
         series,
-        reference=series.copy(),
         start=target,
         end=target + grid.frequency,
         test=test,
@@ -565,9 +559,10 @@ def test_contextual_level_build_details_reports_both_criteria():
 
     target = pd.Timestamp("2026-01-22T12:00:00Z")
 
-    details = build_details(
+    details = method_details(
+        evaluate,
+        build_details,
         series,
-        reference=series.copy(),
         start=target,
         end=target + grid.frequency,
         test=test,

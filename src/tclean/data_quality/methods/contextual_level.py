@@ -8,6 +8,12 @@ import numpy as np
 import pandas as pd
 from scipy.stats import t as student_t
 
+from tclean.data_quality._method import (
+    MethodContext,
+    MethodIssue,
+    MethodResult,
+    MethodSpec,
+)
 from tclean.data_quality._validation_helpers import (
     finite_real,
     normalize_common_selectors,
@@ -20,9 +26,6 @@ from tclean.data_quality.methods._lattice import (
 )
 from tclean.data_quality.methods._robust import robust_location_scale
 from tclean.time_grid import TimeGrid
-
-METHOD_NAME = "contextual_level"
-USES_REFERENCE_DATA = True
 
 
 @dataclass(frozen=True)
@@ -292,21 +295,19 @@ def _reference_observation_count(reference: pd.Series) -> int:
     return int(reference.notna().sum())
 
 
-def evaluate_with_issues(
-    data: pd.DataFrame,
-    *,
-    reference: pd.DataFrame,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
-) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
+def evaluate(context: MethodContext) -> MethodResult:
     """Evaluate contextual levels and report evaluation limitations."""
+    data = context.target_data
+    reference = context.reference_data(context.source_name)
+    test = context.test
+    grid = context.grid
+
     mask = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
+    issues: list[MethodIssue] = []
 
-    issues: list[dict[str, Any]] = []
-
-    for context in data.columns:
-        values = data[context]
-        reference_values = reference[context]
+    for context_name in data.columns:
+        values = data[context_name]
+        reference_values = reference[context_name]
 
         for timestamp, target in values.items():
             if pd.isna(target):
@@ -324,41 +325,40 @@ def evaluate_with_issues(
 
             if not evidence.evaluable:
                 issues.append(
-                    {
-                        "context": context,
-                        "start": timestamp,
-                        "end": timestamp + grid.frequency,
-                        "severity": "not_evaluable",
-                        "code": "insufficient_reference_data",
-                        "details": {
-                            "reference_observations": (reference_observations),
-                            "configured_criteria": (_configured_criteria(test)),
+                    MethodIssue(
+                        context=context_name,
+                        start=pd.Timestamp(timestamp),
+                        end=pd.Timestamp(timestamp) + grid.frequency,
+                        severity="not_evaluable",
+                        code="insufficient_reference_data",
+                        details={
+                            "reference_observations": reference_observations,
+                            "configured_criteria": _configured_criteria(test),
                         },
-                    }
+                    )
                 )
-
                 continue
 
-            mask.loc[timestamp, context] = evidence.failed
+            mask.loc[timestamp, context_name] = evidence.failed
 
             unavailable_criteria = _unavailable_criteria(evidence, test=test)
 
             for criterion in unavailable_criteria:
                 issues.append(
-                    {
-                        "context": context,
-                        "start": timestamp,
-                        "end": timestamp + grid.frequency,
-                        "severity": "warning",
-                        "code": "criterion_not_evaluable",
-                        "details": {
+                    MethodIssue(
+                        context=context_name,
+                        start=pd.Timestamp(timestamp),
+                        end=pd.Timestamp(timestamp) + grid.frequency,
+                        severity="warning",
+                        code="criterion_not_evaluable",
+                        details={
                             "criterion": criterion,
-                            "reference_observations": (reference_observations),
+                            "reference_observations": reference_observations,
                         },
-                    }
+                    )
                 )
 
-    return mask, issues
+    return MethodResult(mask=mask, issues=tuple(issues))
 
 
 def _configured_criteria(test: Mapping[str, Any]) -> list[str]:
@@ -387,19 +387,6 @@ def _unavailable_criteria(
         unavailable.append("predictive_probability")
 
     return unavailable
-
-
-def evaluate(
-    data: pd.DataFrame,
-    *,
-    reference: pd.DataFrame,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
-) -> pd.DataFrame:
-    """Evaluate contextual-level failures."""
-    mask, _ = evaluate_with_issues(data, reference=reference, test=test, grid=grid)
-
-    return mask
 
 
 def _observation_details(
@@ -458,15 +445,20 @@ def _observation_details(
 
 
 def build_details(
-    data: pd.Series,
+    context: MethodContext,
+    result: MethodResult,
     *,
-    reference: pd.Series,
+    context_name: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
 ) -> dict[str, Any]:
     """Build evidence for one contextual-level failure period."""
+    del result
+
+    data = context.target_data[context_name]
+    reference = context.reference_data(context.source_name)[context_name]
+    test = context.test
+
     failed_observations: list[dict[str, Any]] = []
 
     failed_criteria: list[str] = []
@@ -505,3 +497,11 @@ def build_details(
         "failed_criteria": failed_criteria,
         "observations": failed_observations,
     }
+
+
+METHOD = MethodSpec(
+    name="contextual_level",
+    validate=validate,
+    evaluate=evaluate,
+    build_details=build_details,
+)

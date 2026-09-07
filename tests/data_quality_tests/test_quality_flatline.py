@@ -2,6 +2,7 @@
 
 import pandas as pd
 import pytest
+from _method_helpers import method_details, method_mask
 
 from tclean import TimeGrid
 from tclean.data_quality.methods.flatline import build_details, evaluate
@@ -33,7 +34,7 @@ def test_evaluate_flags_exact_flatline_meeting_duration():
     """Flag every observation in an exact qualifying flatline."""
     data = _data([1, 5, 5, 5, 2, 3, 4, 5])
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert result["A"].tolist() == [False, True, True, True, False, False, False, False]
 
@@ -42,7 +43,7 @@ def test_evaluate_does_not_flag_short_flatline():
     """Do not flag a flatline shorter than the configured duration."""
     data = _data([1, 5, 5, 2, 3, 4, 5, 6])
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert not result["A"].any()
 
@@ -51,7 +52,7 @@ def test_evaluate_flags_flatline_longer_than_minimum():
     """Flag the complete run when it exceeds the minimum duration."""
     data = _data([5, 5, 5, 5, 1, 2, 3, 4])
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert result["A"].tolist() == [True, True, True, True, False, False, False, False]
 
@@ -60,7 +61,7 @@ def test_evaluate_handles_multiple_flatlines():
     """Identify multiple qualifying flatline runs independently."""
     data = _data([5, 5, 5, 1, 8, 8, 8, 2])
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert result["A"].tolist() == [True, True, True, False, True, True, True, False]
 
@@ -69,7 +70,7 @@ def test_evaluate_uses_tolerance_between_consecutive_values():
     """Keep small consecutive changes within one flatline run."""
     data = _data([1.0, 5.00, 5.04, 4.98, 2.0, 3.0, 4.0, 5.0])
 
-    result = evaluate(data, test=_test(tolerance=0.1), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(tolerance=0.1), grid=_grid())
 
     assert result["A"].tolist() == [False, True, True, True, False, False, False, False]
 
@@ -78,7 +79,7 @@ def test_evaluate_breaks_flatline_when_step_exceeds_tolerance():
     """Start a new run when consecutive values differ too much."""
     data = _data([5.00, 5.05, 5.20, 5.25, 5.30, 1.0, 2.0, 3.0])
 
-    result = evaluate(data, test=_test(tolerance=0.1), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(tolerance=0.1), grid=_grid())
 
     assert result["A"].tolist() == [False, False, True, True, True, False, False, False]
 
@@ -87,7 +88,7 @@ def test_evaluate_breaks_flatline_at_missing_value():
     """Treat a missing observation as a flatline boundary."""
     data = _data([5, 5, None, 5, 5, 5, 1, 2])
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert result["A"].tolist() == [False, False, False, True, True, True, False, False]
 
@@ -99,7 +100,7 @@ def test_evaluate_applies_independently_to_contexts():
         index=pd.DatetimeIndex(_grid().target_index),
     )
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert result["A"].tolist() == [True, True, True, False, False, False, False, False]
 
@@ -110,7 +111,7 @@ def test_evaluate_does_not_flag_missing_values():
     """Never classify missing observations themselves as flatline failures."""
     data = _data([None, None, None, 1, 2, 3, 4, 5])
 
-    result = evaluate(data, test=_test(), grid=_grid())
+    result = method_mask(evaluate, data, test=_test(), grid=_grid())
 
     assert not result["A"].any()
 
@@ -119,7 +120,9 @@ def test_build_details_reports_flatline_diagnostics():
     """Report duration, variation, and configured flatline threshold."""
     data = _data([1.0, 5.00, 5.04, 4.98, 2.0, 3.0, 4.0, 5.0])
 
-    details = build_details(
+    details = method_details(
+        evaluate,
+        build_details,
         data["A"],
         start=pd.Timestamp("2026-01-01T01:00:00Z"),
         end=pd.Timestamp("2026-01-01T04:00:00Z"),

@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 import pytest
+from _method_helpers import method_details, method_evaluation_pair
 
 from tclean import TimeGrid
 from tclean.data_quality.methods.contextual_profile import (
@@ -18,7 +19,7 @@ from tclean.data_quality.methods.contextual_profile import (
     _robust_profile_deviation,
     _target_profile_starts,
     build_details,
-    evaluate_with_issues,
+    evaluate,
 )
 from tclean.data_quality.methods.contextual_profile import (
     validate as validate_contextual_profile,
@@ -328,13 +329,11 @@ def test_contextual_profile_flags_entire_failed_block():
     data = series.to_frame("A")
     test = _validated_test(grid, reference_orders=[{"period": "8h", "radius": 2}])
 
-    mask, issues = evaluate_with_issues(
-        data, reference=data.copy(), test=test, grid=grid
-    )
+    mask, issues = method_evaluation_pair(evaluate, data, test=test, grid=grid)
 
     expected = grid.index_for_period(start=target, end=target + pd.Timedelta("4h"))
     assert mask.loc[expected, "A"].all()
-    assert not [issue for issue in issues if issue["start"] == target]
+    assert not [issue for issue in issues if issue.start == target]
 
 
 def test_contextual_profile_is_shape_only_at_runtime():
@@ -347,7 +346,7 @@ def test_contextual_profile_is_shape_only_at_runtime():
     data = series.to_frame("A")
     test = _validated_test(grid, reference_orders=[{"period": "8h", "radius": 2}])
 
-    mask, _ = evaluate_with_issues(data, reference=data.copy(), test=test, grid=grid)
+    mask, _ = method_evaluation_pair(evaluate, data, test=test, grid=grid)
 
     expected = grid.index_for_period(start=target, end=target + pd.Timedelta("4h"))
     assert not mask.loc[expected, "A"].any()
@@ -363,18 +362,16 @@ def test_contextual_profile_reports_incomplete_target_profile():
     data = series.to_frame("A")
     test = _validated_test(grid)
 
-    mask, issues = evaluate_with_issues(
-        data, reference=data.copy(), test=test, grid=grid
-    )
+    mask, issues = method_evaluation_pair(evaluate, data, test=test, grid=grid)
 
-    target_issues = [issue for issue in issues if issue["start"] == target]
+    target_issues = [issue for issue in issues if issue.start == target]
 
     assert not mask.loc[target, "A"]
     assert len(target_issues) == 1
-    assert target_issues[0]["severity"] == "not_evaluable"
-    assert target_issues[0]["code"] == "incomplete_target_profile"
-    assert target_issues[0]["end"] == target + pd.Timedelta("4h")
-    assert target_issues[0]["details"] == {
+    assert target_issues[0].severity == "not_evaluable"
+    assert target_issues[0].code == "incomplete_target_profile"
+    assert target_issues[0].end == target + pd.Timedelta("4h")
+    assert target_issues[0].details == {
         "profile_observations": 4,
         "missing_observations": 1,
     }
@@ -389,18 +386,16 @@ def test_contextual_profile_reports_insufficient_robust_references():
     data = series.to_frame("A")
     test = _validated_test(grid, reference_orders=[{"period": "8h", "radius": 1}])
 
-    mask, issues = evaluate_with_issues(
-        data, reference=data.copy(), test=test, grid=grid
-    )
+    mask, issues = method_evaluation_pair(evaluate, data, test=test, grid=grid)
 
-    target_issues = [issue for issue in issues if issue["start"] == target]
+    target_issues = [issue for issue in issues if issue.start == target]
 
     assert not mask.loc[target, "A"]
     assert len(target_issues) == 1
-    assert target_issues[0]["severity"] == "not_evaluable"
-    assert target_issues[0]["code"] == "insufficient_reference_profiles"
-    assert target_issues[0]["details"]["reference_profiles"] == 1
-    assert target_issues[0]["details"]["configured_criteria"] == ["robust_deviation"]
+    assert target_issues[0].severity == "not_evaluable"
+    assert target_issues[0].code == "insufficient_reference_profiles"
+    assert target_issues[0].details["reference_profiles"] == 1
+    assert target_issues[0].details["configured_criteria"] == ["robust_deviation"]
 
 
 def test_contextual_profile_warns_when_robust_criterion_is_unavailable():
@@ -416,14 +411,14 @@ def test_contextual_profile_warns_when_robust_criterion_is_unavailable():
         maximum_predictive_probability=0.1,
     )
 
-    _, issues = evaluate_with_issues(data, reference=data.copy(), test=test, grid=grid)
+    _, issues = method_evaluation_pair(evaluate, data, test=test, grid=grid)
 
-    target_issues = [issue for issue in issues if issue["start"] == target]
+    target_issues = [issue for issue in issues if issue.start == target]
 
     assert len(target_issues) == 1
-    assert target_issues[0]["severity"] == "warning"
-    assert target_issues[0]["code"] == "criterion_not_evaluable"
-    assert target_issues[0]["details"] == {
+    assert target_issues[0].severity == "warning"
+    assert target_issues[0].code == "criterion_not_evaluable"
+    assert target_issues[0].details == {
         "criterion": "robust_deviation",
         "reference_profiles": 2,
     }
@@ -436,12 +431,10 @@ def test_contextual_profile_ignores_trailing_partial_profile():
     data = series.to_frame("A")
     test = _validated_test(grid, profile_offset="1h")
 
-    _, issues = evaluate_with_issues(data, reference=data.copy(), test=test, grid=grid)
+    _, issues = method_evaluation_pair(evaluate, data, test=test, grid=grid)
 
     assert not [
-        issue
-        for issue in issues
-        if issue["start"] == pd.Timestamp("2026-01-01T13:00:00Z")
+        issue for issue in issues if issue.start == pd.Timestamp("2026-01-01T13:00:00Z")
     ]
 
 
@@ -455,8 +448,8 @@ def test_contextual_profile_build_details_reports_failed_profile_evidence():
 
     test = _validated_test(grid, reference_orders=[{"period": "8h", "radius": 2}])
 
-    details = build_details(
-        series, reference=series.copy(), start=target, end=end, test=test, grid=grid
+    details = method_details(
+        evaluate, build_details, series, start=target, end=end, test=test, grid=grid
     )
 
     assert details["failed_profiles"] == 1
