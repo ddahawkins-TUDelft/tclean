@@ -37,6 +37,9 @@ class _Profile:
     values: np.ndarray
 
 
+_ProfileCache = dict[pd.Timestamp, _Profile | None]
+
+
 @dataclass(frozen=True)
 class _RobustProfileDeviation:
     """Robust contextual-profile evidence for one target profile."""
@@ -234,6 +237,23 @@ def _build_profile(
     )
 
 
+def _cached_profile(
+    data: pd.Series,
+    *,
+    start: pd.Timestamp,
+    duration: pd.Timedelta,
+    grid: TimeGrid,
+    cache: _ProfileCache,
+) -> _Profile | None:
+    """Return one normalized profile, building and caching it if needed."""
+    start = pd.Timestamp(start)
+
+    if start not in cache:
+        cache[start] = _build_profile(data, start=start, duration=duration, grid=grid)
+
+    return cache[start]
+
+
 def _profiles_overlap(
     first: _Profile, second_start: pd.Timestamp, second_end: pd.Timestamp
 ) -> bool:
@@ -242,7 +262,12 @@ def _profiles_overlap(
 
 
 def _reference_profiles(
-    reference: pd.Series, *, target: _Profile, test: Mapping[str, Any], grid: TimeGrid
+    reference: pd.Series,
+    *,
+    target: _Profile,
+    test: Mapping[str, Any],
+    grid: TimeGrid,
+    cache: _ProfileCache,
 ) -> list[_Profile]:
     """Build complete non-overlapping contextual reference profiles."""
     starts = reference_timestamps(
@@ -252,11 +277,12 @@ def _reference_profiles(
     profiles: list[_Profile] = []
 
     for start in starts:
-        profile = _build_profile(
+        profile = _cached_profile(
             reference,
             start=pd.Timestamp(start),
             duration=test["profile_duration"],
             grid=grid,
+            cache=cache,
         )
 
         if profile is None:
@@ -480,6 +506,8 @@ def evaluate_with_issues(
         values = data[context]
         reference_values = reference[context]
 
+        reference_profile_cache: _ProfileCache = {}
+
         for start in starts:
             start = pd.Timestamp(start)
             end = start + duration
@@ -515,7 +543,11 @@ def evaluate_with_issues(
             )
 
             references = _reference_profiles(
-                reference_values, target=target, test=test, grid=grid
+                reference_values,
+                target=target,
+                test=test,
+                grid=grid,
+                cache=reference_profile_cache,
             )
 
             evidence = _contextual_profile_evidence(target, references, test=test)
@@ -634,6 +666,8 @@ def build_details(
     failed_profiles: list[dict[str, Any]] = []
     failed_criteria: list[str] = []
 
+    reference_profile_cache: _ProfileCache = {}
+
     duration = test["profile_duration"]
     starts = _target_profile_starts(data.index, test=test, grid=grid)
 
@@ -649,7 +683,13 @@ def build_details(
         if target is None:
             continue
 
-        references = _reference_profiles(reference, target=target, test=test, grid=grid)
+        references = _reference_profiles(
+            reference,
+            target=target,
+            test=test,
+            grid=grid,
+            cache=reference_profile_cache,
+        )
         evidence = _contextual_profile_evidence(target, references, test=test)
 
         if not evidence.failed:

@@ -6,6 +6,7 @@ import pytest
 
 from tclean import TimeGrid
 from tclean.data_quality.methods.contextual_profile import (
+    _cached_profile,
     _contextual_profile_evidence,
     _distance_matrix,
     _normalize_profile,
@@ -156,7 +157,9 @@ def test_reference_profiles_discard_incomplete_profile():
 
     target = _profile([3, 0, 0, 3], start="2026-01-01T20:00:00Z")
 
-    profiles = _reference_profiles(reference, target=target, test=test, grid=grid)
+    profiles = _reference_profiles(
+        reference, target=target, test=test, grid=grid, cache={}
+    )
 
     starts = {profile.start for profile in profiles}
     assert pd.Timestamp("2026-01-01T12:00:00Z") not in starts
@@ -173,7 +176,9 @@ def test_reference_profiles_discard_overlap_with_target():
     reference = _patterned_series(grid)
     target = _profile([0, 1, 3, 1, 0, 1, 3, 1], start="2026-01-01T08:00:00Z")
 
-    profiles = _reference_profiles(reference, target=target, test=test, grid=grid)
+    profiles = _reference_profiles(
+        reference, target=target, test=test, grid=grid, cache={}
+    )
 
     assert all(
         profile.end <= target.start or profile.start >= target.end
@@ -464,3 +469,49 @@ def test_contextual_profile_build_details_reports_failed_profile_evidence():
     assert profile["robust_failed"] is True
     assert profile["robust_deviation_threshold"] == 6.0
     assert "predictive_probability" not in profile
+
+
+def test_cached_profile_reuses_complete_profile():
+    """Reuse an already constructed normalized profile."""
+    grid = _grid(hours=24)
+    series = _patterned_series(grid)
+    start = pd.Timestamp("2026-01-01T00:00:00Z")
+
+    cache = {}
+
+    first = _cached_profile(
+        series, start=start, duration=pd.Timedelta("4h"), grid=grid, cache=cache
+    )
+
+    second = _cached_profile(
+        series, start=start, duration=pd.Timedelta("4h"), grid=grid, cache=cache
+    )
+
+    assert first is not None
+    assert second is first
+    assert len(cache) == 1
+
+
+def test_cached_profile_reuses_unavailable_profile():
+    """Cache profile unavailability as well as complete profiles."""
+    grid = _grid(hours=24)
+    series = _patterned_series(grid)
+    start = pd.Timestamp("2026-01-01T00:00:00Z")
+
+    series.loc[start + pd.Timedelta("1h")] = float("nan")
+
+    cache = {}
+
+    first = _cached_profile(
+        series, start=start, duration=pd.Timedelta("4h"), grid=grid, cache=cache
+    )
+
+    second = _cached_profile(
+        series, start=start, duration=pd.Timedelta("4h"), grid=grid, cache=cache
+    )
+
+    assert first is None
+    assert second is None
+    assert start in cache
+    assert cache[start] is None
+    assert len(cache) == 1
