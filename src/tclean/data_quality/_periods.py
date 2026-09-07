@@ -7,9 +7,7 @@ from tclean.time_grid import TimeGrid
 
 
 def failure_mask_to_periods(
-    mask: pd.Series,
-    *,
-    grid: TimeGrid,
+    mask: pd.Series, *, grid: TimeGrid
 ) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
     """Convert failed grid timestamps into contiguous half-open periods.
 
@@ -40,14 +38,10 @@ def failure_mask_to_periods(
     target_index = pd.DatetimeIndex(grid.target_index)
 
     if not mask.index.equals(target_index):
-        raise ValueError(
-            "Failure mask index must exactly match the target time grid."
-        )
+        raise ValueError("Failure mask index must exactly match the target time grid.")
 
     failed_positions = [
-        position
-        for position, failed in enumerate(mask.to_numpy(dtype=bool))
-        if failed
+        position for position, failed in enumerate(mask.to_numpy(dtype=bool)) if failed
     ]
 
     if not failed_positions:
@@ -63,12 +57,7 @@ def failure_mask_to_periods(
             run_end = position
             continue
 
-        periods.append(
-            (
-                target_index[run_start],
-                target_index[run_end + 1],
-            )
-        )
+        periods.append((target_index[run_start], target_index[run_end + 1]))
 
         run_start = position
         run_end = position
@@ -78,11 +67,6 @@ def failure_mask_to_periods(
     else:
         end = pd.Timestamp(grid.end)
 
-    periods.append(
-        (
-            target_index[run_start],
-            end,
-        )
-    )
+    periods.append((target_index[run_start], end))
 
     return periods

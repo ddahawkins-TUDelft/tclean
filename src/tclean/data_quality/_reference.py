@@ -35,10 +35,7 @@ def reference_exclusion_mask(
     selected_contexts = list(contexts)
 
     excluded = pd.DataFrame(
-        False,
-        index=data.index,
-        columns=selected_contexts,
-        dtype=bool,
+        False, index=data.index, columns=selected_contexts, dtype=bool
     )
 
     included_tests = set(include_failed_periods_from)
@@ -55,10 +52,7 @@ def reference_exclusion_mask(
         if failure["test_name"] in included_tests:
             continue
 
-        period = (
-            (data.index >= failure["start"])
-            & (data.index < failure["end"])
-        )
+        period = (data.index >= failure["start"]) & (data.index < failure["end"])
 
         excluded.loc[period, context] = True
 

@@ -30,33 +30,18 @@ class _PatternBlock:
     values: np.ndarray
 
 
-def validate(
-    test: Mapping[str, Any],
-    *,
-    grid: TimeGrid,
-) -> dict[str, Any]:
+def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
     """Validate and normalize a repeated-pattern quality test."""
     validate_keys(
         test,
-        required={
-            "name",
-            "method",
-            "pattern_duration",
-            "minimum_matches",
-        },
-        optional={
-            "sources",
-            "contexts",
-            "tolerance",
-        },
+        required={"name", "method", "pattern_duration", "minimum_matches"},
+        optional={"sources", "contexts", "tolerance"},
     )
 
     normalized = normalize_common_selectors(test)
 
     pattern_duration = positive_timedelta(
-        test["pattern_duration"],
-        field="pattern_duration",
-        grid=grid,
+        test["pattern_duration"], field="pattern_duration", grid=grid
     )
 
     if pattern_duration < 2 * grid.frequency:
@@ -68,35 +53,25 @@ def validate(
     normalized["pattern_duration"] = pattern_duration
 
     normalized["minimum_matches"] = integer_at_least(
-        test["minimum_matches"],
-        field="minimum_matches",
-        minimum=2,
+        test["minimum_matches"], field="minimum_matches", minimum=2
     )
 
     normalized["tolerance"] = nonnegative_real(
-        test.get("tolerance", 0.0),
-        field="tolerance",
+        test.get("tolerance", 0.0), field="tolerance"
     )
 
     return normalized
 
 
 def _complete_blocks(
-    data: pd.Series,
-    *,
-    pattern_steps: int,
-    grid: TimeGrid,
+    data: pd.Series, *, pattern_steps: int, grid: TimeGrid
 ) -> list[_PatternBlock]:
     """Build complete non-overlapping pattern blocks aligned to the grid."""
     blocks: list[_PatternBlock] = []
 
     latest_start = len(data) - pattern_steps
 
-    for start_position in range(
-        0,
-        latest_start + 1,
-        pattern_steps,
-    ):
+    for start_position in range(0, latest_start + 1, pattern_steps):
         end_position = start_position + pattern_steps
 
         period = data.iloc[start_position:end_position]
@@ -122,30 +97,17 @@ def _complete_blocks(
     return blocks
 
 
-def _within_threshold(
-    values: np.ndarray,
-    *,
-    threshold: float,
-) -> np.ndarray:
+def _within_threshold(values: np.ndarray, *, threshold: float) -> np.ndarray:
     """Compare values inclusively while ignoring binary float noise."""
-    return (
-        values <= threshold
-    ) | np.isclose(
-        values,
-        threshold,
-        rtol=1e-12,
-        atol=0.0,
-        equal_nan=False,
+    return (values <= threshold) | np.isclose(
+        values, threshold, rtol=1e-12, atol=0.0, equal_nan=False
     )
 
 
-def _exact_matches(
-    blocks: list[_PatternBlock],
-) -> dict[int, list[tuple[int, float]]]:
+def _exact_matches(blocks: list[_PatternBlock]) -> dict[int, list[tuple[int, float]]]:
     """Find exact block matches efficiently by value signature."""
     matches: dict[int, list[tuple[int, float]]] = {
-        index: []
-        for index in range(len(blocks))
+        index: [] for index in range(len(blocks))
     }
 
     groups: dict[tuple[float, ...], list[int]] = {}
@@ -161,44 +123,31 @@ def _exact_matches(
 
         for index in indices:
             matches[index] = [
-                (other_index, 0.0)
-                for other_index in indices
-                if other_index != index
+                (other_index, 0.0) for other_index in indices if other_index != index
             ]
 
     return matches
 
 
 def _approximate_matches(
-    blocks: list[_PatternBlock],
-    *,
-    tolerance: float,
+    blocks: list[_PatternBlock], *, tolerance: float
 ) -> dict[int, list[tuple[int, float]]]:
     """Find directly matching block pairs within an absolute tolerance."""
     matches: dict[int, list[tuple[int, float]]] = {
-        index: []
-        for index in range(len(blocks))
+        index: [] for index in range(len(blocks))
     }
 
     if len(blocks) < 2:
         return matches
 
-    values = np.stack(
-        [block.values for block in blocks],
-        axis=0,
-    )
+    values = np.stack([block.values for block in blocks], axis=0)
 
     first_values = values[:, 0]
 
     for index in range(len(blocks) - 1):
-        first_differences = np.abs(
-            first_values[index + 1:] - first_values[index]
-        )
+        first_differences = np.abs(first_values[index + 1 :] - first_values[index])
 
-        possible = _within_threshold(
-            first_differences,
-            threshold=tolerance,
-        )
+        possible = _within_threshold(first_differences, threshold=tolerance)
 
         candidate_offsets = np.flatnonzero(possible)
 
@@ -208,73 +157,43 @@ def _approximate_matches(
         candidate_indices = candidate_offsets + index + 1
 
         maximum_differences = np.max(
-            np.abs(
-                values[candidate_indices]
-                - values[index]
-            ),
-            axis=1,
+            np.abs(values[candidate_indices] - values[index]), axis=1
         )
 
-        qualifying = _within_threshold(
-            maximum_differences,
-            threshold=tolerance,
-        )
+        qualifying = _within_threshold(maximum_differences, threshold=tolerance)
 
         for candidate_index, maximum_difference in zip(
-            candidate_indices[qualifying],
-            maximum_differences[qualifying],
-            strict=True,
+            candidate_indices[qualifying], maximum_differences[qualifying], strict=True
         ):
             other_index = int(candidate_index)
             difference = float(maximum_difference)
 
-            matches[index].append(
-                (other_index, difference)
-            )
-            matches[other_index].append(
-                (index, difference)
-            )
+            matches[index].append((other_index, difference))
+            matches[other_index].append((index, difference))
 
     return matches
 
 
 def _analyse(
-    data: pd.Series,
-    *,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
-) -> tuple[
-    list[_PatternBlock],
-    dict[int, list[tuple[int, float]]],
-]:
+    data: pd.Series, *, test: Mapping[str, Any], grid: TimeGrid
+) -> tuple[list[_PatternBlock], dict[int, list[tuple[int, float]]]]:
     """Build candidate blocks and find their direct matches."""
-    pattern_steps = int(
-        test["pattern_duration"] / grid.frequency
-    )
+    pattern_steps = int(test["pattern_duration"] / grid.frequency)
 
-    blocks = _complete_blocks(
-        data,
-        pattern_steps=pattern_steps,
-        grid=grid,
-    )
+    blocks = _complete_blocks(data, pattern_steps=pattern_steps, grid=grid)
 
     tolerance = float(test["tolerance"])
 
     if tolerance == 0.0:
         matches = _exact_matches(blocks)
     else:
-        matches = _approximate_matches(
-            blocks,
-            tolerance=tolerance,
-        )
+        matches = _approximate_matches(blocks, tolerance=tolerance)
 
     return blocks, matches
 
 
 def _qualifying_indices(
-    matches: Mapping[int, list[tuple[int, float]]],
-    *,
-    minimum_matches: int,
+    matches: Mapping[int, list[tuple[int, float]]], *, minimum_matches: int
 ) -> list[int]:
     """Return blocks with enough direct matches to constitute a failure."""
     return [
@@ -285,10 +204,7 @@ def _qualifying_indices(
 
 
 def evaluate(
-    data: pd.DataFrame,
-    *,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
+    data: pd.DataFrame, *, test: Mapping[str, Any], grid: TimeGrid
 ) -> pd.DataFrame:
     """Flag complete blocks that reproduce patterns found elsewhere.
 
@@ -307,31 +223,20 @@ def evaluate(
     Returns:
         Boolean DataFrame aligned exactly to ``data``.
     """
-    failures = pd.DataFrame(
-        False,
-        index=data.index,
-        columns=data.columns,
-        dtype=bool,
-    )
+    failures = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
 
     for context_position, context in enumerate(data.columns):
-        blocks, matches = _analyse(
-            data[context],
-            test=test,
-            grid=grid,
-        )
+        blocks, matches = _analyse(data[context], test=test, grid=grid)
 
         qualifying = _qualifying_indices(
-            matches,
-            minimum_matches=test["minimum_matches"],
+            matches, minimum_matches=test["minimum_matches"]
         )
 
         for block_index in qualifying:
             block = blocks[block_index]
 
             failures.iloc[
-                block.start_position:block.end_position,
-                context_position,
+                block.start_position : block.end_position, context_position
             ] = True
 
     return failures
@@ -346,17 +251,10 @@ def build_details(
     grid: TimeGrid,
 ) -> dict[str, Any]:
     """Build structured diagnostics for repeated-pattern failures."""
-    blocks, matches = _analyse(
-        data,
-        test=test,
-        grid=grid,
-    )
+    blocks, matches = _analyse(data, test=test, grid=grid)
 
     qualifying = set(
-        _qualifying_indices(
-            matches,
-            minimum_matches=test["minimum_matches"],
-        )
+        _qualifying_indices(matches, minimum_matches=test["minimum_matches"])
     )
 
     failed_blocks = []
@@ -370,8 +268,7 @@ def build_details(
         block_matches = []
 
         for other_index, maximum_difference in sorted(
-            matches[block_index],
-            key=lambda item: blocks[item[0]].start,
+            matches[block_index], key=lambda item: blocks[item[0]].start
         ):
             other = blocks[other_index]
 
@@ -379,9 +276,7 @@ def build_details(
                 {
                     "start": other.start,
                     "end": other.end,
-                    "maximum_absolute_difference": (
-                        maximum_difference
-                    ),
+                    "maximum_absolute_difference": (maximum_difference),
                 }
             )
 

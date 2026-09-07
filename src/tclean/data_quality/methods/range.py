@@ -15,62 +15,41 @@ from tclean.time_grid import TimeGrid
 METHOD_NAME = "range"
 
 
-def validate(
-    test: Mapping[str, Any],
-    *,
-    grid: TimeGrid,
-) -> dict[str, Any]:
+def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
     """Validate and normalize a range quality test."""
     del grid  # Range thresholds do not depend on the temporal grid.
 
     validate_keys(
         test,
         required={"name", "method"},
-        optional={
-            "sources",
-            "contexts",
-            "minimum",
-            "maximum",
-        },
+        optional={"sources", "contexts", "minimum", "maximum"},
     )
 
     if "minimum" not in test and "maximum" not in test:
         raise ValueError(
-            "Range quality tests require at least one of "
-            "'minimum' or 'maximum'."
+            "Range quality tests require at least one of 'minimum' or 'maximum'."
         )
 
     normalized = normalize_common_selectors(test)
 
     if "minimum" in test:
-        normalized["minimum"] = finite_real(
-            test["minimum"],
-            field="minimum",
-        )
+        normalized["minimum"] = finite_real(test["minimum"], field="minimum")
 
     if "maximum" in test:
-        normalized["maximum"] = finite_real(
-            test["maximum"],
-            field="maximum",
-        )
+        normalized["maximum"] = finite_real(test["maximum"], field="maximum")
 
     if (
         "minimum" in normalized
         and "maximum" in normalized
         and normalized["minimum"] > normalized["maximum"]
     ):
-        raise ValueError(
-            "'minimum' must be less than or equal to 'maximum'."
-        )
+        raise ValueError("'minimum' must be less than or equal to 'maximum'.")
 
     return normalized
 
 
 def evaluate(
-    data: pd.DataFrame,
-    *,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
+    data: pd.DataFrame, *, test: Mapping[str, Any], grid: TimeGrid
 ) -> pd.DataFrame:
     """Evaluate whether observed values fall outside configured bounds.
 
@@ -88,12 +67,7 @@ def evaluate(
     """
     del grid  # Range evaluation is independent of temporal resolution.
 
-    failures = pd.DataFrame(
-        False,
-        index=data.index,
-        columns=data.columns,
-        dtype=bool,
-    )
+    failures = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
 
     observed = data.notna()
 
@@ -117,9 +91,7 @@ def build_details(
     """Build structured diagnostics for one failed range period."""
     del grid
 
-    failed_values = data.loc[
-        (data.index >= start) & (data.index < end)
-    ].dropna()
+    failed_values = data.loc[(data.index >= start) & (data.index < end)].dropna()
 
     details: dict[str, Any] = {
         "observed_minimum": float(failed_values.min()),
@@ -131,8 +103,7 @@ def build_details(
 
         details["minimum"] = minimum
         details["maximum_below_minimum"] = max(
-            0.0,
-            float(minimum - failed_values.min()),
+            0.0, float(minimum - failed_values.min())
         )
 
     if "maximum" in test:
@@ -140,8 +111,7 @@ def build_details(
 
         details["maximum"] = maximum
         details["maximum_above_maximum"] = max(
-            0.0,
-            float(failed_values.max() - maximum),
+            0.0, float(failed_values.max() - maximum)
         )
 
     return details

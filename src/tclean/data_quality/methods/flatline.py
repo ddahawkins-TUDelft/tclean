@@ -16,55 +16,36 @@ from tclean.time_grid import TimeGrid
 METHOD_NAME = "flatline"
 
 
-def validate(
-    test: Mapping[str, Any],
-    *,
-    grid: TimeGrid,
-) -> dict[str, Any]:
+def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
     """Validate and normalize a flatline quality test."""
     validate_keys(
         test,
-        required={
-            "name",
-            "method",
-            "minimum_duration",
-        },
-        optional={
-            "sources",
-            "contexts",
-            "tolerance",
-        },
+        required={"name", "method", "minimum_duration"},
+        optional={"sources", "contexts", "tolerance"},
     )
 
     normalized = normalize_common_selectors(test)
 
     minimum_duration = positive_timedelta(
-        test["minimum_duration"],
-        field="minimum_duration",
-        grid=grid,
+        test["minimum_duration"], field="minimum_duration", grid=grid
     )
 
     if minimum_duration < 2 * grid.frequency:
         raise ValueError(
-            "'minimum_duration' for a flatline test must span "
-            "at least two grid steps."
+            "'minimum_duration' for a flatline test must span at least two grid steps."
         )
 
     normalized["minimum_duration"] = minimum_duration
 
     normalized["tolerance"] = nonnegative_real(
-        test.get("tolerance", 0.0),
-        field="tolerance",
+        test.get("tolerance", 0.0), field="tolerance"
     )
 
     return normalized
 
 
 def evaluate(
-    data: pd.DataFrame,
-    *,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
+    data: pd.DataFrame, *, test: Mapping[str, Any], grid: TimeGrid
 ) -> pd.DataFrame:
     """Flag sufficiently long runs of effectively unchanged values.
 
@@ -81,16 +62,9 @@ def evaluate(
         Boolean DataFrame aligned exactly to ``data``. Every observation in a
         qualifying flatline run is marked ``True``.
     """
-    minimum_steps = int(
-        test["minimum_duration"] / grid.frequency
-    )
+    minimum_steps = int(test["minimum_duration"] / grid.frequency)
 
-    failures = pd.DataFrame(
-        False,
-        index=data.index,
-        columns=data.columns,
-        dtype=bool,
-    )
+    failures = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
 
     for context in data.columns:
         values = data[context]
@@ -107,10 +81,7 @@ def evaluate(
 
         run_lengths = observed.groupby(run_ids).transform("sum")
 
-        failures[context] = (
-            observed
-            & run_lengths.ge(minimum_steps)
-        )
+        failures[context] = observed & run_lengths.ge(minimum_steps)
 
     return failures
 
@@ -126,9 +97,7 @@ def build_details(
     """Build structured diagnostics for one failed flatline period."""
     del grid
 
-    failed_values = data.loc[
-        (data.index >= start) & (data.index < end)
-    ].dropna()
+    failed_values = data.loc[(data.index >= start) & (data.index < end)].dropna()
 
     step_changes = failed_values.diff().abs().dropna()
 
@@ -138,12 +107,8 @@ def build_details(
         "tolerance": test["tolerance"],
         "observed_minimum": float(failed_values.min()),
         "observed_maximum": float(failed_values.max()),
-        "observed_range": float(
-            failed_values.max() - failed_values.min()
-        ),
+        "observed_range": float(failed_values.max() - failed_values.min()),
         "maximum_step_change": (
-            float(step_changes.max())
-            if not step_changes.empty
-            else 0.0
+            float(step_changes.max()) if not step_changes.empty else 0.0
         ),
     }

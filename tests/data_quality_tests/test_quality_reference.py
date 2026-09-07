@@ -10,17 +10,10 @@ from tclean.data_quality._reference import (
 
 def _data() -> pd.DataFrame:
     """Build canonical-style reference-filtering test data."""
-    index = pd.date_range(
-        "2026-01-01T00:00:00Z",
-        periods=6,
-        freq="1h",
-    )
+    index = pd.date_range("2026-01-01T00:00:00Z", periods=6, freq="1h")
 
     return pd.DataFrame(
-        {
-            "A": [10, 20, 30, 40, 50, 60],
-            "B": [100, 200, 300, 400, 500, 600],
-        },
+        {"A": [10, 20, 30, 40, 50, 60], "B": [100, 200, 300, 400, 500, 600]},
         index=index,
     )
 
@@ -48,20 +41,10 @@ def _failure(
 def test_reference_exclusion_mask_excludes_same_source_context():
     """Exclude preceding failures from the same source and context."""
     result = reference_exclusion_mask(
-        _data(),
-        source_name="primary",
-        contexts=["A"],
-        preceding_failures=[_failure()],
+        _data(), source_name="primary", contexts=["A"], preceding_failures=[_failure()]
     )
 
-    assert result["A"].tolist() == [
-        False,
-        True,
-        True,
-        False,
-        False,
-        False,
-    ]
+    assert result["A"].tolist() == [False, True, True, False, False, False]
 
 
 def test_reference_filtering_uses_half_open_failure_periods():
@@ -71,21 +54,11 @@ def test_reference_filtering_uses_half_open_failure_periods():
         source_name="primary",
         contexts=["A"],
         preceding_failures=[
-            _failure(
-                start="2026-01-01T01:00:00Z",
-                end="2026-01-01T02:00:00Z",
-            )
+            _failure(start="2026-01-01T01:00:00Z", end="2026-01-01T02:00:00Z")
         ],
     )
 
-    assert result["A"].tolist() == [
-        False,
-        True,
-        False,
-        False,
-        False,
-        False,
-    ]
+    assert result["A"].tolist() == [False, True, False, False, False, False]
 
 
 def test_reference_filtering_does_not_cross_sources():
@@ -94,9 +67,7 @@ def test_reference_filtering_does_not_cross_sources():
         _data(),
         source_name="secondary",
         contexts=["A"],
-        preceding_failures=[
-            _failure(source="primary")
-        ],
+        preceding_failures=[_failure(source="primary")],
     )
 
     assert not result["A"].any()
@@ -108,9 +79,7 @@ def test_reference_filtering_does_not_cross_contexts():
         _data(),
         source_name="primary",
         contexts=["B"],
-        preceding_failures=[
-            _failure(context="A")
-        ],
+        preceding_failures=[_failure(context="A")],
     )
 
     assert not result["B"].any()
@@ -122,9 +91,7 @@ def test_reference_filtering_reincludes_named_test():
         _data(),
         source_name="primary",
         contexts=["A"],
-        preceding_failures=[
-            _failure(test_name="abrupt_change")
-        ],
+        preceding_failures=[_failure(test_name="abrupt_change")],
         include_failed_periods_from=["abrupt_change"],
     )
 
@@ -133,10 +100,7 @@ def test_reference_filtering_reincludes_named_test():
 
 def test_reference_filtering_still_excludes_other_overlapping_failures():
     """Require every relevant failure to be included before restoring a value."""
-    failures = [
-        _failure(test_name="abrupt_change"),
-        _failure(test_name="flatline"),
-    ]
+    failures = [_failure(test_name="abrupt_change"), _failure(test_name="flatline")]
 
     result = reference_exclusion_mask(
         _data(),
@@ -146,23 +110,13 @@ def test_reference_filtering_still_excludes_other_overlapping_failures():
         include_failed_periods_from=["abrupt_change"],
     )
 
-    assert result["A"].tolist() == [
-        False,
-        True,
-        True,
-        False,
-        False,
-        False,
-    ]
+    assert result["A"].tolist() == [False, True, True, False, False, False]
 
 
 def test_build_reference_data_masks_excluded_observations():
     """Represent excluded reference observations as missing values."""
     result = build_reference_data(
-        _data(),
-        source_name="primary",
-        contexts=["A"],
-        preceding_failures=[_failure()],
+        _data(), source_name="primary", contexts=["A"], preceding_failures=[_failure()]
     )
 
     assert result["A"].tolist()[:1] == [10]
@@ -177,10 +131,7 @@ def test_build_reference_data_does_not_modify_target_data():
     original = data.copy()
 
     build_reference_data(
-        data,
-        source_name="primary",
-        contexts=["A"],
-        preceding_failures=[_failure()],
+        data, source_name="primary", contexts=["A"], preceding_failures=[_failure()]
     )
 
     pd.testing.assert_frame_equal(data, original)

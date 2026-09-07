@@ -523,13 +523,7 @@ def test_validate_quality_failures_accepts_canonical_events():
             "end": ["2026-01-01T15:00:00Z"],
             "test_name": ["zero_run"],
             "method": ["value_run"],
-            "details": [
-                {
-                    "value": 0.0,
-                    "duration": "3h",
-                    "minimum_duration": "3h",
-                }
-            ],
+            "details": [{"value": 0.0, "duration": "3h", "minimum_duration": "3h"}],
         }
     )
 
@@ -552,12 +546,7 @@ def test_validate_quality_issues_accepts_canonical_events():
             "method": ["contextual_level"],
             "severity": ["warning"],
             "code": ["limited_reference_data"],
-            "details": [
-                {
-                    "observations": 87,
-                    "recommended_observations": 200,
-                }
-            ],
+            "details": [{"observations": 87, "recommended_observations": 200}],
         }
     )
 
@@ -577,18 +566,13 @@ def test_validate_quality_failures_rejects_missing_source():
             "end": ["2026-01-01T15:00:00Z"],
             "test_name": ["zero_run"],
             "method": ["value_run"],
-            "details": [
-                {
-                    "value": 0.0,
-                    "duration": "3h",
-                    "minimum_duration": "3h",
-                }
-            ],
+            "details": [{"value": 0.0, "duration": "3h", "minimum_duration": "3h"}],
         }
     )
 
     with pytest.raises(pandera.errors.SchemaErrors):
         validate_quality_failures(failures, grid=test_grid)
+
 
 def test_validate_quality_failures_accepts_temporal_details():
     """Allow pandas temporal objects in quality-failure details."""
@@ -618,6 +602,7 @@ def test_validate_quality_failures_accepts_temporal_details():
 
     assert result.loc[0, "details"]["previous_timestamp"] == previous_timestamp
     assert result.loc[0, "details"]["duration"] == duration
+
 
 def test_validate_quality_failures_rejects_non_dictionary_details():
     """Reject quality-failure details that are not dictionaries."""
@@ -649,12 +634,7 @@ def test_validate_quality_issues_rejects_unknown_severity():
             "method": ["contextual_level"],
             "severity": ["critical"],
             "code": ["limited_reference_data"],
-            "details": [
-                {
-                    "observations": 87,
-                    "recommended_observations": 200,
-                }
-            ],
+            "details": [{"observations": 87, "recommended_observations": 200}],
         }
     )
 
@@ -674,12 +654,7 @@ def test_validate_quality_issues_rejects_off_grid_period():
             "method": ["contextual_level"],
             "severity": ["not_evaluable"],
             "code": ["insufficient_reference_data"],
-            "details": [
-                {
-                    "observations": 3,
-                    "minimum_observations": 50,
-                }
-            ],
+            "details": [{"observations": 3, "minimum_observations": 50}],
         }
     )
 

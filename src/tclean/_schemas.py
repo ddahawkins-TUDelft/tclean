@@ -424,21 +424,20 @@ def _quality_issue_severity_is_supported(series: pd.Series) -> pd.Series:
     """Check that quality-evaluation issue severities are supported."""
     return series.isin(["warning", "not_evaluable"])
 
+
 QUALITY_FAILURES_SCHEMA = pa.DataFrameSchema(
     {
         "context": pa.Column(
             str,
             checks=pa.Check(
-                _is_nonblank_string,
-                error="Quality-failure context must not be blank.",
+                _is_nonblank_string, error="Quality-failure context must not be blank."
             ),
             nullable=False,
         ),
         "source": pa.Column(
             str,
             checks=pa.Check(
-                _is_nonblank_string,
-                error="Quality-failure source must not be blank.",
+                _is_nonblank_string, error="Quality-failure source must not be blank."
             ),
             nullable=False,
         ),
@@ -463,16 +462,14 @@ QUALITY_FAILURES_SCHEMA = pa.DataFrameSchema(
         "method": pa.Column(
             str,
             checks=pa.Check(
-                _is_nonblank_string,
-                error="Quality-failure method must not be blank.",
+                _is_nonblank_string, error="Quality-failure method must not be blank."
             ),
             nullable=False,
         ),
         "details": pa.Column(
             object,
             checks=pa.Check(
-                _is_mapping,
-                error="Quality-failure details must be dictionaries.",
+                _is_mapping, error="Quality-failure details must be dictionaries."
             ),
             nullable=False,
         ),
@@ -483,16 +480,11 @@ QUALITY_FAILURES_SCHEMA = pa.DataFrameSchema(
             error="Quality-failure periods must end later than they start.",
         ),
         pa.Check(
-            lambda data: ~data.duplicated(
-                subset=[
-                    "context",
-                    "source",
-                    "start",
-                    "end",
-                    "test_name",
-                    "method",
-                ]
-            ).any(),
+            lambda data: (
+                ~data.duplicated(
+                    subset=["context", "source", "start", "end", "test_name", "method"]
+                ).any()
+            ),
             error="Quality-failure events must be unique.",
         ),
     ],
@@ -508,16 +500,14 @@ QUALITY_ISSUES_SCHEMA = pa.DataFrameSchema(
         "context": pa.Column(
             str,
             checks=pa.Check(
-                _is_nonblank_string,
-                error="Quality issue context must not be blank.",
+                _is_nonblank_string, error="Quality issue context must not be blank."
             ),
             nullable=False,
         ),
         "source": pa.Column(
             str,
             checks=pa.Check(
-                _is_nonblank_string,
-                error="Quality issue source must not be blank.",
+                _is_nonblank_string, error="Quality issue source must not be blank."
             ),
             nullable=False,
         ),
@@ -534,16 +524,14 @@ QUALITY_ISSUES_SCHEMA = pa.DataFrameSchema(
         "test_name": pa.Column(
             str,
             checks=pa.Check(
-                _is_nonblank_string,
-                error="Quality issue test name must not be blank.",
+                _is_nonblank_string, error="Quality issue test name must not be blank."
             ),
             nullable=False,
         ),
         "method": pa.Column(
             str,
             checks=pa.Check(
-                _is_nonblank_string,
-                error="Quality issue method must not be blank.",
+                _is_nonblank_string, error="Quality issue method must not be blank."
             ),
             nullable=False,
         ),
@@ -558,16 +546,14 @@ QUALITY_ISSUES_SCHEMA = pa.DataFrameSchema(
         "code": pa.Column(
             str,
             checks=pa.Check(
-                _is_nonblank_string,
-                error="Quality issue code must not be blank.",
+                _is_nonblank_string, error="Quality issue code must not be blank."
             ),
             nullable=False,
         ),
         "details": pa.Column(
             object,
             checks=pa.Check(
-                _is_mapping,
-                error="Quality-issue details must be dictionaries.",
+                _is_mapping, error="Quality-issue details must be dictionaries."
             ),
             nullable=False,
         ),
@@ -578,18 +564,20 @@ QUALITY_ISSUES_SCHEMA = pa.DataFrameSchema(
             error="Quality-issue periods must end later than they start.",
         ),
         pa.Check(
-            lambda data: ~data.duplicated(
-                subset=[
-                    "context",
-                    "source",
-                    "start",
-                    "end",
-                    "test_name",
-                    "method",
-                    "severity",
-                    "code",
-                ]
-            ).any(),
+            lambda data: (
+                ~data.duplicated(
+                    subset=[
+                        "context",
+                        "source",
+                        "start",
+                        "end",
+                        "test_name",
+                        "method",
+                        "severity",
+                        "code",
+                    ]
+                ).any()
+            ),
             error="Quality-evaluation issues must be unique.",
         ),
     ],

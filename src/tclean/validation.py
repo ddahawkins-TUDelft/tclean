@@ -304,9 +304,7 @@ def validate_quality_failures(
     return validated
 
 
-def validate_quality_issues(
-    issues: pd.DataFrame, *, grid: TimeGrid
-) -> pd.DataFrame:
+def validate_quality_issues(issues: pd.DataFrame, *, grid: TimeGrid) -> pd.DataFrame:
     """Validate canonical data-quality evaluation issues.
 
     Args:

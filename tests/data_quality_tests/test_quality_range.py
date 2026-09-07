@@ -9,25 +9,16 @@ from tclean.data_quality.methods.range import evaluate
 def _grid() -> TimeGrid:
     """Return an eight-hour test grid."""
     return TimeGrid(
-        start="2026-01-01T00:00:00Z",
-        end="2026-01-01T08:00:00Z",
-        frequency="1h",
+        start="2026-01-01T00:00:00Z", end="2026-01-01T08:00:00Z", frequency="1h"
     )
 
 
 def _data() -> pd.DataFrame:
     """Return example two-context time-series data."""
-    index = pd.date_range(
-        "2026-01-01T00:00:00Z",
-        periods=5,
-        freq="1h",
-    )
+    index = pd.date_range("2026-01-01T00:00:00Z", periods=5, freq="1h")
 
     return pd.DataFrame(
-        {
-            "A": [-1.0, 0.0, 5.0, 10.0, 11.0],
-            "B": [100.0, 50.0, None, -5.0, 10.0],
-        },
+        {"A": [-1.0, 0.0, 5.0, 10.0, 11.0], "B": [100.0, 50.0, None, -5.0, 10.0]},
         index=index,
     )
 
@@ -36,12 +27,8 @@ def test_evaluate_range_flags_values_below_minimum():
     """Flag observed values below the configured minimum."""
     result = evaluate(
         _data(),
-        test={
-            "name": "non_negative",
-            "method": "range",
-            "minimum": 0,
-        },
-        grid = _grid()
+        test={"name": "non_negative", "method": "range", "minimum": 0},
+        grid=_grid(),
     )
 
     expected = pd.DataFrame(
@@ -60,12 +47,8 @@ def test_evaluate_range_flags_values_above_maximum():
     """Flag observed values above the configured maximum."""
     result = evaluate(
         _data(),
-        test={
-            "name": "maximum_value",
-            "method": "range",
-            "maximum": 10,
-        },
-        grid = _grid()
+        test={"name": "maximum_value", "method": "range", "maximum": 10},
+        grid=_grid(),
     )
 
     expected = pd.DataFrame(
@@ -84,20 +67,12 @@ def test_evaluate_range_flags_values_outside_both_bounds():
     """Flag observed values outside a bounded interval."""
     result = evaluate(
         _data(),
-        test={
-            "name": "bounded_values",
-            "method": "range",
-            "minimum": 0,
-            "maximum": 10,
-        },
-        grid = _grid()
+        test={"name": "bounded_values", "method": "range", "minimum": 0, "maximum": 10},
+        grid=_grid(),
     )
 
     expected = pd.DataFrame(
-        {
-            "A": [True, False, False, False, True],
-            "B": [True, True, False, True, False],
-        },
+        {"A": [True, False, False, False, True], "B": [True, True, False, True, False]},
         index=_data().index,
         dtype=bool,
     )
@@ -108,14 +83,8 @@ def test_evaluate_range_flags_values_outside_both_bounds():
 def test_evaluate_range_treats_bounds_as_inclusive():
     """Do not fail values exactly equal to configured bounds."""
     data = pd.DataFrame(
-        {
-            "A": [0.0, 10.0],
-        },
-        index=pd.date_range(
-            "2026-01-01T00:00:00Z",
-            periods=2,
-            freq="1h",
-        ),
+        {"A": [0.0, 10.0]},
+        index=pd.date_range("2026-01-01T00:00:00Z", periods=2, freq="1h"),
     )
 
     result = evaluate(
@@ -126,16 +95,10 @@ def test_evaluate_range_treats_bounds_as_inclusive():
             "minimum": 0,
             "maximum": 10,
         },
-        grid = _grid()
+        grid=_grid(),
     )
 
-    expected = pd.DataFrame(
-        {
-            "A": [False, False],
-        },
-        index=data.index,
-        dtype=bool,
-    )
+    expected = pd.DataFrame({"A": [False, False]}, index=data.index, dtype=bool)
 
     pd.testing.assert_frame_equal(result, expected)
 
@@ -143,34 +106,17 @@ def test_evaluate_range_treats_bounds_as_inclusive():
 def test_evaluate_range_does_not_flag_missing_values():
     """Treat missing observations as unevaluated rather than failures."""
     data = pd.DataFrame(
-        {
-            "A": [None, 5.0, None],
-        },
-        index=pd.date_range(
-            "2026-01-01T00:00:00Z",
-            periods=3,
-            freq="1h",
-        ),
+        {"A": [None, 5.0, None]},
+        index=pd.date_range("2026-01-01T00:00:00Z", periods=3, freq="1h"),
     )
 
     result = evaluate(
         data,
-        test={
-            "name": "bounded_values",
-            "method": "range",
-            "minimum": 0,
-            "maximum": 10,
-        },
-        grid = _grid()
+        test={"name": "bounded_values", "method": "range", "minimum": 0, "maximum": 10},
+        grid=_grid(),
     )
 
-    expected = pd.DataFrame(
-        {
-            "A": [False, False, False],
-        },
-        index=data.index,
-        dtype=bool,
-    )
+    expected = pd.DataFrame({"A": [False, False, False]}, index=data.index, dtype=bool)
 
     pd.testing.assert_frame_equal(result, expected)
 
@@ -181,12 +127,8 @@ def test_evaluate_range_preserves_index_and_columns():
 
     result = evaluate(
         data,
-        test={
-            "name": "non_negative",
-            "method": "range",
-            "minimum": 0,
-        },
-        grid = _grid()
+        test={"name": "non_negative", "method": "range", "minimum": 0},
+        grid=_grid(),
     )
 
     assert result.index.equals(data.index)

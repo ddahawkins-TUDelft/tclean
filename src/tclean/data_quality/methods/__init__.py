@@ -1,6 +1,7 @@
 """Data-quality evaluation methods."""
 
 from . import (
+    contextual_level,
     fixed_rate_of_change,
     flatline,
     level_shift,
@@ -20,6 +21,7 @@ METHODS = {
     fixed_rate_of_change.METHOD_NAME: fixed_rate_of_change,
     relative_rate_of_change.METHOD_NAME: relative_rate_of_change,
     level_shift.METHOD_NAME: level_shift,
+    contextual_level.METHOD_NAME: contextual_level,
 }
 
 __all__ = ["METHODS"]

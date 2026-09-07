@@ -3,42 +3,30 @@
 import pandas as pd
 
 from tclean import TimeGrid
-from tclean.data_quality.methods.relative_rate_of_change import (
-    build_details,
-    evaluate,
-)
+from tclean.data_quality.methods.relative_rate_of_change import build_details, evaluate
 
 
 def _grid() -> TimeGrid:
     """Return a six-hour test grid."""
     return TimeGrid(
-        start="2026-01-01T00:00:00Z",
-        end="2026-01-01T06:00:00Z",
-        frequency="1h",
+        start="2026-01-01T00:00:00Z", end="2026-01-01T06:00:00Z", frequency="1h"
     )
 
 
 def _data(values: list[float | None]) -> pd.DataFrame:
     """Build single-context test data."""
-    return pd.DataFrame(
-        {"A": values},
-        index=pd.DatetimeIndex(_grid().target_index),
-    )
+    return pd.DataFrame({"A": values}, index=pd.DatetimeIndex(_grid().target_index))
 
 
 def _test(
-    *,
-    threshold: float = 0.2,
-    reference_magnitude_threshold: float = 0.0,
+    *, threshold: float = 0.2, reference_magnitude_threshold: float = 0.0
 ) -> dict:
     """Build a validated-style relative rate-of-change test."""
     return {
         "name": "large_relative_change",
         "method": "relative_rate_of_change",
         "threshold": threshold,
-        "reference_magnitude_threshold": (
-            reference_magnitude_threshold
-        ),
+        "reference_magnitude_threshold": (reference_magnitude_threshold),
     }
 
 
@@ -46,31 +34,16 @@ def test_evaluate_flags_relative_change():
     """Flag a change exceeding the configured proportion."""
     data = _data([100, 130, 135, 140, 145, 150])
 
-    result = evaluate(
-        data,
-        test=_test(),
-        grid=_grid(),
-    )
+    result = evaluate(data, test=_test(), grid=_grid())
 
-    assert result["A"].tolist() == [
-        False,
-        True,
-        False,
-        False,
-        False,
-        False,
-    ]
+    assert result["A"].tolist() == [False, True, False, False, False, False]
 
 
 def test_evaluate_treats_threshold_as_exclusive():
     """Do not flag a relative change exactly equal to the threshold."""
     data = _data([100, 120, 120, 120, 120, 120])
 
-    result = evaluate(
-        data,
-        test=_test(),
-        grid=_grid(),
-    )
+    result = evaluate(data, test=_test(), grid=_grid())
 
     assert not result["A"].any()
 
@@ -79,31 +52,16 @@ def test_evaluate_uses_reference_magnitude():
     """Use magnitude so negative reference values remain meaningful."""
     data = _data([-100, -130, -135, -140, -145, -150])
 
-    result = evaluate(
-        data,
-        test=_test(),
-        grid=_grid(),
-    )
+    result = evaluate(data, test=_test(), grid=_grid())
 
-    assert result["A"].tolist() == [
-        False,
-        True,
-        False,
-        False,
-        False,
-        False,
-    ]
+    assert result["A"].tolist() == [False, True, False, False, False, False]
 
 
 def test_evaluate_excludes_zero_reference_by_default():
     """Do not evaluate relative change from a zero reference value."""
     data = _data([0, 100, 105, 110, 115, 120])
 
-    result = evaluate(
-        data,
-        test=_test(),
-        grid=_grid(),
-    )
+    result = evaluate(data, test=_test(), grid=_grid())
 
     assert not result["A"].any()
 
@@ -112,33 +70,16 @@ def test_evaluate_includes_small_nonzero_reference_by_default():
     """Evaluate any non-zero reference when the default threshold is zero."""
     data = _data([0.01, 1, 1, 1, 1, 1])
 
-    result = evaluate(
-        data,
-        test=_test(),
-        grid=_grid(),
-    )
+    result = evaluate(data, test=_test(), grid=_grid())
 
-    assert result["A"].tolist() == [
-        False,
-        True,
-        False,
-        False,
-        False,
-        False,
-    ]
+    assert result["A"].tolist() == [False, True, False, False, False, False]
 
 
 def test_evaluate_excludes_reference_equal_to_magnitude_threshold():
     """Require reference magnitude to be strictly above its threshold."""
     data = _data([10, 100, 100, 100, 100, 100])
 
-    result = evaluate(
-        data,
-        test=_test(
-            reference_magnitude_threshold=10,
-        ),
-        grid=_grid(),
-    )
+    result = evaluate(data, test=_test(reference_magnitude_threshold=10), grid=_grid())
 
     assert not result["A"].any()
 
@@ -147,55 +88,25 @@ def test_evaluate_includes_reference_above_magnitude_threshold():
     """Evaluate references strictly exceeding the magnitude threshold."""
     data = _data([11, 100, 100, 100, 100, 100])
 
-    result = evaluate(
-        data,
-        test=_test(
-            reference_magnitude_threshold=10,
-        ),
-        grid=_grid(),
-    )
+    result = evaluate(data, test=_test(reference_magnitude_threshold=10), grid=_grid())
 
-    assert result["A"].tolist() == [
-        False,
-        True,
-        False,
-        False,
-        False,
-        False,
-    ]
+    assert result["A"].tolist() == [False, True, False, False, False, False]
 
 
 def test_evaluate_does_not_apply_threshold_to_current_value():
     """Require only the preceding value to exceed the reference threshold."""
     data = _data([100, 1, 1, 1, 1, 1])
 
-    result = evaluate(
-        data,
-        test=_test(
-            reference_magnitude_threshold=50,
-        ),
-        grid=_grid(),
-    )
+    result = evaluate(data, test=_test(reference_magnitude_threshold=50), grid=_grid())
 
-    assert result["A"].tolist() == [
-        False,
-        True,
-        False,
-        False,
-        False,
-        False,
-    ]
+    assert result["A"].tolist() == [False, True, False, False, False, False]
 
 
 def test_evaluate_does_not_bridge_missing_values():
     """Require an observed immediately preceding value."""
     data = _data([100, None, 500, 500, 500, 500])
 
-    result = evaluate(
-        data,
-        test=_test(),
-        grid=_grid(),
-    )
+    result = evaluate(data, test=_test(), grid=_grid())
 
     assert not result["A"].any()
 

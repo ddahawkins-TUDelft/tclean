@@ -13,21 +13,13 @@ def _validate_common_fields(test: Mapping[str, Any]) -> None:
     method = test.get("method")
 
     if not isinstance(name, str) or not name.strip():
-        raise ValueError(
-            "Data-quality test 'name' must be a non-empty string."
-        )
+        raise ValueError("Data-quality test 'name' must be a non-empty string.")
 
     if not isinstance(method, str) or not method.strip():
-        raise ValueError(
-            "Data-quality test 'method' must be a non-empty string."
-        )
+        raise ValueError("Data-quality test 'method' must be a non-empty string.")
 
 
-def validate_quality_test(
-    test: Mapping[str, Any],
-    *,
-    grid: TimeGrid,
-) -> dict[str, Any]:
+def validate_quality_test(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
     """Validate and normalize one data-quality test."""
     if not isinstance(test, Mapping):
         raise TypeError("Each data-quality test must be a mapping.")
@@ -39,30 +31,19 @@ def validate_quality_test(
     try:
         method = METHODS[method_name]
     except KeyError as exc:
-        raise ValueError(
-            f"Unsupported data-quality method: {method_name!r}."
-        ) from exc
+        raise ValueError(f"Unsupported data-quality method: {method_name!r}.") from exc
 
     return method.validate(test, grid=grid)
 
 
-def _validate_prior_failure_references(
-    tests: Sequence[Mapping[str, Any]],
-) -> None:
+def _validate_prior_failure_references(tests: Sequence[Mapping[str, Any]]) -> None:
     """Require failure references to target only preceding tests."""
     preceding_names: set[str] = set()
 
     for test in tests:
-        references = test.get(
-            "include_failed_periods_from",
-            [],
-        )
+        references = test.get("include_failed_periods_from", [])
 
-        unavailable = [
-            name
-            for name in references
-            if name not in preceding_names
-        ]
+        unavailable = [name for name in references if name not in preceding_names]
 
         if unavailable:
             raise ValueError(
@@ -76,9 +57,7 @@ def _validate_prior_failure_references(
 
 
 def validate_quality_tests(
-    tests: Sequence[Mapping[str, Any]],
-    *,
-    grid: TimeGrid,
+    tests: Sequence[Mapping[str, Any]], *, grid: TimeGrid
 ) -> list[dict[str, Any]]:
     """Validate and normalize ordered data-quality tests.
 
@@ -98,33 +77,18 @@ def validate_quality_tests(
         ValueError: If a test is invalid, test names are duplicated, or
             failure references do not point exclusively to preceding tests.
     """
-    if isinstance(tests, (str, bytes)) or not isinstance(
-        tests,
-        Sequence,
-    ):
-        raise TypeError(
-            "Data-quality tests must be an ordered sequence."
-        )
+    if isinstance(tests, (str, bytes)) or not isinstance(tests, Sequence):
+        raise TypeError("Data-quality tests must be an ordered sequence.")
 
-    normalized = [
-        validate_quality_test(test, grid=grid)
-        for test in tests
-    ]
+    normalized = [validate_quality_test(test, grid=grid) for test in tests]
 
     names = [test["name"] for test in normalized]
 
-    duplicates = sorted(
-        {
-            name
-            for name in names
-            if names.count(name) > 1
-        }
-    )
+    duplicates = sorted({name for name in names if names.count(name) > 1})
 
     if duplicates:
         raise ValueError(
-            "Data-quality test names must be unique. "
-            f"Duplicates: {duplicates!r}."
+            f"Data-quality test names must be unique. Duplicates: {duplicates!r}."
         )
 
     _validate_prior_failure_references(normalized)

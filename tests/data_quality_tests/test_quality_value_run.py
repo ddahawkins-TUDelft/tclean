@@ -9,18 +9,13 @@ from tclean.data_quality.methods.value_run import evaluate
 def _grid() -> TimeGrid:
     """Return an eight-hour test grid."""
     return TimeGrid(
-        start="2026-01-01T00:00:00Z",
-        end="2026-01-01T08:00:00Z",
-        frequency="1h",
+        start="2026-01-01T00:00:00Z", end="2026-01-01T08:00:00Z", frequency="1h"
     )
 
 
 def _data(values: list[float | None]) -> pd.DataFrame:
     """Build single-context test data."""
-    return pd.DataFrame(
-        {"A": values},
-        index=pd.DatetimeIndex(_grid().target_index),
-    )
+    return pd.DataFrame({"A": values}, index=pd.DatetimeIndex(_grid().target_index))
 
 
 def test_evaluate_flags_run_meeting_minimum_duration():
@@ -40,18 +35,7 @@ def test_evaluate_flags_run_meeting_minimum_duration():
     )
 
     expected = pd.DataFrame(
-        {
-            "A": [
-                False,
-                True,
-                True,
-                True,
-                False,
-                False,
-                False,
-                False,
-            ]
-        },
+        {"A": [False, True, True, True, False, False, False, False]},
         index=data.index,
         dtype=bool,
     )
@@ -94,16 +78,7 @@ def test_evaluate_flags_run_longer_than_minimum_duration():
         grid=_grid(),
     )
 
-    assert result["A"].tolist() == [
-        True,
-        True,
-        True,
-        True,
-        False,
-        False,
-        False,
-        False,
-    ]
+    assert result["A"].tolist() == [True, True, True, True, False, False, False, False]
 
 
 def test_evaluate_handles_multiple_qualifying_runs():
@@ -122,16 +97,7 @@ def test_evaluate_handles_multiple_qualifying_runs():
         grid=_grid(),
     )
 
-    assert result["A"].tolist() == [
-        True,
-        True,
-        True,
-        False,
-        True,
-        True,
-        True,
-        False,
-    ]
+    assert result["A"].tolist() == [True, True, True, False, True, True, True, False]
 
 
 def test_evaluate_uses_tolerance():
@@ -150,16 +116,7 @@ def test_evaluate_uses_tolerance():
         grid=_grid(),
     )
 
-    assert result["A"].tolist() == [
-        False,
-        True,
-        True,
-        True,
-        False,
-        False,
-        False,
-        False,
-    ]
+    assert result["A"].tolist() == [False, True, True, True, False, False, False, False]
 
 
 def test_evaluate_breaks_run_when_value_exceeds_tolerance():
@@ -197,25 +154,13 @@ def test_evaluate_breaks_run_at_missing_value():
         grid=_grid(),
     )
 
-    assert result["A"].tolist() == [
-        False,
-        False,
-        False,
-        True,
-        True,
-        True,
-        False,
-        False,
-    ]
+    assert result["A"].tolist() == [False, False, False, True, True, True, False, False]
 
 
 def test_evaluate_applies_independently_to_contexts():
     """Evaluate value runs independently for each context."""
     data = pd.DataFrame(
-        {
-            "A": [0, 0, 0, 5, 5, 5, 5, 5],
-            "B": [5, 5, 0, 0, 0, 5, 5, 5],
-        },
+        {"A": [0, 0, 0, 5, 5, 5, 5, 5], "B": [5, 5, 0, 0, 0, 5, 5, 5]},
         index=pd.DatetimeIndex(_grid().target_index),
     )
 
@@ -231,24 +176,6 @@ def test_evaluate_applies_independently_to_contexts():
         grid=_grid(),
     )
 
-    assert result["A"].tolist() == [
-        True,
-        True,
-        True,
-        False,
-        False,
-        False,
-        False,
-        False,
-    ]
+    assert result["A"].tolist() == [True, True, True, False, False, False, False, False]
 
-    assert result["B"].tolist() == [
-        False,
-        False,
-        True,
-        True,
-        True,
-        False,
-        False,
-        False,
-    ]
+    assert result["B"].tolist() == [False, False, True, True, True, False, False, False]

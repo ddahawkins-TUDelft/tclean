@@ -81,9 +81,7 @@ def _empty_quality_issues() -> pd.DataFrame:
 
 
 def _validate_sources(
-    sources: Mapping[str, pd.DataFrame],
-    *,
-    grid: TimeGrid,
+    sources: Mapping[str, pd.DataFrame], *, grid: TimeGrid
 ) -> dict[str, pd.DataFrame]:
     """Validate named source frames independently."""
     if not isinstance(sources, Mapping):
@@ -99,22 +97,15 @@ def _validate_sources(
 
     for source_name, data in sources.items():
         if not isinstance(source_name, str) or not source_name.strip():
-            raise ValueError(
-                "Data-quality source names must be non-empty strings."
-            )
+            raise ValueError("Data-quality source names must be non-empty strings.")
 
-        validated[source_name] = validate_time_series(
-            data,
-            grid=grid,
-        )
+        validated[source_name] = validate_time_series(data, grid=grid)
 
     return validated
 
 
 def _selected_source_names(
-    sources: Mapping[str, pd.DataFrame],
-    *,
-    test: Mapping[str, Any],
+    sources: Mapping[str, pd.DataFrame], *, test: Mapping[str, Any]
 ) -> list[str]:
     """Resolve selected sources in supplied source-mapping order."""
     if "sources" not in test:
@@ -129,11 +120,7 @@ def _selected_source_names(
             f"unknown sources: {sorted(unknown)!r}."
         )
 
-    return [
-        source_name
-        for source_name in sources
-        if source_name in requested
-    ]
+    return [source_name for source_name in sources if source_name in requested]
 
 
 def _validate_requested_contexts_exist(
@@ -162,22 +149,14 @@ def _validate_requested_contexts_exist(
         )
 
 
-def _selected_contexts(
-    data: pd.DataFrame,
-    *,
-    test: Mapping[str, Any],
-) -> list[str]:
+def _selected_contexts(data: pd.DataFrame, *, test: Mapping[str, Any]) -> list[str]:
     """Resolve selected contexts in source-column order."""
     if "contexts" not in test:
         return list(data.columns)
 
     requested = set(test["contexts"])
 
-    return [
-        context
-        for context in data.columns
-        if context in requested
-    ]
+    return [context for context in data.columns if context in requested]
 
 
 def _evaluate_test_for_source(
@@ -197,9 +176,7 @@ def _evaluate_test_for_source(
 
     selected = data.loc[:, list(contexts)]
 
-    uses_reference_data = bool(
-        getattr(method, "USES_REFERENCE_DATA", False)
-    )
+    uses_reference_data = bool(getattr(method, "USES_REFERENCE_DATA", False))
 
     reference = None
 
@@ -209,32 +186,17 @@ def _evaluate_test_for_source(
             source_name=source_name,
             contexts=contexts,
             preceding_failures=preceding_failures,
-            include_failed_periods_from=test.get(
-                "include_failed_periods_from",
-                [],
-            ),
+            include_failed_periods_from=test.get("include_failed_periods_from", []),
         )
 
-        mask = method.evaluate(
-            selected,
-            reference=reference,
-            test=test,
-            grid=grid,
-        )
+        mask = method.evaluate(selected, reference=reference, test=test, grid=grid)
     else:
-        mask = method.evaluate(
-            selected,
-            test=test,
-            grid=grid,
-        )
+        mask = method.evaluate(selected, test=test, grid=grid)
 
     failures: list[dict[str, Any]] = []
 
     for context in contexts:
-        periods = failure_mask_to_periods(
-            mask[context],
-            grid=grid,
-        )
+        periods = failure_mask_to_periods(mask[context], grid=grid)
 
         for start, end in periods:
             if uses_reference_data:
@@ -248,11 +210,7 @@ def _evaluate_test_for_source(
                 )
             else:
                 details = method.build_details(
-                    data[context],
-                    start=start,
-                    end=end,
-                    test=test,
-                    grid=grid,
+                    data[context], start=start, end=end, test=test, grid=grid
                 )
 
             failures.append(
@@ -270,31 +228,18 @@ def _evaluate_test_for_source(
     return failures
 
 
-def _build_failure_frame(
-    rows: list[dict[str, Any]],
-) -> pd.DataFrame:
+def _build_failure_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
     """Build a canonical quality-failure frame from event records."""
     if not rows:
         return _empty_quality_failures()
 
     failures = pd.DataFrame(rows, columns=_FAILURE_COLUMNS)
 
-    for column in [
-        "context",
-        "source",
-        "test_name",
-        "method",
-    ]:
+    for column in ["context", "source", "test_name", "method"]:
         failures[column] = failures[column].astype("string")
 
-    failures["start"] = pd.to_datetime(
-        failures["start"],
-        utc=True,
-    )
-    failures["end"] = pd.to_datetime(
-        failures["end"],
-        utc=True,
-    )
+    failures["start"] = pd.to_datetime(failures["start"], utc=True)
+    failures["end"] = pd.to_datetime(failures["end"], utc=True)
 
     return failures
 
@@ -328,15 +273,9 @@ def evaluate(
         pandera.errors.SchemaErrors: If source or result frames violate
             canonical T-Clean schemas.
     """
-    validated_sources = _validate_sources(
-        sources,
-        grid=grid,
-    )
+    validated_sources = _validate_sources(sources, grid=grid)
 
-    validated_tests = validate_quality_tests(
-        tests,
-        grid=grid,
-    )
+    validated_tests = validate_quality_tests(tests, grid=grid)
 
     failure_rows: list[dict[str, Any]] = []
 
@@ -344,24 +283,16 @@ def evaluate(
         preceding_failures = tuple(failure_rows)
         current_test_rows: list[dict[str, Any]] = []
 
-        source_names = _selected_source_names(
-            validated_sources,
-            test=test,
-        )
+        source_names = _selected_source_names(validated_sources, test=test)
 
         _validate_requested_contexts_exist(
-            validated_sources,
-            source_names=source_names,
-            test=test,
+            validated_sources, source_names=source_names, test=test
         )
 
         for source_name in source_names:
             data = validated_sources[source_name]
 
-            contexts = _selected_contexts(
-                data,
-                test=test,
-            )
+            contexts = _selected_contexts(data, test=test)
 
             current_test_rows.extend(
                 _evaluate_test_for_source(
@@ -376,17 +307,8 @@ def evaluate(
 
         failure_rows.extend(current_test_rows)
 
-    failures = validate_quality_failures(
-        _build_failure_frame(failure_rows),
-        grid=grid,
-    )
+    failures = validate_quality_failures(_build_failure_frame(failure_rows), grid=grid)
 
-    issues = validate_quality_issues(
-        _empty_quality_issues(),
-        grid=grid,
-    )
+    issues = validate_quality_issues(_empty_quality_issues(), grid=grid)
 
-    return QualityEvaluation(
-        failures=failures,
-        issues=issues,
-    )
+    return QualityEvaluation(failures=failures, issues=issues)

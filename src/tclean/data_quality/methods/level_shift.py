@@ -17,32 +17,18 @@ from tclean.time_grid import TimeGrid
 METHOD_NAME = "level_shift"
 
 
-def validate(
-    test: Mapping[str, Any],
-    *,
-    grid: TimeGrid,
-) -> dict[str, Any]:
+def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
     """Validate and normalize a level-shift quality test."""
     validate_keys(
         test,
-        required={
-            "name",
-            "method",
-            "window_duration",
-            "threshold",
-        },
-        optional={
-            "sources",
-            "contexts",
-        },
+        required={"name", "method", "window_duration", "threshold"},
+        optional={"sources", "contexts"},
     )
 
     normalized = normalize_common_selectors(test)
 
     window_duration = positive_timedelta(
-        test["window_duration"],
-        field="window_duration",
-        grid=grid,
+        test["window_duration"], field="window_duration", grid=grid
     )
 
     if window_duration < 2 * grid.frequency:
@@ -53,10 +39,7 @@ def validate(
 
     normalized["window_duration"] = window_duration
 
-    threshold = nonnegative_real(
-        test["threshold"],
-        field="threshold",
-    )
+    threshold = nonnegative_real(test["threshold"], field="threshold")
 
     if threshold == 0:
         raise ValueError(
@@ -69,49 +52,31 @@ def validate(
 
 
 def _shift_scores(
-    values: pd.Series,
-    *,
-    window_steps: int,
+    values: pd.Series, *, window_steps: int
 ) -> tuple[pd.Series, pd.Series]:
     """Return signed median paired shifts and complete-boundary status."""
     paired_difference = values - values.shift(window_steps)
 
-    rolling = paired_difference.rolling(
-        window=window_steps,
-        min_periods=window_steps,
-    )
+    rolling = paired_difference.rolling(window=window_steps, min_periods=window_steps)
 
     offset = -(window_steps - 1)
 
     shift_scores = rolling.median().shift(offset)
-    complete = rolling.count().eq(window_steps).shift(
-        offset,
-        fill_value=False,
-    )
+    complete = rolling.count().eq(window_steps).shift(offset, fill_value=False)
 
     return shift_scores, complete.astype(bool)
 
 
 def _qualifying_boundaries(
-    shift_scores: pd.Series,
-    complete: pd.Series,
-    *,
-    threshold: float,
+    shift_scores: pd.Series, complete: pd.Series, *, threshold: float
 ) -> pd.Series:
     """Return complete boundaries whose shift magnitude exceeds threshold."""
-    return (
-        complete
-        & shift_scores.abs().gt(threshold)
-    ).astype(bool)
+    return (complete & shift_scores.abs().gt(threshold)).astype(bool)
 
 
-def _event_bounds(
-    qualifying: pd.Series,
-) -> list[tuple[int, int]]:
+def _event_bounds(qualifying: pd.Series) -> list[tuple[int, int]]:
     """Return inclusive positional bounds of contiguous qualifying runs."""
-    positions = np.flatnonzero(
-        qualifying.to_numpy(dtype=bool)
-    )
+    positions = np.flatnonzero(qualifying.to_numpy(dtype=bool))
 
     if len(positions) == 0:
         return []
@@ -136,10 +101,7 @@ def _event_bounds(
 
 
 def _change_point_position(
-    shift_scores: pd.Series,
-    *,
-    event_start: int,
-    event_end: int,
+    shift_scores: pd.Series, *, event_start: int, event_end: int
 ) -> int:
     """Locate the strongest boundary, using the middle of a maximum plateau."""
     event_scores = shift_scores.iloc[event_start : event_end + 1]
@@ -148,57 +110,29 @@ def _change_point_position(
     maximum = float(np.max(absolute_scores))
 
     maximum_positions = np.flatnonzero(
-        np.isclose(
-            absolute_scores,
-            maximum,
-            rtol=1e-12,
-            atol=0.0,
-        )
+        np.isclose(absolute_scores, maximum, rtol=1e-12, atol=0.0)
     )
 
-    middle = int(
-        maximum_positions[len(maximum_positions) // 2]
-    )
+    middle = int(maximum_positions[len(maximum_positions) // 2])
 
     return event_start + middle
 
 
 def _analyse(
-    values: pd.Series,
-    *,
-    window_steps: int,
-    threshold: float,
-) -> tuple[
-    pd.Series,
-    pd.Series,
-    pd.Series,
-    list[tuple[int, int]],
-]:
+    values: pd.Series, *, window_steps: int, threshold: float
+) -> tuple[pd.Series, pd.Series, pd.Series, list[tuple[int, int]]]:
     """Calculate shift scores, candidate support, and localized failures."""
-    shift_scores, complete = _shift_scores(
-        values,
-        window_steps=window_steps,
-    )
+    shift_scores, complete = _shift_scores(values, window_steps=window_steps)
 
-    qualifying = _qualifying_boundaries(
-        shift_scores,
-        complete,
-        threshold=threshold,
-    )
+    qualifying = _qualifying_boundaries(shift_scores, complete, threshold=threshold)
 
     events = _event_bounds(qualifying)
 
-    failures = pd.Series(
-        False,
-        index=values.index,
-        dtype=bool,
-    )
+    failures = pd.Series(False, index=values.index, dtype=bool)
 
     for event_start, event_end in events:
         change_point = _change_point_position(
-            shift_scores,
-            event_start=event_start,
-            event_end=event_end,
+            shift_scores, event_start=event_start, event_end=event_end
         )
 
         failures.iloc[change_point] = True
@@ -207,28 +141,16 @@ def _analyse(
 
 
 def evaluate(
-    data: pd.DataFrame,
-    *,
-    test: Mapping[str, Any],
-    grid: TimeGrid,
+    data: pd.DataFrame, *, test: Mapping[str, Any], grid: TimeGrid
 ) -> pd.DataFrame:
     """Flag localized boundaries supported by persistent paired level shifts."""
-    window_steps = int(
-        test["window_duration"] / grid.frequency
-    )
+    window_steps = int(test["window_duration"] / grid.frequency)
 
-    failures = pd.DataFrame(
-        False,
-        index=data.index,
-        columns=data.columns,
-        dtype=bool,
-    )
+    failures = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
 
     for context in data.columns:
         _, _, context_failures, _ = _analyse(
-            data[context],
-            window_steps=window_steps,
-            threshold=test["threshold"],
+            data[context], window_steps=window_steps, threshold=test["threshold"]
         )
 
         failures[context] = context_failures
@@ -247,19 +169,13 @@ def build_details(
     """Build structured diagnostics for one localized level-shift event."""
     del end
 
-    window_steps = int(
-        test["window_duration"] / grid.frequency
-    )
+    window_steps = int(test["window_duration"] / grid.frequency)
 
     shift_scores, _, failures, events = _analyse(
-        data,
-        window_steps=window_steps,
-        threshold=test["threshold"],
+        data, window_steps=window_steps, threshold=test["threshold"]
     )
 
-    change_point_position = int(
-        data.index.get_loc(start)
-    )
+    change_point_position = int(data.index.get_loc(start))
 
     if not failures.iloc[change_point_position]:
         raise ValueError(
@@ -272,9 +188,7 @@ def build_details(
 
     for candidate_start, candidate_end in events:
         localized = _change_point_position(
-            shift_scores,
-            event_start=candidate_start,
-            event_end=candidate_end,
+            shift_scores, event_start=candidate_start, event_end=candidate_end
         )
 
         if localized == change_point_position:
@@ -283,34 +197,20 @@ def build_details(
             break
 
     if event_start is None or event_end is None:
-        raise ValueError(
-            "Could not reconstruct the qualifying level-shift event."
-        )
+        raise ValueError("Could not reconstruct the qualifying level-shift event.")
 
-    change_point = pd.Timestamp(
-        data.index[change_point_position]
-    )
+    change_point = pd.Timestamp(data.index[change_point_position])
 
-    pre_evidence_start = (
-        pd.Timestamp(data.index[event_start])
-        - test["window_duration"]
-    )
+    pre_evidence_start = pd.Timestamp(data.index[event_start]) - test["window_duration"]
 
-    post_evidence_end = (
-        pd.Timestamp(data.index[event_end])
-        + test["window_duration"]
-    )
+    post_evidence_end = pd.Timestamp(data.index[event_end]) + test["window_duration"]
 
     return {
         "window_duration": test["window_duration"],
         "threshold": test["threshold"],
         "change_point": change_point,
-        "estimated_shift": float(
-            shift_scores.iloc[change_point_position]
-        ),
-        "qualifying_boundary_count": (
-            event_end - event_start + 1
-        ),
+        "estimated_shift": float(shift_scores.iloc[change_point_position]),
+        "qualifying_boundary_count": (event_end - event_start + 1),
         "pre_evidence_start": pre_evidence_start,
         "post_evidence_end": post_evidence_end,
     }
