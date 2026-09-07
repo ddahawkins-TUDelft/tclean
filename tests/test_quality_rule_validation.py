@@ -1055,3 +1055,122 @@ def test_validate_relative_rate_of_change_rejects_failed_period_inclusion():
             },
             grid=_grid(),
         )
+
+
+def test_validate_level_shift_normalizes_parameters():
+    """Normalize level-shift window duration and threshold."""
+    result = validate_quality_test(
+        {
+            "name": "level_change",
+            "method": "level_shift",
+            "window_duration": "6h",
+            "threshold": 50,
+        },
+        grid=_grid(),
+    )
+
+    assert result["window_duration"] == pd.Timedelta("6h")
+    assert result["threshold"] == 50
+
+
+def test_validate_level_shift_rejects_single_step_window():
+    """Require level-shift windows to contain at least two observations."""
+    with pytest.raises(
+        ValueError,
+        match="must span at least two grid steps",
+    ):
+        validate_quality_test(
+            {
+                "name": "level_change",
+                "method": "level_shift",
+                "window_duration": "1h",
+                "threshold": 50,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_level_shift_rejects_zero_window():
+    """Reject a zero-duration level-shift window."""
+    with pytest.raises(
+        ValueError,
+        match="must be greater than zero",
+    ):
+        validate_quality_test(
+            {
+                "name": "level_change",
+                "method": "level_shift",
+                "window_duration": "0h",
+                "threshold": 50,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_level_shift_rejects_off_grid_window():
+    """Require level-shift windows to align with the grid."""
+    with pytest.raises(
+        ValueError,
+        match="integer multiple",
+    ):
+        validate_quality_test(
+            {
+                "name": "level_change",
+                "method": "level_shift",
+                "window_duration": "150min",
+                "threshold": 50,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_level_shift_rejects_zero_threshold():
+    """Require a strictly positive level-shift threshold."""
+    with pytest.raises(
+        ValueError,
+        match="must be greater than zero",
+    ):
+        validate_quality_test(
+            {
+                "name": "level_change",
+                "method": "level_shift",
+                "window_duration": "6h",
+                "threshold": 0,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_level_shift_rejects_negative_threshold():
+    """Reject a negative level-shift threshold."""
+    with pytest.raises(
+        ValueError,
+        match="greater than or equal to zero",
+    ):
+        validate_quality_test(
+            {
+                "name": "level_change",
+                "method": "level_shift",
+                "window_duration": "6h",
+                "threshold": -1,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_level_shift_rejects_reference_history_option():
+    """Do not allow prior-failure controls on this direct method."""
+    with pytest.raises(
+        ValueError,
+        match="unknown keys",
+    ):
+        validate_quality_test(
+            {
+                "name": "level_change",
+                "method": "level_shift",
+                "window_duration": "6h",
+                "threshold": 50,
+                "include_failed_periods_from": ["earlier_test"],
+            },
+            grid=_grid(),
+        )

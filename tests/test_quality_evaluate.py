@@ -703,3 +703,58 @@ def test_evaluate_reports_relative_rate_of_change_failure():
     )
 
 
+def test_evaluate_reports_level_shift_failure():
+    """Evaluate level-shift tests through the public quality API."""
+    sources = {
+        "primary": _source(
+            {
+                "A": [100, 100, 100, 150, 150, 150],
+            }
+        )
+    }
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "persistent_change",
+                "method": "level_shift",
+                "window_duration": "2h",
+                "threshold": 40,
+            }
+        ],
+        grid=_grid(),
+    )
+
+    assert len(result.failures) == 1
+
+    failure = result.failures.iloc[0]
+
+    assert failure["source"] == "primary"
+    assert failure["context"] == "A"
+    assert failure["test_name"] == "persistent_change"
+    assert failure["method"] == "level_shift"
+
+    assert failure["start"] == pd.Timestamp(
+        "2026-01-01T03:00:00Z"
+    )
+    assert failure["end"] == pd.Timestamp(
+        "2026-01-01T04:00:00Z"
+    )
+
+    assert failure["details"]["window_duration"] == pd.Timedelta("2h")
+    assert failure["details"]["threshold"] == 40
+
+    assert failure["details"]["change_point"] == pd.Timestamp(
+        "2026-01-01T03:00:00Z"
+    )
+    assert failure["details"]["estimated_shift"] == 50.0
+
+    assert failure["details"]["qualifying_boundary_count"] == 1
+
+    assert failure["details"]["pre_evidence_start"] == pd.Timestamp(
+        "2026-01-01T01:00:00Z"
+    )
+    assert failure["details"]["post_evidence_end"] == pd.Timestamp(
+        "2026-01-01T05:00:00Z"
+    )
