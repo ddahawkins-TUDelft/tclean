@@ -498,3 +498,183 @@ def test_evaluate_reports_level_shift_failure():
     assert failure["details"]["post_evidence_end"] == pd.Timestamp(
         "2026-01-01T05:00:00Z"
     )
+
+
+def _contextual_grid() -> TimeGrid:
+    """Return a grid spanning weekly contextual references."""
+    return TimeGrid(
+        start="2026-01-01T00:00:00Z", end="2026-01-30T00:00:00Z", frequency="1h"
+    )
+
+
+def _contextual_source(values: dict[str, float]) -> pd.DataFrame:
+    """Build sparse contextual source data."""
+    grid = _contextual_grid()
+
+    series = pd.Series(float("nan"), index=grid.target_index, dtype=float)
+
+    for timestamp, value in values.items():
+        series.loc[pd.Timestamp(timestamp)] = value
+
+    return series.to_frame("A")
+
+
+def test_evaluate_reports_contextual_level_failure():
+    """Evaluate contextual level through the public evaluator."""
+    grid = _contextual_grid()
+
+    sources = {
+        "primary": _contextual_source(
+            {
+                "2026-01-08T12:00:00Z": 100,
+                "2026-01-15T12:00:00Z": 100,
+                "2026-01-22T12:00:00Z": 120,
+                "2026-01-29T12:00:00Z": 100,
+            }
+        )
+    }
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "unusual_level",
+                "method": "contextual_level",
+                "reference_orders": [{"period": "7D", "radius": 2}],
+                "robust_deviation_threshold": 6,
+            }
+        ],
+        grid=grid,
+    )
+
+    target = pd.Timestamp("2026-01-22T12:00:00Z")
+
+    failures = result.failures.loc[result.failures["start"] == target]
+
+    assert len(failures) == 1
+
+    failure = failures.iloc[0]
+
+    assert failure["source"] == "primary"
+    assert failure["context"] == "A"
+    assert failure["test_name"] == "unusual_level"
+    assert failure["method"] == "contextual_level"
+
+    assert failure["details"]["failed_criteria"] == ["robust_deviation"]
+
+
+def test_evaluate_reports_contextual_level_not_evaluable_issue():
+    """Report contextual evaluation inability through the public evaluator."""
+    grid = _contextual_grid()
+
+    sources = {
+        "primary": _contextual_source(
+            {"2026-01-15T12:00:00Z": 100, "2026-01-22T12:00:00Z": 110}
+        )
+    }
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "unusual_level",
+                "method": "contextual_level",
+                "reference_orders": [{"period": "7D", "radius": 1}],
+                "maximum_predictive_probability": 0.05,
+            }
+        ],
+        grid=grid,
+    )
+
+    target = pd.Timestamp("2026-01-22T12:00:00Z")
+
+    issues = result.issues.loc[result.issues["start"] == target]
+
+    assert len(issues) == 1
+
+    issue = issues.iloc[0]
+
+    assert issue["context"] == "A"
+    assert issue["source"] == "primary"
+    assert issue["test_name"] == "unusual_level"
+    assert issue["method"] == "contextual_level"
+    assert issue["severity"] == "not_evaluable"
+    assert issue["code"] == ("insufficient_reference_data")
+    assert issue["details"]["reference_observations"] == 1
+
+
+def test_contextual_level_excludes_preceding_failures_from_reference():
+    """Exclude earlier quality failures from contextual references."""
+    grid = _contextual_grid()
+
+    sources = {
+        "primary": _contextual_source(
+            {
+                "2026-01-15T12:00:00Z": 200,
+                "2026-01-22T12:00:00Z": 110,
+                "2026-01-29T12:00:00Z": 100,
+            }
+        )
+    }
+
+    result = evaluate(
+        sources,
+        tests=[
+            {"name": "implausibly_high", "method": "range", "maximum": 150},
+            {
+                "name": "unusual_level",
+                "method": "contextual_level",
+                "reference_orders": [{"period": "7D", "radius": 1}],
+                "robust_deviation_threshold": 6,
+            },
+        ],
+        grid=grid,
+    )
+
+    target = pd.Timestamp("2026-01-22T12:00:00Z")
+
+    contextual_failures = result.failures.loc[
+        (result.failures["test_name"] == "unusual_level")
+        & (result.failures["start"] == target)
+    ]
+
+    assert len(contextual_failures) == 1
+
+
+def test_contextual_level_can_include_named_preceding_failures():
+    """Allow explicitly named earlier failures back into the reference."""
+    grid = _contextual_grid()
+
+    sources = {
+        "primary": _contextual_source(
+            {
+                "2026-01-15T12:00:00Z": 200,
+                "2026-01-22T12:00:00Z": 110,
+                "2026-01-29T12:00:00Z": 100,
+            }
+        )
+    }
+
+    result = evaluate(
+        sources,
+        tests=[
+            {"name": "implausibly_high", "method": "range", "maximum": 150},
+            {
+                "name": "unusual_level",
+                "method": "contextual_level",
+                "reference_orders": [{"period": "7D", "radius": 1}],
+                "robust_deviation_threshold": 6,
+                "include_failed_periods_from": ["implausibly_high"],
+            },
+        ],
+        grid=grid,
+    )
+
+    target = pd.Timestamp("2026-01-22T12:00:00Z")
+
+    contextual_failures = result.failures.loc[
+        (result.failures["test_name"] == "unusual_level")
+        & (result.failures["start"] == target)
+    ]
+
+    assert contextual_failures.empty

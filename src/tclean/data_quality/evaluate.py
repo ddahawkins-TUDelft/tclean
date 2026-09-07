@@ -167,16 +167,20 @@ def _evaluate_test_for_source(
     test: Mapping[str, Any],
     grid: TimeGrid,
     preceding_failures: Sequence[Mapping[str, Any]],
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Evaluate one quality test for one source."""
     if not contexts:
-        return []
+        return [], []
 
     method = METHODS[test["method"]]
 
     selected = data.loc[:, list(contexts)]
 
     uses_reference_data = bool(getattr(method, "USES_REFERENCE_DATA", False))
+
+    evaluate_with_issues = getattr(method, "evaluate_with_issues", None)
+
+    method_issues: Sequence[Mapping[str, Any]] = ()
 
     reference = None
 
@@ -189,9 +193,18 @@ def _evaluate_test_for_source(
             include_failed_periods_from=test.get("include_failed_periods_from", []),
         )
 
-        mask = method.evaluate(selected, reference=reference, test=test, grid=grid)
+        if evaluate_with_issues is not None:
+            mask, method_issues = evaluate_with_issues(
+                selected, reference=reference, test=test, grid=grid
+            )
+        else:
+            mask = method.evaluate(selected, reference=reference, test=test, grid=grid)
+
     else:
-        mask = method.evaluate(selected, test=test, grid=grid)
+        if evaluate_with_issues is not None:
+            mask, method_issues = evaluate_with_issues(selected, test=test, grid=grid)
+        else:
+            mask = method.evaluate(selected, test=test, grid=grid)
 
     failures: list[dict[str, Any]] = []
 
@@ -225,7 +238,24 @@ def _evaluate_test_for_source(
                 }
             )
 
-    return failures
+    issues: list[dict[str, Any]] = []
+
+    for issue in method_issues:
+        issues.append(
+            {
+                "context": issue["context"],
+                "source": source_name,
+                "start": issue["start"],
+                "end": issue["end"],
+                "test_name": test["name"],
+                "method": test["method"],
+                "severity": issue["severity"],
+                "code": issue["code"],
+                "details": issue["details"],
+            }
+        )
+
+    return failures, issues
 
 
 def _build_failure_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
@@ -242,6 +272,23 @@ def _build_failure_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
     failures["end"] = pd.to_datetime(failures["end"], utc=True)
 
     return failures
+
+
+def _build_issue_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
+    """Build a canonical quality-issue frame from event records."""
+    if not rows:
+        return _empty_quality_issues()
+
+    issues = pd.DataFrame(rows, columns=_ISSUE_COLUMNS)
+
+    for column in ["context", "source", "test_name", "method", "severity", "code"]:
+        issues[column] = issues[column].astype("string")
+
+    issues["start"] = pd.to_datetime(issues["start"], utc=True)
+
+    issues["end"] = pd.to_datetime(issues["end"], utc=True)
+
+    return issues
 
 
 def evaluate(
@@ -278,10 +325,14 @@ def evaluate(
     validated_tests = validate_quality_tests(tests, grid=grid)
 
     failure_rows: list[dict[str, Any]] = []
+    issue_rows: list[dict[str, Any]] = []
 
     for test in validated_tests:
         preceding_failures = tuple(failure_rows)
-        current_test_rows: list[dict[str, Any]] = []
+
+        current_test_failure_rows: list[dict[str, Any]] = []
+
+        current_test_issue_rows: list[dict[str, Any]] = []
 
         source_names = _selected_source_names(validated_sources, test=test)
 
@@ -294,21 +345,25 @@ def evaluate(
 
             contexts = _selected_contexts(data, test=test)
 
-            current_test_rows.extend(
-                _evaluate_test_for_source(
-                    data,
-                    source_name=source_name,
-                    contexts=contexts,
-                    test=test,
-                    grid=grid,
-                    preceding_failures=preceding_failures,
-                )
+            source_failures, source_issues = _evaluate_test_for_source(
+                data,
+                source_name=source_name,
+                contexts=contexts,
+                test=test,
+                grid=grid,
+                preceding_failures=preceding_failures,
             )
 
-        failure_rows.extend(current_test_rows)
+            current_test_failure_rows.extend(source_failures)
+
+            current_test_issue_rows.extend(source_issues)
+
+        failure_rows.extend(current_test_failure_rows)
+
+        issue_rows.extend(current_test_issue_rows)
 
     failures = validate_quality_failures(_build_failure_frame(failure_rows), grid=grid)
 
-    issues = validate_quality_issues(_empty_quality_issues(), grid=grid)
+    issues = validate_quality_issues(_build_issue_frame(issue_rows), grid=grid)
 
     return QualityEvaluation(failures=failures, issues=issues)

@@ -1,6 +1,7 @@
 """Tests for range-based data-quality evaluation."""
 
 import pandas as pd
+from pandas.api.types import is_bool_dtype
 
 from tclean import TimeGrid
 from tclean.data_quality.methods.range import evaluate
@@ -133,4 +134,4 @@ def test_evaluate_range_preserves_index_and_columns():
 
     assert result.index.equals(data.index)
     assert result.columns.equals(data.columns)
-    assert all(dtype == bool for dtype in result.dtypes)
+    assert all(is_bool_dtype(dtype) for dtype in result.dtypes)
