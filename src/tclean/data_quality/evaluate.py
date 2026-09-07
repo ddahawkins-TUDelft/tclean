@@ -7,6 +7,7 @@ from typing import Any
 import pandas as pd
 
 from tclean.data_quality._periods import failure_mask_to_periods
+from tclean.data_quality._reference import build_reference_data
 from tclean.data_quality.methods import METHODS
 from tclean.data_quality.rule_validation import validate_quality_tests
 from tclean.time_grid import TimeGrid
@@ -186,6 +187,7 @@ def _evaluate_test_for_source(
     contexts: Sequence[str],
     test: Mapping[str, Any],
     grid: TimeGrid,
+    preceding_failures: Sequence[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
     """Evaluate one quality test for one source."""
     if not contexts:
@@ -195,11 +197,36 @@ def _evaluate_test_for_source(
 
     selected = data.loc[:, list(contexts)]
 
-    mask = method.evaluate(
-        selected,
-        test=test,
-        grid=grid,
+    uses_reference_data = bool(
+        getattr(method, "USES_REFERENCE_DATA", False)
     )
+
+    reference = None
+
+    if uses_reference_data:
+        reference = build_reference_data(
+            data,
+            source_name=source_name,
+            contexts=contexts,
+            preceding_failures=preceding_failures,
+            include_failed_periods_from=test.get(
+                "include_failed_periods_from",
+                [],
+            ),
+        )
+
+        mask = method.evaluate(
+            selected,
+            reference=reference,
+            test=test,
+            grid=grid,
+        )
+    else:
+        mask = method.evaluate(
+            selected,
+            test=test,
+            grid=grid,
+        )
 
     failures: list[dict[str, Any]] = []
 
@@ -210,6 +237,24 @@ def _evaluate_test_for_source(
         )
 
         for start, end in periods:
+            if uses_reference_data:
+                details = method.build_details(
+                    data[context],
+                    reference=reference[context],
+                    start=start,
+                    end=end,
+                    test=test,
+                    grid=grid,
+                )
+            else:
+                details = method.build_details(
+                    data[context],
+                    start=start,
+                    end=end,
+                    test=test,
+                    grid=grid,
+                )
+
             failures.append(
                 {
                     "context": context,
@@ -218,13 +263,7 @@ def _evaluate_test_for_source(
                     "end": end,
                     "test_name": test["name"],
                     "method": test["method"],
-                    "details": method.build_details(
-                        data[context],
-                        start=start,
-                        end=end,
-                        test=test,
-                        grid=grid,
-                    ),
+                    "details": details,
                 }
             )
 
@@ -302,6 +341,9 @@ def evaluate(
     failure_rows: list[dict[str, Any]] = []
 
     for test in validated_tests:
+        preceding_failures = tuple(failure_rows)
+        current_test_rows: list[dict[str, Any]] = []
+
         source_names = _selected_source_names(
             validated_sources,
             test=test,
@@ -321,15 +363,18 @@ def evaluate(
                 test=test,
             )
 
-            failure_rows.extend(
+            current_test_rows.extend(
                 _evaluate_test_for_source(
                     data,
                     source_name=source_name,
                     contexts=contexts,
                     test=test,
                     grid=grid,
+                    preceding_failures=preceding_failures,
                 )
             )
+
+        failure_rows.extend(current_test_rows)
 
     failures = validate_quality_failures(
         _build_failure_frame(failure_rows),
