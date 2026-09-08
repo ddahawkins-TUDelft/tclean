@@ -7,12 +7,11 @@ from tclean.data_quality._method import MethodSpec
 
 from .contextual_level import METHOD as CONTEXTUAL_LEVEL
 from .contextual_profile import METHOD as CONTEXTUAL_PROFILE
-from .fixed_rate_of_change import METHOD as FIXED_RATE_OF_CHANGE
 from .flatline import METHOD as FLATLINE
 from .level_shift import METHOD as LEVEL_SHIFT
 from .low_variability import METHOD as LOW_VARIABILITY
 from .range import METHOD as RANGE
-from .relative_rate_of_change import METHOD as RELATIVE_RATE_OF_CHANGE
+from .rate_of_change import METHOD as RATE_OF_CHANGE
 from .repeated_pattern import METHOD as REPEATED_PATTERN
 from .value_run import METHOD as VALUE_RUN
 
@@ -43,8 +42,7 @@ METHODS = build_method_registry(
         FLATLINE,
         LOW_VARIABILITY,
         REPEATED_PATTERN,
-        FIXED_RATE_OF_CHANGE,
-        RELATIVE_RATE_OF_CHANGE,
+        RATE_OF_CHANGE,
         LEVEL_SHIFT,
         CONTEXTUAL_LEVEL,
         CONTEXTUAL_PROFILE,

@@ -129,3 +129,11 @@ def nonnegative_timedelta(value: object, *, field: str, grid: TimeGrid) -> pd.Ti
     grid.validate_duration_multiple(delta, field=field)
 
     return delta
+
+
+def string_choice(value: object, *, field: str, choices: Sequence[str]) -> str:
+    """Require a string matching one of the allowed choices."""
+    if not isinstance(value, str) or value not in choices:
+        raise ValueError(f"{field!r} must be one of {list(choices)!r}.")
+
+    return value

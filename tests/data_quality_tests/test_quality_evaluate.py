@@ -386,13 +386,18 @@ def test_evaluate_reports_repeated_pattern_failures():
 
 
 def test_evaluate_reports_fixed_rate_of_change_failure():
-    """Evaluate fixed rate-of-change tests through the public quality API."""
+    """Evaluate fixed rate-of-change mode through the public quality API."""
     sources = {"primary": _source({"A": [100, 130, 170, 175, 180, 185]})}
 
     result = evaluate(
         sources,
         tests=[
-            {"name": "large_change", "method": "fixed_rate_of_change", "threshold": 20}
+            {
+                "name": "large_change",
+                "method": "rate_of_change",
+                "difference_mode": "fixed",
+                "threshold": 20,
+            }
         ],
         grid=_grid(),
     )
@@ -404,11 +409,12 @@ def test_evaluate_reports_fixed_rate_of_change_failure():
     assert failure["source"] == "primary"
     assert failure["context"] == "A"
     assert failure["test_name"] == "large_change"
-    assert failure["method"] == "fixed_rate_of_change"
+    assert failure["method"] == "rate_of_change"
 
     assert failure["start"] == pd.Timestamp("2026-01-01T01:00:00Z")
     assert failure["end"] == pd.Timestamp("2026-01-01T03:00:00Z")
 
+    assert failure["details"]["difference_mode"] == "fixed"
     assert failure["details"]["threshold"] == 20
     assert failure["details"]["transition_count"] == 2
 
@@ -418,7 +424,7 @@ def test_evaluate_reports_fixed_rate_of_change_failure():
 
 
 def test_evaluate_reports_relative_rate_of_change_failure():
-    """Evaluate relative rate-of-change tests through the public quality API."""
+    """Evaluate relative rate-of-change mode through the public quality API."""
     sources = {"primary": _source({"A": [100, 150, 240, 245, 250, 255]})}
 
     result = evaluate(
@@ -426,7 +432,8 @@ def test_evaluate_reports_relative_rate_of_change_failure():
         tests=[
             {
                 "name": "large_relative_change",
-                "method": "relative_rate_of_change",
+                "method": "rate_of_change",
+                "difference_mode": "relative",
                 "threshold": 0.2,
             }
         ],
@@ -440,11 +447,12 @@ def test_evaluate_reports_relative_rate_of_change_failure():
     assert failure["source"] == "primary"
     assert failure["context"] == "A"
     assert failure["test_name"] == "large_relative_change"
-    assert failure["method"] == "relative_rate_of_change"
+    assert failure["method"] == "rate_of_change"
 
     assert failure["start"] == pd.Timestamp("2026-01-01T01:00:00Z")
     assert failure["end"] == pd.Timestamp("2026-01-01T03:00:00Z")
 
+    assert failure["details"]["difference_mode"] == "relative"
     assert failure["details"]["threshold"] == 0.2
     assert failure["details"]["reference_magnitude_threshold"] == 0.0
     assert failure["details"]["transition_count"] == 2
