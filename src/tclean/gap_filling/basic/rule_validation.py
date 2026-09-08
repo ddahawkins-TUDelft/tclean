@@ -6,9 +6,11 @@ from typing import Any
 import pandas as pd
 
 from tclean._temporal import normalize_fixed_duration
-from tclean.basic.methods.average_periods import METHOD_NAME as AVERAGE_PERIODS
-from tclean.basic.methods.copy_periods import METHOD_NAME as COPY_PERIODS
-from tclean.basic.methods.linear_interpolation import (
+from tclean.gap_filling.basic.methods.average_periods import (
+    METHOD_NAME as AVERAGE_PERIODS,
+)
+from tclean.gap_filling.basic.methods.copy_periods import METHOD_NAME as COPY_PERIODS
+from tclean.gap_filling.basic.methods.linear_interpolation import (
     METHOD_NAME as LINEAR_INTERPOLATION,
 )
 from tclean.time_grid import TimeGrid

@@ -2,12 +2,9 @@
 
 import pandas as pd
 
+from tclean.gap_filling.validation import validate_source_periods
 from tclean.time_grid import TimeGrid
-from tclean.validation import (
-    validate_source_periods,
-    validate_time_series,
-    validate_timestamp_index,
-)
+from tclean.validation import validate_time_series, validate_timestamp_index
 
 METHOD_NAME = "construct_from_sources"
 

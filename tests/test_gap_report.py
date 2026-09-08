@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from tclean.advanced.gap_report import build_gap_report
+from tclean.gap_filling.advanced.gap_report import build_gap_report
 from tclean.time_grid import TimeGrid
 
 

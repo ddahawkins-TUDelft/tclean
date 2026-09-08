@@ -6,7 +6,7 @@ import pandas as pd
 import pandera.errors
 import pytest
 
-from tclean.advanced.methods.external_profile import read_external_profile
+from tclean.gap_filling.advanced.methods.external_profile import read_external_profile
 from tclean.time_grid import TimeGrid
 
 

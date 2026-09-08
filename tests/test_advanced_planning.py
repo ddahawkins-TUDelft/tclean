@@ -4,7 +4,8 @@ import pandas as pd
 import pandera.errors
 import pytest
 
-from tclean.advanced.planning import (
+from tclean.gap_filling import validate_source_capabilities
+from tclean.gap_filling.advanced.planning import (
     build_auxiliary_source_requests,
     compile_auxiliary_requirements,
     expand_auxiliary_requirements,
@@ -12,7 +13,6 @@ from tclean.advanced.planning import (
     select_active_advanced_rules,
 )
 from tclean.time_grid import TimeGrid
-from tclean.validation import validate_source_capabilities
 
 
 def _grid(

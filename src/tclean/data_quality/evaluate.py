@@ -9,14 +9,14 @@ from pandas.api.types import is_bool_dtype
 
 from tclean.data_quality._method import MethodContext, MethodIssue, MethodResult
 from tclean.data_quality._periods import failure_mask_to_periods
+from tclean.data_quality._validation import (
+    validate_quality_failures,
+    validate_quality_issues,
+)
 from tclean.data_quality.methods import METHODS
 from tclean.data_quality.rule_validation import validate_quality_tests
 from tclean.time_grid import TimeGrid
-from tclean.validation import (
-    validate_quality_failures,
-    validate_quality_issues,
-    validate_time_series,
-)
+from tclean.validation import validate_time_series
 
 _FAILURE_COLUMNS = [
     "context",

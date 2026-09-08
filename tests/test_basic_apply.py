@@ -3,7 +3,10 @@
 import pandas as pd
 import pytest
 
-from tclean.basic.apply import calculate_missing_run_durations, fill_basic_gaps
+from tclean.gap_filling.basic.apply import (
+    calculate_missing_run_durations,
+    fill_basic_gaps,
+)
 from tclean.time_grid import TimeGrid
 
 

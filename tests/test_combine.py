@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from tclean.combine import combine_auxiliary_sources, combine_sources
+from tclean.gap_filling.combine import combine_auxiliary_sources, combine_sources
 from tclean.time_grid import TimeGrid
 
 

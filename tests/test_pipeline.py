@@ -1,17 +1,14 @@
-"""Tests for the high-level cleaning pipeline."""
+"""Tests for the high-level gap-filling pipeline."""
 
 import pandas as pd
 import pytest
 
-from tclean import TCleanConfig
-from tclean.pipeline import clean
-from tclean.time_grid import TimeGrid
+from tclean import TimeGrid
+from tclean.gap_filling import fill_gaps
 
 grid = TimeGrid(
     start="2026-01-01T00:00:00Z", end="2026-01-01T05:00:00Z", frequency="1h"
 )
-
-config = TCleanConfig(grid=grid)
 
 
 def _index() -> pd.DatetimeIndex:
@@ -21,8 +18,8 @@ def _index() -> pd.DatetimeIndex:
     )
 
 
-def test_clean_combines_sources_without_cleaning_rules():
-    """Combine sources when no cleaning rules are supplied."""
+def test_fill_gaps_combines_sources_without_cleaning_rules():
+    """Combine sources when no gap-filling rules are supplied."""
     index = _index()
 
     primary = pd.DataFrame(
@@ -31,8 +28,8 @@ def test_clean_combines_sources_without_cleaning_rules():
 
     secondary = pd.DataFrame({"GBR": [100.0, 200.0, 300.0, 400.0, 500.0]}, index=index)
 
-    cleaned, data_source, cleaning_method = clean(
-        {"primary": primary, "secondary": secondary}, config=config
+    cleaned, data_source, cleaning_method = fill_gaps(
+        {"primary": primary, "secondary": secondary}, grid=grid
     )
 
     assert cleaned["GBR"].tolist() == [10.0, 200.0, 30.0, 400.0, 50.0]
@@ -54,8 +51,8 @@ def test_clean_combines_sources_without_cleaning_rules():
     ]
 
 
-def test_clean_applies_basic_rules_after_combination():
-    """Apply basic cleaning after combining primary sources."""
+def test_fill_gaps_applies_basic_rules_after_combination():
+    """Apply basic gap filling after combining primary sources."""
     index = _index()
 
     data = pd.DataFrame({"GBR": [10.0, float("nan"), 30.0, 40.0, 50.0]}, index=index)
@@ -68,8 +65,8 @@ def test_clean_applies_basic_rules_after_combination():
         }
     ]
 
-    cleaned, _, cleaning_method = clean(
-        {"primary": data}, basic_rules=basic_rules, config=config
+    cleaned, _, cleaning_method = fill_gaps(
+        {"primary": data}, basic_rules=basic_rules, grid=grid
     )
 
     assert cleaned.loc[index[1], "GBR"] == pytest.approx(20.0)
@@ -77,8 +74,8 @@ def test_clean_applies_basic_rules_after_combination():
     assert pd.notna(cleaning_method.loc[index[1], "GBR"])
 
 
-def test_clean_applies_advanced_rules_after_basic_rules():
-    """Apply advanced cleaning after the basic cleaning stage."""
+def test_fill_gaps_applies_advanced_rules_after_basic_rules():
+    """Apply advanced gap filling after the basic stage."""
     index = _index()
 
     data = pd.DataFrame(
@@ -109,12 +106,12 @@ def test_clean_applies_advanced_rules_after_basic_rules():
         [100.0, 200.0, 300.0, 400.0, 500.0], index=index, name="fallback"
     )
 
-    cleaned, _, cleaning_method = clean(
+    cleaned, _, cleaning_method = fill_gaps(
         {"primary": data},
         basic_rules=basic_rules,
         advanced_rules=advanced_rules,
         advanced_sources={"fallback": fallback},
-        config=config,
+        grid=grid,
     )
 
     assert cleaned.loc[index[1], "GBR"] == pytest.approx(200.0)
@@ -126,7 +123,7 @@ def test_clean_applies_advanced_rules_after_basic_rules():
     assert cleaning_method.loc[index[2], "GBR"] == "advanced_fill"
 
 
-def test_clean_rejects_advanced_sources_without_rules():
+def test_fill_gaps_rejects_advanced_sources_without_rules():
     """Reject supplied advanced sources when no advanced rules exist."""
     index = _index()
 
@@ -135,10 +132,10 @@ def test_clean_rejects_advanced_sources_without_rules():
     source = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0], index=index)
 
     with pytest.raises(ValueError, match="without advanced rules"):
-        clean({"primary": data}, advanced_sources={"unused": source}, config=config)
+        fill_gaps({"primary": data}, advanced_sources={"unused": source}, grid=grid)
 
 
-def test_clean_allows_leave_missing_without_advanced_sources():
+def test_fill_gaps_allows_leave_missing_without_advanced_sources():
     """Allow source-free advanced rules such as leave_missing."""
     index = _index()
 
@@ -156,14 +153,14 @@ def test_clean_allows_leave_missing_without_advanced_sources():
         }
     )
 
-    cleaned, _, _ = clean(
-        {"primary": data}, advanced_rules=advanced_rules, config=config
+    cleaned, _, _ = fill_gaps(
+        {"primary": data}, advanced_rules=advanced_rules, grid=grid
     )
 
     assert pd.isna(cleaned.loc[index[1], "GBR"])
 
 
-def test_clean_rejects_unused_advanced_source():
+def test_fill_gaps_rejects_unused_advanced_source():
     """Reject advanced sources not referenced by any rule."""
     index = _index()
 
@@ -184,15 +181,15 @@ def test_clean_rejects_unused_advanced_source():
     unused = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0], index=index)
 
     with pytest.raises(ValueError, match="Advanced sources must exactly match"):
-        clean(
+        fill_gaps(
             {"primary": data},
             advanced_rules=advanced_rules,
             advanced_sources={"unused": unused},
-            config=config,
+            grid=grid,
         )
 
 
-def test_clean_labels_unresolved_values_as_missing():
+def test_fill_gaps_labels_unresolved_values_as_missing():
     """Label unresolved values with the missing cleaning method."""
     index = pd.date_range(
         "2026-01-01T00:00:00Z", periods=5, freq="1h", name="timestamp"
@@ -202,22 +199,22 @@ def test_clean_labels_unresolved_values_as_missing():
         {"GBR": [100.0, pd.NA, 120.0, 130.0, 140.0]}, index=index, dtype="Float64"
     )
 
-    _, _, cleaning_method = clean({"primary": source}, config=config)
+    _, _, cleaning_method = fill_gaps({"primary": source}, grid=grid)
 
     assert cleaning_method.loc[index[1], "GBR"] == "missing"
 
 
-def test_clean_rejects_malformed_falsy_basic_rules():
+def test_fill_gaps_rejects_malformed_falsy_basic_rules():
     """Do not silently bypass validation for malformed falsy basic rules."""
     index = _index()
 
     data = pd.DataFrame({"GBR": [10.0, 20.0, 30.0, 40.0, 50.0]}, index=index)
 
     with pytest.raises(TypeError, match="ordered sequence"):
-        clean({"primary": data}, basic_rules="", config=config)
+        fill_gaps({"primary": data}, basic_rules="", grid=grid)
 
 
-def test_clean_accepts_empty_basic_rules():
+def test_fill_gaps_accepts_empty_basic_rules():
     """Allow an explicitly empty basic-rule configuration."""
     index = _index()
 
@@ -225,8 +222,8 @@ def test_clean_accepts_empty_basic_rules():
         {"GBR": [10.0, pd.NA, 30.0, 40.0, 50.0]}, index=index, dtype="Float64"
     )
 
-    cleaned, _, cleaning_method = clean(
-        {"primary": data}, basic_rules=[], config=config
+    cleaned, _, cleaning_method = fill_gaps(
+        {"primary": data}, basic_rules=[], grid=grid
     )
 
     assert pd.isna(cleaned.loc[index[1], "GBR"])

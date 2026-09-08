@@ -3,7 +3,9 @@
 import pandas as pd
 import pytest
 
-from tclean.advanced.methods.construct_from_sources import construct_from_sources
+from tclean.gap_filling.advanced.methods.construct_from_sources import (
+    construct_from_sources,
+)
 from tclean.time_grid import TimeGrid
 
 

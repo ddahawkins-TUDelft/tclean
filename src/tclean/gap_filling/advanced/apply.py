@@ -4,18 +4,20 @@ from collections.abc import Mapping
 
 import pandas as pd
 
-from tclean.advanced.methods.construct_from_sources import (
+from tclean.gap_filling.advanced.methods.construct_from_sources import (
     METHOD_NAME as CONSTRUCT_FROM_SOURCES,
 )
-from tclean.advanced.methods.external_profile import METHOD_NAME as EXTERNAL_PROFILE
-from tclean.time_grid import TimeGrid
-from tclean.validation import (
+from tclean.gap_filling.advanced.methods.external_profile import (
+    METHOD_NAME as EXTERNAL_PROFILE,
+)
+from tclean.gap_filling.validation import (
     validate_advanced_fill_rules,
     validate_advanced_source,
     validate_cleaning_method,
     validate_data_source,
-    validate_time_series,
 )
+from tclean.time_grid import TimeGrid
+from tclean.validation import validate_time_series
 
 LEAVE_MISSING = "leave_missing"
 

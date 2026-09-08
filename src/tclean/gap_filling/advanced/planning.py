@@ -1,24 +1,26 @@
-"""Plan auxiliary data required for advanced time series cleaning."""
+"""Plan auxiliary data required for advanced gap filling."""
 
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 import pandas as pd
 
-from tclean.basic.methods.average_periods import METHOD_NAME as AVERAGE_PERIODS
-from tclean.basic.methods.copy_periods import METHOD_NAME as COPY_PERIODS
-from tclean.basic.methods.linear_interpolation import (
+from tclean.gap_filling.basic.methods.average_periods import (
+    METHOD_NAME as AVERAGE_PERIODS,
+)
+from tclean.gap_filling.basic.methods.copy_periods import METHOD_NAME as COPY_PERIODS
+from tclean.gap_filling.basic.methods.linear_interpolation import (
     METHOD_NAME as LINEAR_INTERPOLATION,
 )
-from tclean.basic.rule_validation import validate_basic_rules
-from tclean.time_grid import TimeGrid
-from tclean.validation import (
+from tclean.gap_filling.basic.rule_validation import validate_basic_rules
+from tclean.gap_filling.validation import (
     validate_advanced_fill_rules,
     validate_auxiliary_requirements,
     validate_auxiliary_source_requests,
     validate_source_capabilities,
     validate_source_periods,
 )
+from tclean.time_grid import TimeGrid
 
 REQUIREMENT_COLUMNS = ["context", "start", "end"]
 

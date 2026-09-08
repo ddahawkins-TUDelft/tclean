@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from tclean.provenance import build_cleaning_method_ranks, derive_cleaning_method_rank
+from tclean.gap_filling import build_cleaning_method_ranks, derive_cleaning_method_rank
 
 
 def test_build_cleaning_method_ranks_orders_sources_before_rules():

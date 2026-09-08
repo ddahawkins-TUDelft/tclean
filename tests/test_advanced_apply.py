@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from tclean.advanced.apply import apply_advanced_rules
+from tclean.gap_filling.advanced.apply import apply_advanced_rules
 from tclean.time_grid import TimeGrid
 
 

@@ -4,15 +4,17 @@ import pandas as pd
 import pandera.errors
 import pytest
 
-from tclean.time_grid import TimeGrid
-from tclean.validation import (
+from tclean.data_quality._validation import (
+    validate_quality_failures,
+    validate_quality_issues,
+)
+from tclean.gap_filling.validation import (
     validate_advanced_fill_rules,
     validate_advanced_source,
     validate_cleaning_method,
-    validate_quality_failures,
-    validate_quality_issues,
-    validate_time_series,
 )
+from tclean.time_grid import TimeGrid
+from tclean.validation import validate_time_series
 
 test_grid = TimeGrid(start="2026-01-01 00:00", end="2026-12-01 00:00", frequency="1h")
 

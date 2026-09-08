@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from tclean._schemas import EXTERNAL_PROFILE_SCHEMA
+from tclean.gap_filling._schemas import EXTERNAL_PROFILE_SCHEMA
+from tclean.gap_filling.validation import validate_advanced_source
 from tclean.time_grid import TimeGrid
-from tclean.validation import validate_advanced_source
 
 METHOD_NAME = "external_profile"
 

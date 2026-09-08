@@ -4,8 +4,9 @@ import pandas as pd
 import pandera.errors
 import pytest
 
+from tclean.gap_filling import validate_source_periods
 from tclean.time_grid import TimeGrid
-from tclean.validation import validate_source_periods, validate_timestamp_index
+from tclean.validation import validate_timestamp_index
 
 
 def test_validate_timestamp_index_accepts_valid_index():

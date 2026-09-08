@@ -1,4 +1,4 @@
-"""Coordinate deterministic basic time-series cleaning methods."""
+"""Coordinate deterministic basic gap-filling methods."""
 
 from __future__ import annotations
 
@@ -8,17 +8,22 @@ from typing import Any
 
 import pandas as pd
 
-from tclean.basic.methods.average_periods import METHOD_NAME as AVERAGE_PERIODS
-from tclean.basic.methods.average_periods import apply_average_periods
-from tclean.basic.methods.copy_periods import METHOD_NAME as COPY_PERIODS
-from tclean.basic.methods.copy_periods import apply_copy_periods
-from tclean.basic.methods.linear_interpolation import (
+from tclean.gap_filling.basic.methods.average_periods import (
+    METHOD_NAME as AVERAGE_PERIODS,
+)
+from tclean.gap_filling.basic.methods.average_periods import apply_average_periods
+from tclean.gap_filling.basic.methods.copy_periods import METHOD_NAME as COPY_PERIODS
+from tclean.gap_filling.basic.methods.copy_periods import apply_copy_periods
+from tclean.gap_filling.basic.methods.linear_interpolation import (
     METHOD_NAME as LINEAR_INTERPOLATION,
 )
-from tclean.basic.methods.linear_interpolation import apply_linear_interpolation
-from tclean.basic.rule_validation import validate_basic_rules
+from tclean.gap_filling.basic.methods.linear_interpolation import (
+    apply_linear_interpolation,
+)
+from tclean.gap_filling.basic.rule_validation import validate_basic_rules
+from tclean.gap_filling.validation import validate_cleaning_method
 from tclean.time_grid import TimeGrid
-from tclean.validation import validate_cleaning_method, validate_time_series
+from tclean.validation import validate_time_series
 
 logger = logging.getLogger(__name__)
 

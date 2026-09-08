@@ -4,12 +4,9 @@ from collections.abc import Mapping
 
 import pandas as pd
 
+from tclean.gap_filling.validation import validate_cleaning_method, validate_data_source
 from tclean.time_grid import TimeGrid
-from tclean.validation import (
-    validate_cleaning_method,
-    validate_data_source,
-    validate_time_series,
-)
+from tclean.validation import validate_time_series
 
 
 def _validate_source_alignment(sources: Mapping[str, pd.DataFrame]) -> None:
