@@ -26,7 +26,7 @@ def _test(*, window_duration: str = "3h", maximum_range: float = 1.0) -> dict:
         "name": "low_variability",
         "method": "low_variability",
         "window_duration": pd.Timedelta(window_duration),
-        "maximum_range": maximum_range,
+        "maximum_range": {"value_mode": "fixed", "value": maximum_range},
     }
 
 
@@ -141,3 +141,14 @@ def test_evaluate_handles_floating_point_threshold_boundary():
     result = method_mask(evaluate, data, test=_test(maximum_range=0.2), grid=_grid())
 
     assert result["A"].tolist() == [False, True, True, True, False, False, False, False]
+
+
+def test_evaluate_low_variability_supports_derived_maximum_range():
+    """Resolve the maximum window range from focal data."""
+    data = _data([1.0, 1.1, 1.2, 10, 20, 30, 40, 50])
+    test = _test()
+    test["maximum_range"] = {"value_mode": "median", "multiplier": 0.1}
+
+    result = method_mask(evaluate, data, test=test, grid=_grid())
+
+    assert result["A"].tolist()[:3] == [True, True, True]

@@ -27,7 +27,7 @@ def _test(*, minimum_matches: int = 3, tolerance: float = 0.0) -> dict:
         "method": "repeated_pattern",
         "pattern_duration": pd.Timedelta("2h"),
         "minimum_matches": minimum_matches,
-        "tolerance": tolerance,
+        "tolerance": {"value_mode": "fixed", "value": tolerance},
     }
 
 
@@ -265,3 +265,16 @@ def test_build_details_preserves_adjacent_constituent_blocks():
         pd.Timestamp("2026-01-01T02:00:00Z"),
         pd.Timestamp("2026-01-01T04:00:00Z"),
     ]
+
+
+def test_evaluate_repeated_pattern_supports_derived_tolerance():
+    """Resolve absolute pattern tolerance from the focal context."""
+    data = _data([1, 2, 9, 8, 1.1, 2.1, 7, 6, 0.9, 1.9, 5, 4])
+    test = _test(minimum_matches=3)
+    test["tolerance"] = {"value_mode": "median", "multiplier": 0.1}
+
+    result = method_mask(evaluate, data, test=test, grid=_grid())
+
+    assert result["A"].tolist()[:2] == [True, True]
+    assert result["A"].tolist()[4:6] == [True, True]
+    assert result["A"].tolist()[8:10] == [True, True]

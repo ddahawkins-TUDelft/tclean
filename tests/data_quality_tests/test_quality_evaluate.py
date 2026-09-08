@@ -27,7 +27,13 @@ def test_evaluate_returns_quality_evaluation():
 
     result = evaluate(
         sources,
-        tests=[{"name": "non_negative", "method": "range", "minimum": 0}],
+        tests=[
+            {
+                "name": "non_negative",
+                "method": "range",
+                "minimum": {"value_mode": "fixed", "value": 0},
+            }
+        ],
         grid=_grid(),
     )
 
@@ -42,7 +48,13 @@ def test_evaluate_reports_range_failure_periods():
 
     result = evaluate(
         sources,
-        tests=[{"name": "non_negative", "method": "range", "minimum": 0}],
+        tests=[
+            {
+                "name": "non_negative",
+                "method": "range",
+                "minimum": {"value_mode": "fixed", "value": 0},
+            }
+        ],
         grid=_grid(),
     )
 
@@ -75,7 +87,13 @@ def test_evaluate_applies_test_to_all_sources():
 
     result = evaluate(
         sources,
-        tests=[{"name": "non_negative", "method": "range", "minimum": 0}],
+        tests=[
+            {
+                "name": "non_negative",
+                "method": "range",
+                "minimum": {"value_mode": "fixed", "value": 0},
+            }
+        ],
         grid=_grid(),
     )
 
@@ -101,7 +119,7 @@ def test_evaluate_respects_source_selector():
                 "name": "secondary_only",
                 "method": "range",
                 "sources": ["secondary"],
-                "minimum": 0,
+                "minimum": {"value_mode": "fixed", "value": 0},
             }
         ],
         grid=_grid(),
@@ -123,7 +141,7 @@ def test_evaluate_respects_context_selector():
                 "name": "context_b_only",
                 "method": "range",
                 "contexts": ["B"],
-                "minimum": 0,
+                "minimum": {"value_mode": "fixed", "value": 0},
             }
         ],
         grid=_grid(),
@@ -144,7 +162,12 @@ def test_evaluate_allows_contexts_to_differ_between_sources():
     result = evaluate(
         sources,
         tests=[
-            {"name": "context_a", "method": "range", "contexts": ["A"], "minimum": 0}
+            {
+                "name": "context_a",
+                "method": "range",
+                "contexts": ["A"],
+                "minimum": {"value_mode": "fixed", "value": 0},
+            }
         ],
         grid=_grid(),
     )
@@ -166,7 +189,7 @@ def test_evaluate_rejects_unknown_source_selector():
                     "name": "unknown_source",
                     "method": "range",
                     "sources": ["missing_source"],
-                    "minimum": 0,
+                    "minimum": {"value_mode": "fixed", "value": 0},
                 }
             ],
             grid=_grid(),
@@ -189,7 +212,7 @@ def test_evaluate_rejects_context_unavailable_in_selected_sources():
                     "method": "range",
                     "sources": ["primary"],
                     "contexts": ["B"],
-                    "minimum": 0,
+                    "minimum": {"value_mode": "fixed", "value": 0},
                 }
             ],
             grid=_grid(),
@@ -206,8 +229,16 @@ def test_evaluate_preserves_test_then_source_then_context_order():
     result = evaluate(
         sources,
         tests=[
-            {"name": "negative", "method": "range", "minimum": 0},
-            {"name": "under_two", "method": "range", "minimum": 2},
+            {
+                "name": "negative",
+                "method": "range",
+                "minimum": {"value_mode": "fixed", "value": 0},
+            },
+            {
+                "name": "under_two",
+                "method": "range",
+                "minimum": {"value_mode": "fixed", "value": 2},
+            },
         ],
         grid=_grid(),
     )
@@ -284,7 +315,7 @@ def test_evaluate_reports_value_run_failure():
             {
                 "name": "zero_run",
                 "method": "value_run",
-                "value": 0,
+                "value": {"value_mode": "fixed", "value": 0},
                 "minimum_duration": "3h",
             }
         ],
@@ -335,7 +366,7 @@ def test_evaluate_reports_low_variability_failure():
                 "name": "stable_values",
                 "method": "low_variability",
                 "window_duration": "3h",
-                "maximum_range": 0.2,
+                "maximum_range": {"value_mode": "fixed", "value": 0.2},
             }
         ],
         grid=_grid(),
@@ -396,7 +427,7 @@ def test_evaluate_reports_fixed_rate_of_change_failure():
                 "name": "large_change",
                 "method": "rate_of_change",
                 "difference_mode": "fixed",
-                "threshold": 20,
+                "threshold": {"value_mode": "fixed", "value": 20},
             }
         ],
         grid=_grid(),
@@ -434,7 +465,7 @@ def test_evaluate_reports_relative_rate_of_change_failure():
                 "name": "large_relative_change",
                 "method": "rate_of_change",
                 "difference_mode": "relative",
-                "threshold": 0.2,
+                "threshold": {"value_mode": "fixed", "value": 0.2},
             }
         ],
         grid=_grid(),
@@ -474,7 +505,7 @@ def test_evaluate_reports_level_shift_failure():
                 "name": "persistent_change",
                 "method": "level_shift",
                 "window_duration": "2h",
-                "threshold": 40,
+                "threshold": {"value_mode": "fixed", "value": 40},
             }
         ],
         grid=_grid(),
@@ -628,7 +659,11 @@ def test_contextual_level_excludes_preceding_failures_from_reference():
     result = evaluate(
         sources,
         tests=[
-            {"name": "implausibly_high", "method": "range", "maximum": 150},
+            {
+                "name": "implausibly_high",
+                "method": "range",
+                "maximum": {"value_mode": "fixed", "value": 150},
+            },
             {
                 "name": "unusual_level",
                 "method": "contextual_level",
@@ -666,7 +701,11 @@ def test_contextual_level_can_include_named_preceding_failures():
     result = evaluate(
         sources,
         tests=[
-            {"name": "implausibly_high", "method": "range", "maximum": 150},
+            {
+                "name": "implausibly_high",
+                "method": "range",
+                "maximum": {"value_mode": "fixed", "value": 150},
+            },
             {
                 "name": "unusual_level",
                 "method": "contextual_level",
@@ -795,7 +834,11 @@ def test_contextual_profile_excludes_preceding_failures_from_reference_profiles(
     result = evaluate(
         {"primary": source},
         tests=[
-            {"name": "implausibly_high", "method": "range", "maximum": 50},
+            {
+                "name": "implausibly_high",
+                "method": "range",
+                "maximum": {"value_mode": "fixed", "value": 50},
+            },
             {
                 "name": "unusual_shape",
                 "method": "contextual_profile",
@@ -834,7 +877,11 @@ def test_contextual_profile_can_restore_named_preceding_failures():
     result = evaluate(
         {"primary": source},
         tests=[
-            {"name": "implausibly_high", "method": "range", "maximum": 50},
+            {
+                "name": "implausibly_high",
+                "method": "range",
+                "maximum": {"value_mode": "fixed", "value": 50},
+            },
             {
                 "name": "unusual_shape",
                 "method": "contextual_profile",
@@ -872,7 +919,7 @@ def test_public_evaluate_uses_unselected_sources_as_peers():
                 "method": "source_disagreement",
                 "sources": ["primary"],
                 "difference_mode": "fixed",
-                "threshold": 20,
+                "threshold": {"value_mode": "fixed", "value": 20},
             }
         ],
         grid=_grid(),
@@ -887,3 +934,92 @@ def test_public_evaluate_uses_unselected_sources_as_peers():
     assert failure["method"] == "source_disagreement"
     assert failure["start"] == _grid().target_index[0]
     assert failure["end"] == pd.Timestamp(_grid().end)
+
+
+def test_evaluate_resolves_derived_values_per_source_and_context():
+    """Resolve one configured value independently for every focal source-context."""
+    sources = {
+        "primary": _source(
+            {"A": [1, 1, 1, 1, 1, 10], "B": [100, 100, 100, 100, 100, 1000]}
+        ),
+        "secondary": _source(
+            {"A": [2, 2, 2, 2, 2, 20], "B": [200, 200, 200, 200, 200, 2000]}
+        ),
+    }
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "derived_maximum",
+                "method": "range",
+                "maximum": {"value_mode": "median"},
+            }
+        ],
+        grid=_grid(),
+    )
+
+    failures = result.failures[result.failures["test_name"] == "derived_maximum"]
+
+    assert len(failures) == 4
+    assert set(zip(failures["source"], failures["context"], strict=True)) == {
+        ("primary", "A"),
+        ("primary", "B"),
+        ("secondary", "A"),
+        ("secondary", "B"),
+    }
+    assert failures["start"].eq(pd.Timestamp("2026-01-01T05:00:00Z")).all()
+
+
+def test_evaluate_derived_value_excludes_preceding_failures_by_default():
+    """Exclude preceding failures from later derived-value calibration data."""
+    sources = {"primary": _source({"A": [1, 2, 100, 4, 5, 6]})}
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "implausibly_high",
+                "method": "range",
+                "maximum": {"value_mode": "fixed", "value": 10},
+            },
+            {
+                "name": "derived_maximum",
+                "method": "range",
+                "maximum": {"value_mode": "quantile", "quantile": 1.0},
+            },
+        ],
+        grid=_grid(),
+    )
+
+    derived = result.failures[result.failures["test_name"] == "derived_maximum"]
+
+    assert len(derived) == 1
+    assert derived.iloc[0]["start"] == pd.Timestamp("2026-01-01T02:00:00Z")
+
+
+def test_evaluate_derived_value_can_reinclude_preceding_failures():
+    """Allow named failures to contribute to later derived-value calibration."""
+    sources = {"primary": _source({"A": [1, 2, 100, 4, 5, 6]})}
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "implausibly_high",
+                "method": "range",
+                "maximum": {"value_mode": "fixed", "value": 10},
+            },
+            {
+                "name": "derived_maximum",
+                "method": "range",
+                "maximum": {"value_mode": "quantile", "quantile": 1.0},
+                "include_failed_periods_from": ["implausibly_high"],
+            },
+        ],
+        grid=_grid(),
+    )
+
+    derived = result.failures[result.failures["test_name"] == "derived_maximum"]
+
+    assert derived.empty

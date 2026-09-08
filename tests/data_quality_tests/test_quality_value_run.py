@@ -29,9 +29,9 @@ def test_evaluate_flags_run_meeting_minimum_duration():
         test={
             "name": "zero_run",
             "method": "value_run",
-            "value": 0,
+            "value": {"value_mode": "fixed", "value": 0},
             "minimum_duration": pd.Timedelta("3h"),
-            "tolerance": 0.0,
+            "tolerance": {"value_mode": "fixed", "value": 0.0},
         },
         grid=_grid(),
     )
@@ -55,9 +55,9 @@ def test_evaluate_does_not_flag_short_run():
         test={
             "name": "zero_run",
             "method": "value_run",
-            "value": 0,
+            "value": {"value_mode": "fixed", "value": 0},
             "minimum_duration": pd.Timedelta("3h"),
-            "tolerance": 0.0,
+            "tolerance": {"value_mode": "fixed", "value": 0.0},
         },
         grid=_grid(),
     )
@@ -75,9 +75,9 @@ def test_evaluate_flags_run_longer_than_minimum_duration():
         test={
             "name": "zero_run",
             "method": "value_run",
-            "value": 0,
+            "value": {"value_mode": "fixed", "value": 0},
             "minimum_duration": pd.Timedelta("3h"),
-            "tolerance": 0.0,
+            "tolerance": {"value_mode": "fixed", "value": 0.0},
         },
         grid=_grid(),
     )
@@ -95,9 +95,9 @@ def test_evaluate_handles_multiple_qualifying_runs():
         test={
             "name": "zero_run",
             "method": "value_run",
-            "value": 0,
+            "value": {"value_mode": "fixed", "value": 0},
             "minimum_duration": pd.Timedelta("3h"),
-            "tolerance": 0.0,
+            "tolerance": {"value_mode": "fixed", "value": 0.0},
         },
         grid=_grid(),
     )
@@ -115,9 +115,9 @@ def test_evaluate_uses_tolerance():
         test={
             "name": "near_zero_run",
             "method": "value_run",
-            "value": 0,
+            "value": {"value_mode": "fixed", "value": 0},
             "minimum_duration": pd.Timedelta("3h"),
-            "tolerance": 0.1,
+            "tolerance": {"value_mode": "fixed", "value": 0.1},
         },
         grid=_grid(),
     )
@@ -135,9 +135,9 @@ def test_evaluate_breaks_run_when_value_exceeds_tolerance():
         test={
             "name": "near_zero_run",
             "method": "value_run",
-            "value": 0,
+            "value": {"value_mode": "fixed", "value": 0},
             "minimum_duration": pd.Timedelta("3h"),
-            "tolerance": 0.1,
+            "tolerance": {"value_mode": "fixed", "value": 0.1},
         },
         grid=_grid(),
     )
@@ -155,9 +155,9 @@ def test_evaluate_breaks_run_at_missing_value():
         test={
             "name": "zero_run",
             "method": "value_run",
-            "value": 0,
+            "value": {"value_mode": "fixed", "value": 0},
             "minimum_duration": pd.Timedelta("3h"),
-            "tolerance": 0.0,
+            "tolerance": {"value_mode": "fixed", "value": 0.0},
         },
         grid=_grid(),
     )
@@ -178,9 +178,9 @@ def test_evaluate_applies_independently_to_contexts():
         test={
             "name": "zero_run",
             "method": "value_run",
-            "value": 0,
+            "value": {"value_mode": "fixed", "value": 0},
             "minimum_duration": pd.Timedelta("3h"),
-            "tolerance": 0.0,
+            "tolerance": {"value_mode": "fixed", "value": 0.0},
         },
         grid=_grid(),
     )
@@ -188,3 +188,23 @@ def test_evaluate_applies_independently_to_contexts():
     assert result["A"].tolist() == [True, True, True, False, False, False, False, False]
 
     assert result["B"].tolist() == [False, False, True, True, True, False, False, False]
+
+
+def test_evaluate_value_run_supports_derived_target_value():
+    """Resolve a repeated target value from the focal context."""
+    data = _data([0, 0, 0, 5, 5, 5, 5, 5])
+
+    result = method_mask(
+        evaluate,
+        data,
+        test={
+            "name": "median_run",
+            "method": "value_run",
+            "value": {"value_mode": "median"},
+            "minimum_duration": pd.Timedelta("3h"),
+            "tolerance": {"value_mode": "fixed", "value": 0.0},
+        },
+        grid=_grid(),
+    )
+
+    assert result["A"].tolist() == [False, False, False, True, True, True, True, True]

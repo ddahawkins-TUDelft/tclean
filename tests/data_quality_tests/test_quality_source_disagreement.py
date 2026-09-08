@@ -5,13 +5,11 @@ import pytest
 from _method_helpers import method_context
 
 from tclean import TimeGrid
-from tclean.data_quality import evaluate as evaluate_quality
 from tclean.data_quality.methods.source_disagreement import (
     _aggregate_peers,
     _analyse,
     build_details,
     evaluate,
-    validate,
 )
 
 
@@ -43,7 +41,7 @@ def _test(
         "method": "source_disagreement",
         "difference_mode": difference_mode,
         "peer_aggregation_mode": peer_aggregation_mode,
-        "threshold": threshold,
+        "threshold": {"value_mode": "fixed", "value": threshold},
         **extra,
     }
 
@@ -337,3 +335,18 @@ def test_relative_zero_reference_details_use_none_instead_of_infinity():
     )
 
     assert details["observations"][0]["relative_difference"] is None
+
+
+def test_evaluate_fixed_supports_derived_focal_threshold():
+    """Derive a fixed disagreement threshold from the focal source only."""
+    sources = {
+        "primary": _source([150, 150, 150, 150]),
+        "peer_one": _source([100, 100, 100, 100]),
+        "peer_two": _source([102, 102, 102, 102]),
+    }
+    test = _test()
+    test["threshold"] = {"value_mode": "median", "multiplier": 0.1}
+
+    result = evaluate(_context(sources, test=test))
+
+    assert result.mask["A"].tolist() == [True, True, True, True]

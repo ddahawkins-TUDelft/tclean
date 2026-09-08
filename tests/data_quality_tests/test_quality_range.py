@@ -30,7 +30,11 @@ def test_evaluate_range_flags_values_below_minimum():
     result = method_mask(
         evaluate,
         _data(),
-        test={"name": "non_negative", "method": "range", "minimum": 0},
+        test={
+            "name": "non_negative",
+            "method": "range",
+            "minimum": {"value_mode": "fixed", "value": 0},
+        },
         grid=_grid(),
     )
 
@@ -51,7 +55,11 @@ def test_evaluate_range_flags_values_above_maximum():
     result = method_mask(
         evaluate,
         _data(),
-        test={"name": "maximum_value", "method": "range", "maximum": 10},
+        test={
+            "name": "maximum_value",
+            "method": "range",
+            "maximum": {"value_mode": "fixed", "value": 10},
+        },
         grid=_grid(),
     )
 
@@ -72,7 +80,12 @@ def test_evaluate_range_flags_values_outside_both_bounds():
     result = method_mask(
         evaluate,
         _data(),
-        test={"name": "bounded_values", "method": "range", "minimum": 0, "maximum": 10},
+        test={
+            "name": "bounded_values",
+            "method": "range",
+            "minimum": {"value_mode": "fixed", "value": 0},
+            "maximum": {"value_mode": "fixed", "value": 10},
+        },
         grid=_grid(),
     )
 
@@ -98,8 +111,8 @@ def test_evaluate_range_treats_bounds_as_inclusive():
         test={
             "name": "inclusive_bounds",
             "method": "range",
-            "minimum": 0,
-            "maximum": 10,
+            "minimum": {"value_mode": "fixed", "value": 0},
+            "maximum": {"value_mode": "fixed", "value": 10},
         },
         grid=_grid(),
     )
@@ -119,7 +132,12 @@ def test_evaluate_range_does_not_flag_missing_values():
     result = method_mask(
         evaluate,
         data,
-        test={"name": "bounded_values", "method": "range", "minimum": 0, "maximum": 10},
+        test={
+            "name": "bounded_values",
+            "method": "range",
+            "minimum": {"value_mode": "fixed", "value": 0},
+            "maximum": {"value_mode": "fixed", "value": 10},
+        },
         grid=_grid(),
     )
 
@@ -135,10 +153,31 @@ def test_evaluate_range_preserves_index_and_columns():
     result = method_mask(
         evaluate,
         data,
-        test={"name": "non_negative", "method": "range", "minimum": 0},
+        test={
+            "name": "non_negative",
+            "method": "range",
+            "minimum": {"value_mode": "fixed", "value": 0},
+        },
         grid=_grid(),
     )
 
     assert result.index.equals(data.index)
     assert result.columns.equals(data.columns)
     assert all(is_bool_dtype(dtype) for dtype in result.dtypes)
+
+
+def test_evaluate_range_resolves_derived_maximum_per_context():
+    """Resolve one derived bound independently for each focal context."""
+    result = method_mask(
+        evaluate,
+        _data(),
+        test={
+            "name": "contextual_maximum",
+            "method": "range",
+            "maximum": {"value_mode": "median"},
+        },
+        grid=_grid(),
+    )
+
+    assert result["A"].tolist() == [False, False, False, True, True]
+    assert result["B"].tolist() == [True, True, False, False, False]

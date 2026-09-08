@@ -33,13 +33,16 @@ def _test(
         "name": "large_change",
         "method": "rate_of_change",
         "difference_mode": difference_mode,
-        "threshold": threshold,
+        "threshold": {"value_mode": "fixed", "value": threshold},
     }
 
     if reference_magnitude_threshold is not None:
-        test["reference_magnitude_threshold"] = reference_magnitude_threshold
+        test["reference_magnitude_threshold"] = {
+            "value_mode": "fixed",
+            "value": reference_magnitude_threshold,
+        }
     elif difference_mode == "relative":
-        test["reference_magnitude_threshold"] = 0.0
+        test["reference_magnitude_threshold"] = {"value_mode": "fixed", "value": 0.0}
 
     return test
 
@@ -258,3 +261,25 @@ def test_build_details_relative_preserves_adjacent_transitions():
         0.5,
         0.6,
     ]
+
+
+def test_evaluate_fixed_supports_derived_threshold():
+    """Resolve a fixed-mode threshold from typical absolute increments."""
+    data = _data([100, 105, 110, 150, 155, 160])
+    test = _test(difference_mode="fixed")
+    test["threshold"] = {"value_mode": "median_absolute_increment", "multiplier": 2}
+
+    result = method_mask(evaluate, data, test=test, grid=_grid())
+
+    assert result["A"].tolist() == [False, False, False, True, False, False]
+
+
+def test_evaluate_relative_supports_derived_reference_magnitude_threshold():
+    """Resolve the relative-mode reference floor from focal data."""
+    data = _data([1, 2, 4, 100, 150, 200])
+    test = _test(difference_mode="relative", threshold=0.4)
+    test["reference_magnitude_threshold"] = {"value_mode": "median"}
+
+    result = method_mask(evaluate, data, test=test, grid=_grid())
+
+    assert result["A"].tolist() == [False, False, False, False, True, False]

@@ -8,10 +8,17 @@ import pandas as pd
 
 from tclean.data_quality._method import MethodContext, MethodResult, MethodSpec
 from tclean.data_quality._validation_helpers import (
-    nonnegative_real,
     normalize_common_selectors,
     positive_timedelta,
     validate_keys,
+)
+from tclean.data_quality._value_spec import (
+    build_value_issues,
+    normalize_value_reference_controls,
+    normalize_value_spec,
+    resolve_context_value,
+    value_resolution_details,
+    value_resolution_problem,
 )
 from tclean.time_grid import TimeGrid
 
@@ -21,7 +28,7 @@ def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
     validate_keys(
         test,
         required={"name", "method", "window_duration", "threshold"},
-        optional={"sources", "contexts"},
+        optional={"sources", "contexts", "include_failed_periods_from"},
     )
 
     normalized = normalize_common_selectors(test)
@@ -38,14 +45,14 @@ def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
 
     normalized["window_duration"] = window_duration
 
-    threshold = nonnegative_real(test["threshold"], field="threshold")
+    threshold = normalize_value_spec(test["threshold"], field="threshold")
 
-    if threshold == 0:
-        raise ValueError(
-            "'threshold' for a level-shift test must be greater than zero."
-        )
+    if threshold["value_mode"] == "fixed" and threshold["value"] <= 0:
+        raise ValueError("Fixed 'threshold.value' must be greater than zero.")
 
     normalized["threshold"] = threshold
+
+    normalize_value_reference_controls(test, normalized, fields=("threshold",))
 
     return normalized
 
@@ -144,19 +151,43 @@ def evaluate(context: MethodContext) -> MethodResult:
     data = context.target_data
     test = context.test
     grid = context.grid
-
     window_steps = int(test["window_duration"] / grid.frequency)
 
     failures = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
+    issues = []
 
-    for context in data.columns:
-        _, _, context_failures, _ = _analyse(
-            data[context], window_steps=window_steps, threshold=test["threshold"]
+    for context_name in data.columns:
+        values = data[context_name]
+        threshold = resolve_context_value(
+            context, field="threshold", context_name=context_name
+        )
+        problem = value_resolution_problem(
+            threshold,
+            field="threshold",
+            spec=test["threshold"],
+            minimum=0.0,
+            strict_minimum=True,
         )
 
-        failures[context] = context_failures
+        context_issues = build_value_issues(
+            context,
+            context_name=context_name,
+            problems=[] if problem is None else [problem],
+            candidates=values.notna(),
+        )
+        if context_issues:
+            issues.extend(context_issues)
+            continue
 
-    return MethodResult(mask=failures)
+        if threshold.value is None:
+            raise RuntimeError("Evaluable level-shift threshold has no resolved value.")
+
+        _, _, context_failures, _ = _analyse(
+            values, window_steps=window_steps, threshold=threshold.value
+        )
+        failures[context_name] = context_failures
+
+    return MethodResult(mask=failures, issues=tuple(issues))
 
 
 def build_details(
@@ -169,17 +200,31 @@ def build_details(
 ) -> dict[str, Any]:
     """Build structured diagnostics for one localized level-shift event."""
     del result
+    del end
 
     data = context.target_data[context_name]
     test = context.test
     grid = context.grid
-
-    del end
-
     window_steps = int(test["window_duration"] / grid.frequency)
 
+    threshold = resolve_context_value(
+        context, field="threshold", context_name=context_name
+    )
+    problem = value_resolution_problem(
+        threshold,
+        field="threshold",
+        spec=test["threshold"],
+        minimum=0.0,
+        strict_minimum=True,
+    )
+
+    if problem is not None or threshold.value is None:
+        raise RuntimeError(
+            "Cannot build level-shift failure details with an unusable threshold."
+        )
+
     shift_scores, _, failures, events = _analyse(
-        data, window_steps=window_steps, threshold=test["threshold"]
+        data, window_steps=window_steps, threshold=threshold.value
     )
 
     change_point_position = int(data.index.get_loc(start))
@@ -197,7 +242,6 @@ def build_details(
         localized = _change_point_position(
             shift_scores, event_start=candidate_start, event_end=candidate_end
         )
-
         if localized == change_point_position:
             event_start = candidate_start
             event_end = candidate_end
@@ -207,17 +251,18 @@ def build_details(
         raise ValueError("Could not reconstruct the qualifying level-shift event.")
 
     change_point = pd.Timestamp(data.index[change_point_position])
-
     pre_evidence_start = pd.Timestamp(data.index[event_start]) - test["window_duration"]
-
     post_evidence_end = pd.Timestamp(data.index[event_end]) + test["window_duration"]
 
     return {
         "window_duration": test["window_duration"],
-        "threshold": test["threshold"],
+        "threshold": threshold.value,
+        "threshold_resolution": value_resolution_details(
+            threshold, field="threshold", spec=test["threshold"]
+        ),
         "change_point": change_point,
         "estimated_shift": float(shift_scores.iloc[change_point_position]),
-        "qualifying_boundary_count": (event_end - event_start + 1),
+        "qualifying_boundary_count": event_end - event_start + 1,
         "pre_evidence_start": pre_evidence_start,
         "post_evidence_end": post_evidence_end,
     }

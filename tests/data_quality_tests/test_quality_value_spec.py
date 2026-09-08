@@ -4,8 +4,15 @@ import math
 
 import pandas as pd
 import pytest
+from _method_helpers import method_context
 
-from tclean.data_quality._value_spec import normalize_value_spec, resolve_value_spec
+from tclean import TimeGrid
+from tclean.data_quality._value_spec import (
+    normalize_value_spec,
+    require_fixed_value_spec,
+    resolve_context_value,
+    resolve_value_spec,
+)
 
 
 def _series(values):
@@ -513,3 +520,127 @@ def test_resolution_values_are_finite_when_evaluable():
     assert result.evaluable
     assert math.isfinite(result.value)
     assert math.isfinite(result.property_value)
+
+
+def _grid() -> TimeGrid:
+    """Return a four-hour grid for context-resolution tests."""
+    return TimeGrid(
+        start="2026-01-01T00:00:00Z", end="2026-01-01T04:00:00Z", frequency="1h"
+    )
+
+
+def test_resolve_context_value_is_independent_per_source_and_context():
+    """Resolve derived values independently for each focal source-context."""
+    index = _grid().target_index
+    sources = {
+        "primary": pd.DataFrame(
+            {"A": [10, 20, 30, 40], "B": [100, 200, 300, 400]}, index=index
+        ),
+        "secondary": pd.DataFrame(
+            {"A": [1, 2, 3, 4], "B": [1000, 2000, 3000, 4000]}, index=index
+        ),
+    }
+    test = {"name": "derived", "method": "range", "maximum": {"value_mode": "median"}}
+
+    primary = method_context(
+        sources["primary"],
+        source_name="primary",
+        sources=sources,
+        test=test,
+        grid=_grid(),
+    )
+    secondary = method_context(
+        sources["secondary"],
+        source_name="secondary",
+        sources=sources,
+        test=test,
+        grid=_grid(),
+    )
+
+    assert resolve_context_value(primary, field="maximum", context_name="A").value == 25
+    assert (
+        resolve_context_value(primary, field="maximum", context_name="B").value == 250
+    )
+    assert (
+        resolve_context_value(secondary, field="maximum", context_name="A").value == 2.5
+    )
+    assert (
+        resolve_context_value(secondary, field="maximum", context_name="B").value
+        == 2500
+    )
+
+
+def test_resolve_context_value_excludes_preceding_failures():
+    """Derive values from failure-filtered focal evidence by default."""
+    index = _grid().target_index
+    data = pd.DataFrame({"A": [1, 100, 3, 5]}, index=index)
+    preceding_failures = (
+        {
+            "context": "A",
+            "source": "primary",
+            "start": index[1],
+            "end": index[2],
+            "test_name": "earlier",
+            "method": "range",
+            "details": {},
+        },
+    )
+    context = method_context(
+        data,
+        test={
+            "name": "derived",
+            "method": "range",
+            "maximum": {"value_mode": "median"},
+        },
+        grid=_grid(),
+        preceding_failures=preceding_failures,
+    )
+
+    result = resolve_context_value(context, field="maximum", context_name="A")
+
+    assert result.value == 3
+    assert result.eligible_observations == 3
+
+
+def test_resolve_context_value_can_reinclude_named_preceding_failures():
+    """Restore named failed periods when deriving a configured value."""
+    index = _grid().target_index
+    data = pd.DataFrame({"A": [1, 100, 3, 5]}, index=index)
+    preceding_failures = (
+        {
+            "context": "A",
+            "source": "primary",
+            "start": index[1],
+            "end": index[2],
+            "test_name": "earlier",
+            "method": "range",
+            "details": {},
+        },
+    )
+    context = method_context(
+        data,
+        test={
+            "name": "derived",
+            "method": "range",
+            "maximum": {"value_mode": "median"},
+            "include_failed_periods_from": ["earlier"],
+        },
+        grid=_grid(),
+        preceding_failures=preceding_failures,
+    )
+
+    result = resolve_context_value(context, field="maximum", context_name="A")
+
+    assert result.value == 4
+    assert result.eligible_observations == 4
+
+
+def test_require_fixed_value_spec_rejects_derived_dimensionless_value():
+    """Reject a derived mode where a consumer requires a dimensionless literal."""
+    with pytest.raises(ValueError, match="dimensionless"):
+        require_fixed_value_spec(
+            normalize_value_spec(
+                {"value_mode": "median", "multiplier": 0.1}, field="threshold"
+            ),
+            field="threshold",
+        )

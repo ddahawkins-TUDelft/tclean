@@ -26,7 +26,7 @@ def _test(*, minimum_duration: str = "3h", tolerance: float = 0.0) -> dict:
         "name": "flatline",
         "method": "flatline",
         "minimum_duration": pd.Timedelta(minimum_duration),
-        "tolerance": tolerance,
+        "tolerance": {"value_mode": "fixed", "value": tolerance},
     }
 
 
@@ -137,3 +137,14 @@ def test_build_details_reports_flatline_diagnostics():
     assert details["observed_maximum"] == 5.04
     assert details["observed_range"] == pytest.approx(0.06)
     assert details["maximum_step_change"] == pytest.approx(0.06)
+
+
+def test_evaluate_flatline_supports_derived_tolerance():
+    """Resolve flatline tolerance independently from focal data."""
+    data = _data([1, 1.01, 1.02, 5, 10, 15, 20, 25])
+    test = _test()
+    test["tolerance"] = {"value_mode": "median", "multiplier": 0.02}
+
+    result = method_mask(evaluate, data, test=test, grid=_grid())
+
+    assert result["A"].tolist()[:3] == [True, True, True]

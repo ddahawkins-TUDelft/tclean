@@ -20,47 +20,67 @@ def _grid(frequency: str = "1h") -> TimeGrid:
 def test_validate_range_test_accepts_both_bounds():
     """Accept a range test with minimum and maximum bounds."""
     result = validate_quality_test(
-        {"name": "plausible_values", "method": "range", "minimum": 0, "maximum": 1000},
+        {
+            "name": "plausible_values",
+            "method": "range",
+            "minimum": {"value_mode": "fixed", "value": 0},
+            "maximum": {"value_mode": "fixed", "value": 1000},
+        },
         grid=_grid(),
     )
 
     assert result == {
         "name": "plausible_values",
         "method": "range",
-        "minimum": 0,
-        "maximum": 1000,
+        "minimum": {"value_mode": "fixed", "value": 0},
+        "maximum": {"value_mode": "fixed", "value": 1000},
     }
 
 
 def test_validate_range_test_accepts_minimum_only():
     """Accept a range test with only a lower bound."""
     result = validate_quality_test(
-        {"name": "non_negative", "method": "range", "minimum": 0}, grid=_grid()
+        {
+            "name": "non_negative",
+            "method": "range",
+            "minimum": {"value_mode": "fixed", "value": 0},
+        },
+        grid=_grid(),
     )
 
-    assert result["minimum"] == 0
+    assert result["minimum"] == {"value_mode": "fixed", "value": 0}
     assert "maximum" not in result
 
 
 def test_validate_range_test_accepts_maximum_only():
     """Accept a range test with only an upper bound."""
     result = validate_quality_test(
-        {"name": "upper_bound", "method": "range", "maximum": 1000.5}, grid=_grid()
+        {
+            "name": "upper_bound",
+            "method": "range",
+            "maximum": {"value_mode": "fixed", "value": 1000.5},
+        },
+        grid=_grid(),
     )
 
-    assert result["maximum"] == 1000.5
+    assert result["maximum"] == {"value_mode": "fixed", "value": 1000.5}
     assert "minimum" not in result
 
 
 def test_validate_range_test_accepts_equal_bounds():
     """Allow a range test whose minimum equals its maximum."""
     result = validate_quality_test(
-        {"name": "exact_value", "method": "range", "minimum": 5, "maximum": 5},
+        {
+            "name": "exact_value",
+            "method": "range",
+            "minimum": {"value_mode": "fixed", "value": 5},
+            "maximum": {"value_mode": "fixed", "value": 5},
+        },
         grid=_grid(),
     )
 
-    assert result["minimum"] == 5
-    assert result["maximum"] == 5
+    assert result["minimum"] == {"value_mode": "fixed", "value": 5}
+    assert result["maximum"] == {"value_mode": "fixed", "value": 5}
 
 
 def test_validate_range_test_normalizes_selectors():
@@ -71,7 +91,7 @@ def test_validate_range_test_normalizes_selectors():
             "method": "range",
             "sources": ("entsoe", "opsd"),
             "contexts": ("ALB", "BIH"),
-            "minimum": 0,
+            "minimum": {"value_mode": "fixed", "value": 0},
         },
         grid=_grid(),
     )
@@ -83,8 +103,16 @@ def test_validate_range_test_normalizes_selectors():
 def test_validate_quality_tests_preserves_order():
     """Preserve configured quality-test execution order."""
     tests = [
-        {"name": "first", "method": "range", "minimum": 0},
-        {"name": "second", "method": "range", "maximum": 1000},
+        {
+            "name": "first",
+            "method": "range",
+            "minimum": {"value_mode": "fixed", "value": 0},
+        },
+        {
+            "name": "second",
+            "method": "range",
+            "maximum": {"value_mode": "fixed", "value": 1000},
+        },
     ]
 
     result = validate_quality_tests(tests, grid=_grid())
@@ -102,8 +130,16 @@ def test_validate_quality_tests_accepts_empty_sequence():
 def test_validate_quality_tests_rejects_duplicate_names():
     """Reject duplicate data-quality test names."""
     tests = [
-        {"name": "duplicate", "method": "range", "minimum": 0},
-        {"name": "duplicate", "method": "range", "maximum": 1000},
+        {
+            "name": "duplicate",
+            "method": "range",
+            "minimum": {"value_mode": "fixed", "value": 0},
+        },
+        {
+            "name": "duplicate",
+            "method": "range",
+            "maximum": {"value_mode": "fixed", "value": 1000},
+        },
     ]
 
     with pytest.raises(ValueError, match="must be unique"):
@@ -112,7 +148,11 @@ def test_validate_quality_tests_rejects_duplicate_names():
 
 def test_validate_quality_tests_rejects_non_sequence():
     """Reject unordered or non-sequence quality-test collections."""
-    tests = {"name": "non_negative", "method": "range", "minimum": 0}
+    tests = {
+        "name": "non_negative",
+        "method": "range",
+        "minimum": {"value_mode": "fixed", "value": 0},
+    }
 
     with pytest.raises(TypeError, match="ordered sequence"):
         validate_quality_tests(tests, grid=_grid())
@@ -128,7 +168,12 @@ def test_validate_quality_test_rejects_blank_name():
     """Reject blank data-quality test names."""
     with pytest.raises(ValueError, match="'name' must be a non-empty string"):
         validate_quality_test(
-            {"name": "   ", "method": "range", "minimum": 0}, grid=_grid()
+            {
+                "name": "   ",
+                "method": "range",
+                "minimum": {"value_mode": "fixed", "value": 0},
+            },
+            grid=_grid(),
         )
 
 
@@ -152,7 +197,12 @@ def test_validate_range_test_rejects_unknown_argument():
     """Reject arguments unsupported by the range method."""
     with pytest.raises(ValueError, match="unknown keys"):
         validate_quality_test(
-            {"name": "non_negative", "method": "range", "minimum": 0, "tolerance": 0.1},
+            {
+                "name": "non_negative",
+                "method": "range",
+                "minimum": {"value_mode": "fixed", "value": 0},
+                "tolerance": 0.1,
+            },
             grid=_grid(),
         )
 
@@ -167,7 +217,12 @@ def test_validate_range_test_rejects_reversed_bounds():
     """Reject a minimum greater than the maximum."""
     with pytest.raises(ValueError, match="less than or equal"):
         validate_quality_test(
-            {"name": "invalid_range", "method": "range", "minimum": 10, "maximum": 5},
+            {
+                "name": "invalid_range",
+                "method": "range",
+                "minimum": {"value_mode": "fixed", "value": 10},
+                "maximum": {"value_mode": "fixed", "value": 5},
+            },
             grid=_grid(),
         )
 
@@ -179,7 +234,11 @@ def test_validate_range_test_rejects_invalid_minimum(value):
     """Reject non-numeric or non-finite lower bounds."""
     with pytest.raises(ValueError, match="finite real number"):
         validate_quality_test(
-            {"name": "invalid_minimum", "method": "range", "minimum": value},
+            {
+                "name": "invalid_minimum",
+                "method": "range",
+                "minimum": {"value_mode": "fixed", "value": value},
+            },
             grid=_grid(),
         )
 
@@ -192,7 +251,11 @@ def test_validate_range_test_rejects_invalid_maximum(value):
     """Reject non-numeric or non-finite upper bounds."""
     with pytest.raises(ValueError, match="finite real number"):
         validate_quality_test(
-            {"name": "invalid_maximum", "method": "range", "maximum": value},
+            {
+                "name": "invalid_maximum",
+                "method": "range",
+                "maximum": {"value_mode": "fixed", "value": value},
+            },
             grid=_grid(),
         )
 
@@ -200,7 +263,12 @@ def test_validate_range_test_rejects_invalid_maximum(value):
 @pytest.mark.parametrize("field", ["sources", "contexts"])
 def test_validate_quality_test_rejects_string_selector(field):
     """Reject a string where an ordered selector sequence is required."""
-    test = {"name": "selected_range", "method": "range", "minimum": 0, field: "entsoe"}
+    test = {
+        "name": "selected_range",
+        "method": "range",
+        "minimum": {"value_mode": "fixed", "value": 0},
+        field: "entsoe",
+    }
 
     with pytest.raises(ValueError, match="non-empty ordered sequence"):
         validate_quality_test(test, grid=_grid())
@@ -209,7 +277,12 @@ def test_validate_quality_test_rejects_string_selector(field):
 @pytest.mark.parametrize("field", ["sources", "contexts"])
 def test_validate_quality_test_rejects_empty_selector(field):
     """Reject an explicitly empty source or context selector."""
-    test = {"name": "selected_range", "method": "range", "minimum": 0, field: []}
+    test = {
+        "name": "selected_range",
+        "method": "range",
+        "minimum": {"value_mode": "fixed", "value": 0},
+        field: [],
+    }
 
     with pytest.raises(ValueError, match="non-empty ordered sequence"):
         validate_quality_test(test, grid=_grid())
@@ -220,7 +293,12 @@ def test_validate_quality_test_rejects_empty_selector(field):
 )
 def test_validate_quality_test_rejects_invalid_selector_entries(field, values):
     """Reject source or context selectors containing invalid entries."""
-    test = {"name": "selected_range", "method": "range", "minimum": 0, field: values}
+    test = {
+        "name": "selected_range",
+        "method": "range",
+        "minimum": {"value_mode": "fixed", "value": 0},
+        field: values,
+    }
 
     with pytest.raises(ValueError, match="only non-empty strings"):
         validate_quality_test(test, grid=_grid())
@@ -232,7 +310,12 @@ def test_validate_quality_test_rejects_invalid_selector_entries(field, values):
 )
 def test_validate_quality_test_rejects_duplicate_selector_entries(field, values):
     """Reject duplicate entries in source or context selectors."""
-    test = {"name": "selected_range", "method": "range", "minimum": 0, field: values}
+    test = {
+        "name": "selected_range",
+        "method": "range",
+        "minimum": {"value_mode": "fixed", "value": 0},
+        field: values,
+    }
 
     with pytest.raises(ValueError, match="entries must be unique"):
         validate_quality_test(test, grid=_grid())
@@ -240,12 +323,12 @@ def test_validate_quality_test_rejects_duplicate_selector_entries(field, values)
 
 def test_validate_range_test_rejects_failed_period_inclusion():
     """Reject reference-data controls for methods that do not use them."""
-    with pytest.raises(ValueError, match="unknown keys"):
+    with pytest.raises(ValueError, match="only supported when at least one"):
         validate_quality_test(
             {
                 "name": "non_negative",
                 "method": "range",
-                "minimum": 0,
+                "minimum": {"value_mode": "fixed", "value": 0},
                 "include_failed_periods_from": ["earlier_test"],
             },
             grid=_grid(),
@@ -258,15 +341,15 @@ def test_validate_value_run_normalizes_duration_and_default_tolerance():
         {
             "name": "zero_run",
             "method": "value_run",
-            "value": 0,
+            "value": {"value_mode": "fixed", "value": 0},
             "minimum_duration": "3h",
         },
         grid=_grid(),
     )
 
-    assert result["value"] == 0
+    assert result["value"] == {"value_mode": "fixed", "value": 0}
     assert result["minimum_duration"] == pd.Timedelta("3h")
-    assert result["tolerance"] == 0.0
+    assert result["tolerance"] == {"value_mode": "fixed", "value": 0.0}
 
 
 def test_validate_value_run_accepts_positive_tolerance():
@@ -275,14 +358,14 @@ def test_validate_value_run_accepts_positive_tolerance():
         {
             "name": "near_zero_run",
             "method": "value_run",
-            "value": 0,
+            "value": {"value_mode": "fixed", "value": 0},
             "minimum_duration": "3h",
-            "tolerance": 0.1,
+            "tolerance": {"value_mode": "fixed", "value": 0.1},
         },
         grid=_grid(),
     )
 
-    assert result["tolerance"] == 0.1
+    assert result["tolerance"] == {"value_mode": "fixed", "value": 0.1}
 
 
 def test_validate_value_run_rejects_zero_duration():
@@ -292,7 +375,7 @@ def test_validate_value_run_rejects_zero_duration():
             {
                 "name": "zero_run",
                 "method": "value_run",
-                "value": 0,
+                "value": {"value_mode": "fixed", "value": 0},
                 "minimum_duration": "0h",
             },
             grid=_grid(),
@@ -306,7 +389,7 @@ def test_validate_value_run_rejects_off_grid_duration():
             {
                 "name": "zero_run",
                 "method": "value_run",
-                "value": 0,
+                "value": {"value_mode": "fixed", "value": 0},
                 "minimum_duration": "90min",
             },
             grid=_grid(),
@@ -320,9 +403,9 @@ def test_validate_value_run_rejects_negative_tolerance():
             {
                 "name": "zero_run",
                 "method": "value_run",
-                "value": 0,
+                "value": {"value_mode": "fixed", "value": 0},
                 "minimum_duration": "3h",
-                "tolerance": -0.1,
+                "tolerance": {"value_mode": "fixed", "value": -0.1},
             },
             grid=_grid(),
         )
@@ -335,7 +418,7 @@ def test_validate_value_run_rejects_non_numeric_value():
             {
                 "name": "bad_value",
                 "method": "value_run",
-                "value": "zero",
+                "value": {"value_mode": "fixed", "value": "zero"},
                 "minimum_duration": "3h",
             },
             grid=_grid(),
@@ -344,12 +427,12 @@ def test_validate_value_run_rejects_non_numeric_value():
 
 def test_validate_value_run_rejects_failed_period_inclusion():
     """Do not allow reference controls on a non-reference-aware method."""
-    with pytest.raises(ValueError, match="unknown keys"):
+    with pytest.raises(ValueError, match="only supported when at least one"):
         validate_quality_test(
             {
                 "name": "zero_run",
                 "method": "value_run",
-                "value": 0,
+                "value": {"value_mode": "fixed", "value": 0},
                 "minimum_duration": "3h",
                 "include_failed_periods_from": ["earlier_test"],
             },
@@ -365,7 +448,7 @@ def test_validate_flatline_normalizes_duration_and_default_tolerance():
     )
 
     assert result["minimum_duration"] == pd.Timedelta("3h")
-    assert result["tolerance"] == 0.0
+    assert result["tolerance"] == {"value_mode": "fixed", "value": 0.0}
 
 
 def test_validate_flatline_accepts_positive_tolerance():
@@ -375,12 +458,12 @@ def test_validate_flatline_accepts_positive_tolerance():
             "name": "nearly_constant",
             "method": "flatline",
             "minimum_duration": "3h",
-            "tolerance": 0.1,
+            "tolerance": {"value_mode": "fixed", "value": 0.1},
         },
         grid=_grid(),
     )
 
-    assert result["tolerance"] == 0.1
+    assert result["tolerance"] == {"value_mode": "fixed", "value": 0.1}
 
 
 def test_validate_flatline_rejects_single_step_duration():
@@ -422,7 +505,7 @@ def test_validate_flatline_rejects_negative_tolerance():
                 "name": "constant_values",
                 "method": "flatline",
                 "minimum_duration": "3h",
-                "tolerance": -0.1,
+                "tolerance": {"value_mode": "fixed", "value": -0.1},
             },
             grid=_grid(),
         )
@@ -430,7 +513,7 @@ def test_validate_flatline_rejects_negative_tolerance():
 
 def test_validate_flatline_rejects_failed_period_inclusion():
     """Do not allow reference controls on a non-reference-aware method."""
-    with pytest.raises(ValueError, match="unknown keys"):
+    with pytest.raises(ValueError, match="only supported when at least one"):
         validate_quality_test(
             {
                 "name": "constant_values",
@@ -449,13 +532,13 @@ def test_validate_low_variability_normalizes_parameters():
             "name": "stable_values",
             "method": "low_variability",
             "window_duration": "3h",
-            "maximum_range": 5,
+            "maximum_range": {"value_mode": "fixed", "value": 5},
         },
         grid=_grid(),
     )
 
     assert result["window_duration"] == pd.Timedelta("3h")
-    assert result["maximum_range"] == 5
+    assert result["maximum_range"] == {"value_mode": "fixed", "value": 5}
 
 
 def test_validate_low_variability_accepts_zero_maximum_range():
@@ -465,12 +548,12 @@ def test_validate_low_variability_accepts_zero_maximum_range():
             "name": "exactly_constant",
             "method": "low_variability",
             "window_duration": "3h",
-            "maximum_range": 0,
+            "maximum_range": {"value_mode": "fixed", "value": 0},
         },
         grid=_grid(),
     )
 
-    assert result["maximum_range"] == 0
+    assert result["maximum_range"] == {"value_mode": "fixed", "value": 0}
 
 
 def test_validate_low_variability_rejects_single_step_window():
@@ -481,7 +564,7 @@ def test_validate_low_variability_rejects_single_step_window():
                 "name": "stable_values",
                 "method": "low_variability",
                 "window_duration": "1h",
-                "maximum_range": 5,
+                "maximum_range": {"value_mode": "fixed", "value": 5},
             },
             grid=_grid(),
         )
@@ -495,7 +578,7 @@ def test_validate_low_variability_rejects_zero_window():
                 "name": "stable_values",
                 "method": "low_variability",
                 "window_duration": "0h",
-                "maximum_range": 5,
+                "maximum_range": {"value_mode": "fixed", "value": 5},
             },
             grid=_grid(),
         )
@@ -509,7 +592,7 @@ def test_validate_low_variability_rejects_off_grid_window():
                 "name": "stable_values",
                 "method": "low_variability",
                 "window_duration": "150min",
-                "maximum_range": 5,
+                "maximum_range": {"value_mode": "fixed", "value": 5},
             },
             grid=_grid(),
         )
@@ -523,7 +606,7 @@ def test_validate_low_variability_rejects_negative_maximum_range():
                 "name": "stable_values",
                 "method": "low_variability",
                 "window_duration": "3h",
-                "maximum_range": -1,
+                "maximum_range": {"value_mode": "fixed", "value": -1},
             },
             grid=_grid(),
         )
@@ -544,13 +627,13 @@ def test_validate_low_variability_requires_maximum_range():
 
 def test_validate_low_variability_rejects_failed_period_inclusion():
     """Do not allow prior-failure controls on this direct method."""
-    with pytest.raises(ValueError, match="unknown keys"):
+    with pytest.raises(ValueError, match="only supported when at least one"):
         validate_quality_test(
             {
                 "name": "stable_values",
                 "method": "low_variability",
                 "window_duration": "3h",
-                "maximum_range": 5,
+                "maximum_range": {"value_mode": "fixed", "value": 5},
                 "include_failed_periods_from": ["earlier_test"],
             },
             grid=_grid(),
@@ -571,7 +654,7 @@ def test_validate_repeated_pattern_normalizes_parameters():
 
     assert result["pattern_duration"] == pd.Timedelta("24h")
     assert result["minimum_matches"] == 3
-    assert result["tolerance"] == 0.0
+    assert result["tolerance"] == {"value_mode": "fixed", "value": 0.0}
 
 
 def test_validate_repeated_pattern_accepts_tolerance():
@@ -582,12 +665,12 @@ def test_validate_repeated_pattern_accepts_tolerance():
             "method": "repeated_pattern",
             "pattern_duration": "24h",
             "minimum_matches": 2,
-            "tolerance": 0.1,
+            "tolerance": {"value_mode": "fixed", "value": 0.1},
         },
         grid=_grid(),
     )
 
-    assert result["tolerance"] == 0.1
+    assert result["tolerance"] == {"value_mode": "fixed", "value": 0.1}
 
 
 def test_validate_repeated_pattern_rejects_single_step_pattern():
@@ -657,7 +740,7 @@ def test_validate_repeated_pattern_rejects_negative_tolerance():
                 "method": "repeated_pattern",
                 "pattern_duration": "2h",
                 "minimum_matches": 2,
-                "tolerance": -0.1,
+                "tolerance": {"value_mode": "fixed", "value": -0.1},
             },
             grid=_grid(),
         )
@@ -665,7 +748,7 @@ def test_validate_repeated_pattern_rejects_negative_tolerance():
 
 def test_validate_repeated_pattern_rejects_failed_period_inclusion():
     """Do not allow prior-failure controls on this direct method."""
-    with pytest.raises(ValueError, match="unknown keys"):
+    with pytest.raises(ValueError, match="only supported when at least one"):
         validate_quality_test(
             {
                 "name": "repeated_pattern",
@@ -685,13 +768,13 @@ def test_validate_rate_of_change_normalizes_fixed_mode():
             "name": "large_change",
             "method": "rate_of_change",
             "difference_mode": "fixed",
-            "threshold": 20,
+            "threshold": {"value_mode": "fixed", "value": 20},
         },
         grid=_grid(),
     )
 
     assert result["difference_mode"] == "fixed"
-    assert result["threshold"] == 20
+    assert result["threshold"] == {"value_mode": "fixed", "value": 20}
     assert "reference_magnitude_threshold" not in result
 
 
@@ -702,14 +785,17 @@ def test_validate_rate_of_change_supplies_default_relative_reference_threshold()
             "name": "large_relative_change",
             "method": "rate_of_change",
             "difference_mode": "relative",
-            "threshold": 0.2,
+            "threshold": {"value_mode": "fixed", "value": 0.2},
         },
         grid=_grid(),
     )
 
     assert result["difference_mode"] == "relative"
-    assert result["threshold"] == 0.2
-    assert result["reference_magnitude_threshold"] == 0.0
+    assert result["threshold"] == {"value_mode": "fixed", "value": 0.2}
+    assert result["reference_magnitude_threshold"] == {
+        "value_mode": "fixed",
+        "value": 0.0,
+    }
 
 
 def test_validate_rate_of_change_accepts_relative_reference_threshold():
@@ -719,20 +805,27 @@ def test_validate_rate_of_change_accepts_relative_reference_threshold():
             "name": "large_relative_change",
             "method": "rate_of_change",
             "difference_mode": "relative",
-            "threshold": 0.2,
-            "reference_magnitude_threshold": 10,
+            "threshold": {"value_mode": "fixed", "value": 0.2},
+            "reference_magnitude_threshold": {"value_mode": "fixed", "value": 10},
         },
         grid=_grid(),
     )
 
-    assert result["reference_magnitude_threshold"] == 10
+    assert result["reference_magnitude_threshold"] == {
+        "value_mode": "fixed",
+        "value": 10,
+    }
 
 
 def test_validate_rate_of_change_requires_difference_mode():
     """Require an explicit fixed or relative difference mode."""
     with pytest.raises(ValueError, match="Missing keys"):
         validate_quality_test(
-            {"name": "large_change", "method": "rate_of_change", "threshold": 20},
+            {
+                "name": "large_change",
+                "method": "rate_of_change",
+                "threshold": {"value_mode": "fixed", "value": 20},
+            },
             grid=_grid(),
         )
 
@@ -745,7 +838,7 @@ def test_validate_rate_of_change_rejects_unknown_difference_mode():
                 "name": "large_change",
                 "method": "rate_of_change",
                 "difference_mode": "absolute",
-                "threshold": 20,
+                "threshold": {"value_mode": "fixed", "value": 20},
             },
             grid=_grid(),
         )
@@ -759,7 +852,7 @@ def test_validate_rate_of_change_rejects_zero_threshold():
                 "name": "large_change",
                 "method": "rate_of_change",
                 "difference_mode": "fixed",
-                "threshold": 0,
+                "threshold": {"value_mode": "fixed", "value": 0},
             },
             grid=_grid(),
         )
@@ -767,13 +860,13 @@ def test_validate_rate_of_change_rejects_zero_threshold():
 
 def test_validate_rate_of_change_rejects_negative_threshold():
     """Reject a negative rate-of-change threshold."""
-    with pytest.raises(ValueError, match="greater than or equal to zero"):
+    with pytest.raises(ValueError, match="greater than zero"):
         validate_quality_test(
             {
                 "name": "large_change",
                 "method": "rate_of_change",
                 "difference_mode": "fixed",
-                "threshold": -1,
+                "threshold": {"value_mode": "fixed", "value": -1},
             },
             grid=_grid(),
         )
@@ -787,8 +880,8 @@ def test_validate_rate_of_change_rejects_reference_threshold_in_fixed_mode():
                 "name": "large_change",
                 "method": "rate_of_change",
                 "difference_mode": "fixed",
-                "threshold": 20,
-                "reference_magnitude_threshold": 10,
+                "threshold": {"value_mode": "fixed", "value": 20},
+                "reference_magnitude_threshold": {"value_mode": "fixed", "value": 10},
             },
             grid=_grid(),
         )
@@ -802,8 +895,8 @@ def test_validate_rate_of_change_rejects_negative_relative_reference_threshold()
                 "name": "large_relative_change",
                 "method": "rate_of_change",
                 "difference_mode": "relative",
-                "threshold": 0.2,
-                "reference_magnitude_threshold": -1,
+                "threshold": {"value_mode": "fixed", "value": 0.2},
+                "reference_magnitude_threshold": {"value_mode": "fixed", "value": -1},
             },
             grid=_grid(),
         )
@@ -811,13 +904,13 @@ def test_validate_rate_of_change_rejects_negative_relative_reference_threshold()
 
 def test_validate_rate_of_change_rejects_failed_period_inclusion():
     """Do not allow prior-failure controls on this direct method."""
-    with pytest.raises(ValueError, match="unknown keys"):
+    with pytest.raises(ValueError, match="only supported when at least one"):
         validate_quality_test(
             {
                 "name": "large_change",
                 "method": "rate_of_change",
                 "difference_mode": "fixed",
-                "threshold": 20,
+                "threshold": {"value_mode": "fixed", "value": 20},
                 "include_failed_periods_from": ["earlier_test"],
             },
             grid=_grid(),
@@ -831,13 +924,13 @@ def test_validate_level_shift_normalizes_parameters():
             "name": "level_change",
             "method": "level_shift",
             "window_duration": "6h",
-            "threshold": 50,
+            "threshold": {"value_mode": "fixed", "value": 50},
         },
         grid=_grid(),
     )
 
     assert result["window_duration"] == pd.Timedelta("6h")
-    assert result["threshold"] == 50
+    assert result["threshold"] == {"value_mode": "fixed", "value": 50}
 
 
 def test_validate_level_shift_rejects_single_step_window():
@@ -848,7 +941,7 @@ def test_validate_level_shift_rejects_single_step_window():
                 "name": "level_change",
                 "method": "level_shift",
                 "window_duration": "1h",
-                "threshold": 50,
+                "threshold": {"value_mode": "fixed", "value": 50},
             },
             grid=_grid(),
         )
@@ -862,7 +955,7 @@ def test_validate_level_shift_rejects_zero_window():
                 "name": "level_change",
                 "method": "level_shift",
                 "window_duration": "0h",
-                "threshold": 50,
+                "threshold": {"value_mode": "fixed", "value": 50},
             },
             grid=_grid(),
         )
@@ -876,7 +969,7 @@ def test_validate_level_shift_rejects_off_grid_window():
                 "name": "level_change",
                 "method": "level_shift",
                 "window_duration": "150min",
-                "threshold": 50,
+                "threshold": {"value_mode": "fixed", "value": 50},
             },
             grid=_grid(),
         )
@@ -890,7 +983,7 @@ def test_validate_level_shift_rejects_zero_threshold():
                 "name": "level_change",
                 "method": "level_shift",
                 "window_duration": "6h",
-                "threshold": 0,
+                "threshold": {"value_mode": "fixed", "value": 0},
             },
             grid=_grid(),
         )
@@ -898,13 +991,13 @@ def test_validate_level_shift_rejects_zero_threshold():
 
 def test_validate_level_shift_rejects_negative_threshold():
     """Reject a negative level-shift threshold."""
-    with pytest.raises(ValueError, match="greater than or equal to zero"):
+    with pytest.raises(ValueError, match="greater than zero"):
         validate_quality_test(
             {
                 "name": "level_change",
                 "method": "level_shift",
                 "window_duration": "6h",
-                "threshold": -1,
+                "threshold": {"value_mode": "fixed", "value": -1},
             },
             grid=_grid(),
         )
@@ -912,13 +1005,13 @@ def test_validate_level_shift_rejects_negative_threshold():
 
 def test_validate_level_shift_rejects_reference_history_option():
     """Do not allow prior-failure controls on this direct method."""
-    with pytest.raises(ValueError, match="unknown keys"):
+    with pytest.raises(ValueError, match="only supported when at least one"):
         validate_quality_test(
             {
                 "name": "level_change",
                 "method": "level_shift",
                 "window_duration": "6h",
-                "threshold": 50,
+                "threshold": {"value_mode": "fixed", "value": 50},
                 "include_failed_periods_from": ["earlier_test"],
             },
             grid=_grid(),
@@ -1027,7 +1120,11 @@ def test_validate_contextual_level_accepts_failed_period_inclusion():
     """Allow contextual-level references to retain named prior failures."""
     result = validate_quality_tests(
         [
-            {"name": "negative", "method": "range", "minimum": 0},
+            {
+                "name": "negative",
+                "method": "range",
+                "minimum": {"value_mode": "fixed", "value": 0},
+            },
             {
                 "name": "unusual_level",
                 "method": "contextual_level",
@@ -1227,7 +1324,11 @@ def test_validate_contextual_profile_accepts_prior_failure_inclusion():
     """Allow reference-aware profile tests to restore named prior failures."""
     result = validate_quality_tests(
         [
-            {"name": "plausible_range", "method": "range", "minimum": 0},
+            {
+                "name": "plausible_range",
+                "method": "range",
+                "minimum": {"value_mode": "fixed", "value": 0},
+            },
             {
                 "name": "unusual_shape",
                 "method": "contextual_profile",

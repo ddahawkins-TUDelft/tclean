@@ -1,14 +1,19 @@
 """Validation and resolution of configurable scalar values."""
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from math import isfinite
 from typing import Any
 
 import pandas as pd
 
-from tclean.data_quality._method import MethodContext
-from tclean.data_quality._validation_helpers import finite_real, string_choice
+from tclean.data_quality._method import MethodContext, MethodIssue
+from tclean.data_quality._periods import failure_mask_to_periods
+from tclean.data_quality._validation_helpers import (
+    finite_real,
+    normalize_string_sequence,
+    string_choice,
+)
 
 _VALUE_MODES = (
     "fixed",
@@ -59,11 +64,7 @@ def _validate_spec_keys(
         )
 
 
-def _normalize_quantile(
-    value: object,
-    *,
-    field: str,
-) -> float:
+def _normalize_quantile(value: object, *, field: str) -> float:
     """Normalize a quantile bounded inclusively between zero and one."""
     normalized = float(finite_real(value, field=field))
 
@@ -73,11 +74,7 @@ def _normalize_quantile(
     return normalized
 
 
-def normalize_value_spec(
-    value: object,
-    *,
-    field: str,
-) -> dict[str, Any]:
+def normalize_value_spec(value: object, *, field: str) -> dict[str, Any]:
     """Validate and normalize one configurable scalar value specification."""
     if not isinstance(value, Mapping):
         raise ValueError(
@@ -86,31 +83,19 @@ def normalize_value_spec(
 
     if "value_mode" not in value:
         raise ValueError(
-            f"Invalid value specification for {field!r}. "
-            "Missing keys: ['value_mode']."
+            f"Invalid value specification for {field!r}. Missing keys: ['value_mode']."
         )
 
     value_mode = string_choice(
-        value["value_mode"],
-        field=f"{field}.value_mode",
-        choices=_VALUE_MODES,
+        value["value_mode"], field=f"{field}.value_mode", choices=_VALUE_MODES
     )
 
     if value_mode == "fixed":
-        _validate_spec_keys(
-            value,
-            field=field,
-            required={"value_mode", "value"},
-        )
+        _validate_spec_keys(value, field=field, required={"value_mode", "value"})
 
         return {
             "value_mode": value_mode,
-            "value": float(
-                finite_real(
-                    value["value"],
-                    field=f"{field}.value",
-                )
-            ),
+            "value": float(finite_real(value["value"], field=f"{field}.value")),
         }
 
     if value_mode in {
@@ -121,19 +106,13 @@ def normalize_value_spec(
         "median_absolute_increment",
     }:
         _validate_spec_keys(
-            value,
-            field=field,
-            required={"value_mode"},
-            optional={"multiplier"},
+            value, field=field, required={"value_mode"}, optional={"multiplier"}
         )
 
         return {
             "value_mode": value_mode,
             "multiplier": float(
-                finite_real(
-                    value.get("multiplier", 1.0),
-                    field=f"{field}.multiplier",
-                )
+                finite_real(value.get("multiplier", 1.0), field=f"{field}.multiplier")
             ),
         }
 
@@ -148,14 +127,10 @@ def normalize_value_spec(
         return {
             "value_mode": value_mode,
             "quantile": _normalize_quantile(
-                value["quantile"],
-                field=f"{field}.quantile",
+                value["quantile"], field=f"{field}.quantile"
             ),
             "multiplier": float(
-                finite_real(
-                    value.get("multiplier", 1.0),
-                    field=f"{field}.multiplier",
-                )
+                finite_real(value.get("multiplier", 1.0), field=f"{field}.multiplier")
             ),
         }
 
@@ -163,27 +138,20 @@ def normalize_value_spec(
         _validate_spec_keys(
             value,
             field=field,
-            required={
-                "value_mode",
-                "lower_quantile",
-                "upper_quantile",
-            },
+            required={"value_mode", "lower_quantile", "upper_quantile"},
             optional={"multiplier"},
         )
 
         lower_quantile = _normalize_quantile(
-            value["lower_quantile"],
-            field=f"{field}.lower_quantile",
+            value["lower_quantile"], field=f"{field}.lower_quantile"
         )
         upper_quantile = _normalize_quantile(
-            value["upper_quantile"],
-            field=f"{field}.upper_quantile",
+            value["upper_quantile"], field=f"{field}.upper_quantile"
         )
 
         if lower_quantile >= upper_quantile:
             raise ValueError(
-                f"{field!r} requires 'lower_quantile' to be less than "
-                "'upper_quantile'."
+                f"{field!r} requires 'lower_quantile' to be less than 'upper_quantile'."
             )
 
         return {
@@ -191,14 +159,53 @@ def normalize_value_spec(
             "lower_quantile": lower_quantile,
             "upper_quantile": upper_quantile,
             "multiplier": float(
-                finite_real(
-                    value.get("multiplier", 1.0),
-                    field=f"{field}.multiplier",
-                )
+                finite_real(value.get("multiplier", 1.0), field=f"{field}.multiplier")
             ),
         }
 
     raise AssertionError(f"Unhandled value mode: {value_mode!r}.")
+
+
+def fixed_value_spec(value: object, *, field: str) -> dict[str, Any]:
+    """Build and normalize an internal fixed-value specification."""
+    return normalize_value_spec({"value_mode": "fixed", "value": value}, field=field)
+
+
+def is_derived_value_spec(spec: Mapping[str, Any]) -> bool:
+    """Return whether a normalized value specification depends on focal data."""
+    return spec["value_mode"] != "fixed"
+
+
+def require_fixed_value_spec(spec: Mapping[str, Any], *, field: str) -> None:
+    """Require a normalized specification to use a literal fixed value."""
+    if is_derived_value_spec(spec):
+        raise ValueError(
+            f"{field!r} must use 'value_mode: fixed' because it is dimensionless."
+        )
+
+
+def normalize_value_reference_controls(
+    test: Mapping[str, Any], normalized: dict[str, Any], *, fields: Sequence[str]
+) -> None:
+    """Normalize prior-failure controls used only by derived value fields."""
+    if "include_failed_periods_from" not in test:
+        return
+
+    derived_fields = [
+        field
+        for field in fields
+        if field in normalized and is_derived_value_spec(normalized[field])
+    ]
+
+    if not derived_fields:
+        raise ValueError(
+            "'include_failed_periods_from' is only supported when at least one "
+            "configured value uses a derived 'value_mode'."
+        )
+
+    normalized["include_failed_periods_from"] = normalize_string_sequence(
+        test["include_failed_periods_from"], field="include_failed_periods_from"
+    )
 
 
 def _unresolved(
@@ -219,18 +226,14 @@ def _unresolved(
 
 
 def resolve_value_spec(
-    spec: Mapping[str, Any],
-    *,
-    data: pd.Series | None = None,
+    spec: Mapping[str, Any], *, data: pd.Series | None = None
 ) -> ValueResolution:
     """Resolve a normalized value specification against eligible focal data."""
     value_mode = spec["value_mode"]
 
     if value_mode == "fixed":
         return ValueResolution(
-            value=float(spec["value"]),
-            property_value=None,
-            eligible_observations=None,
+            value=float(spec["value"]), property_value=None, eligible_observations=None
         )
 
     if data is None:
@@ -251,25 +254,17 @@ def resolve_value_spec(
 
     if value_mode == "mean":
         property_value = float(data.mean())
-
     elif value_mode == "median":
         property_value = float(data.median())
-
     elif value_mode == "quantile":
         property_value = float(data.quantile(spec["quantile"]))
-
     elif value_mode == "quantile_range":
         lower = float(data.quantile(spec["lower_quantile"]))
         upper = float(data.quantile(spec["upper_quantile"]))
         property_value = upper - lower
-
     elif value_mode == "standard_deviation":
         property_value = float(data.std(ddof=0))
-
-    elif value_mode in {
-        "mean_absolute_increment",
-        "median_absolute_increment",
-    }:
+    elif value_mode in {"mean_absolute_increment", "median_absolute_increment"}:
         absolute_increments = data.diff().abs().dropna()
         eligible_increments = len(absolute_increments)
 
@@ -285,11 +280,8 @@ def resolve_value_spec(
             property_value = float(absolute_increments.mean())
         else:
             property_value = float(absolute_increments.median())
-
     else:
-        raise ValueError(
-            f"Unsupported normalized value mode: {value_mode!r}."
-        )
+        raise ValueError(f"Unsupported normalized value mode: {value_mode!r}.")
 
     if not isfinite(property_value):
         return _unresolved(
@@ -299,9 +291,7 @@ def resolve_value_spec(
             reason="nonfinite_property_value",
         )
 
-    resolved_value = property_value * float(
-        spec.get("multiplier", 1.0)
-    )
+    resolved_value = property_value * float(spec.get("multiplier", 1.0))
 
     if not isfinite(resolved_value):
         return _unresolved(
@@ -320,26 +310,48 @@ def resolve_value_spec(
 
 
 def resolve_context_value(
-    context: MethodContext,
-    *,
-    field: str,
-    context_name: str,
+    context: MethodContext, *, field: str, context_name: str
 ) -> ValueResolution:
-    """Resolve one configured value for one focal source-context."""
+    """Resolve one configured value independently for a focal source-context."""
     spec = context.test[field]
 
-    if spec["value_mode"] == "fixed":
+    if not is_derived_value_spec(spec):
         return resolve_value_spec(spec)
 
     eligible_data = context.reference_data(
-        context.source_name,
-        contexts=(context_name,),
+        context.source_name, contexts=(context_name,)
     )[context_name]
 
-    return resolve_value_spec(
-        spec,
-        data=eligible_data,
-    )
+    return resolve_value_spec(spec, data=eligible_data)
+
+
+def value_resolution_reason(
+    resolution: ValueResolution,
+    *,
+    minimum: float | None = None,
+    strict_minimum: bool = False,
+) -> str | None:
+    """Return why a resolved value violates an optional lower bound."""
+    if not resolution.evaluable:
+        return resolution.reason
+
+    if resolution.value is None:
+        return "missing_resolved_value"
+
+    if minimum is None:
+        return None
+
+    if strict_minimum and resolution.value <= minimum:
+        if minimum == 0:
+            return "resolved_value_not_positive"
+        return "resolved_value_not_above_minimum"
+
+    if not strict_minimum and resolution.value < minimum:
+        if minimum == 0:
+            return "resolved_value_negative"
+        return "resolved_value_below_minimum"
+
+    return None
 
 
 def value_resolution_details(
@@ -358,19 +370,64 @@ def value_resolution_details(
 
     if resolution.property_value is not None:
         details["property_value"] = resolution.property_value
-
     if resolution.value is not None:
         details["resolved_value"] = resolution.value
-
     if resolution.eligible_observations is not None:
         details["eligible_observations"] = resolution.eligible_observations
-
     if resolution.eligible_increments is not None:
         details["eligible_increments"] = resolution.eligible_increments
 
     resolved_reason = reason or resolution.reason
-
     if resolved_reason is not None:
         details["reason"] = resolved_reason
 
     return details
+
+
+def value_resolution_problem(
+    resolution: ValueResolution,
+    *,
+    field: str,
+    spec: Mapping[str, Any],
+    minimum: float | None = None,
+    strict_minimum: bool = False,
+) -> dict[str, Any] | None:
+    """Return diagnostics when one resolution is unusable by a consumer."""
+    reason = value_resolution_reason(
+        resolution, minimum=minimum, strict_minimum=strict_minimum
+    )
+
+    if reason is None:
+        return None
+
+    return value_resolution_details(resolution, field=field, spec=spec, reason=reason)
+
+
+def build_value_issues(
+    context: MethodContext,
+    *,
+    context_name: str,
+    problems: Sequence[Mapping[str, Any]],
+    candidates: pd.Series,
+) -> list[MethodIssue]:
+    """Build grouped not-evaluable issues for unusable configured values."""
+    if not problems:
+        return []
+
+    issues: list[MethodIssue] = []
+
+    for start, end in failure_mask_to_periods(
+        candidates.astype(bool), grid=context.grid
+    ):
+        issues.append(
+            MethodIssue(
+                context=context_name,
+                start=start,
+                end=end,
+                severity="not_evaluable",
+                code="derived_value_not_evaluable",
+                details={"values": [dict(problem) for problem in problems]},
+            )
+        )
+
+    return issues

@@ -10,10 +10,18 @@ import pandas as pd
 from tclean.data_quality._method import MethodContext, MethodResult, MethodSpec
 from tclean.data_quality._validation_helpers import (
     integer_at_least,
-    nonnegative_real,
     normalize_common_selectors,
     positive_timedelta,
     validate_keys,
+)
+from tclean.data_quality._value_spec import (
+    build_value_issues,
+    fixed_value_spec,
+    normalize_value_reference_controls,
+    normalize_value_spec,
+    resolve_context_value,
+    value_resolution_details,
+    value_resolution_problem,
 )
 from tclean.time_grid import TimeGrid
 
@@ -34,7 +42,7 @@ def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
     validate_keys(
         test,
         required={"name", "method", "pattern_duration", "minimum_matches"},
-        optional={"sources", "contexts", "tolerance"},
+        optional={"sources", "contexts", "tolerance", "include_failed_periods_from"},
     )
 
     normalized = normalize_common_selectors(test)
@@ -55,9 +63,19 @@ def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
         test["minimum_matches"], field="minimum_matches", minimum=2
     )
 
-    normalized["tolerance"] = nonnegative_real(
-        test.get("tolerance", 0.0), field="tolerance"
+    normalized["tolerance"] = (
+        normalize_value_spec(test["tolerance"], field="tolerance")
+        if "tolerance" in test
+        else fixed_value_spec(0.0, field="tolerance")
     )
+
+    tolerance = normalized["tolerance"]
+    if tolerance["value_mode"] == "fixed" and tolerance["value"] < 0:
+        raise ValueError(
+            "Fixed 'tolerance.value' must be greater than or equal to zero."
+        )
+
+    normalize_value_reference_controls(test, normalized, fields=("tolerance",))
 
     return normalized
 
@@ -174,14 +192,12 @@ def _approximate_matches(
 
 
 def _analyse(
-    data: pd.Series, *, test: Mapping[str, Any], grid: TimeGrid
+    data: pd.Series, *, pattern_duration: pd.Timedelta, tolerance: float, grid: TimeGrid
 ) -> tuple[list[_PatternBlock], dict[int, list[tuple[int, float]]]]:
     """Build candidate blocks and find their direct matches."""
-    pattern_steps = int(test["pattern_duration"] / grid.frequency)
+    pattern_steps = int(pattern_duration / grid.frequency)
 
     blocks = _complete_blocks(data, pattern_steps=pattern_steps, grid=grid)
-
-    tolerance = float(test["tolerance"])
 
     if tolerance == 0.0:
         matches = _exact_matches(blocks)
@@ -203,33 +219,55 @@ def _qualifying_indices(
 
 
 def evaluate(context: MethodContext) -> MethodResult:
-    """Flag complete blocks that reproduce patterns found elsewhere.
-
-    Candidate blocks are non-overlapping and grid-aligned. A block fails when
-    it directly matches enough other complete blocks to reach
-    ``minimum_matches``, counting itself.
-    """
+    """Flag complete blocks that reproduce patterns found elsewhere."""
     data = context.target_data
     test = context.test
     grid = context.grid
 
     failures = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
+    issues = []
 
-    for context_position, context in enumerate(data.columns):
-        blocks, matches = _analyse(data[context], test=test, grid=grid)
+    for context_position, context_name in enumerate(data.columns):
+        values = data[context_name]
+        tolerance = resolve_context_value(
+            context, field="tolerance", context_name=context_name
+        )
+        problem = value_resolution_problem(
+            tolerance, field="tolerance", spec=test["tolerance"], minimum=0.0
+        )
 
+        context_issues = build_value_issues(
+            context,
+            context_name=context_name,
+            problems=[] if problem is None else [problem],
+            candidates=values.notna(),
+        )
+        if context_issues:
+            issues.extend(context_issues)
+            continue
+
+        if tolerance.value is None:
+            raise RuntimeError(
+                "Evaluable repeated-pattern tolerance has no resolved value."
+            )
+
+        blocks, matches = _analyse(
+            values,
+            pattern_duration=test["pattern_duration"],
+            tolerance=tolerance.value,
+            grid=grid,
+        )
         qualifying = _qualifying_indices(
             matches, minimum_matches=test["minimum_matches"]
         )
 
         for block_index in qualifying:
             block = blocks[block_index]
-
             failures.iloc[
                 block.start_position : block.end_position, context_position
             ] = True
 
-    return MethodResult(mask=failures)
+    return MethodResult(mask=failures, issues=tuple(issues))
 
 
 def build_details(
@@ -247,8 +285,24 @@ def build_details(
     test = context.test
     grid = context.grid
 
-    blocks, matches = _analyse(data, test=test, grid=grid)
+    tolerance = resolve_context_value(
+        context, field="tolerance", context_name=context_name
+    )
+    problem = value_resolution_problem(
+        tolerance, field="tolerance", spec=test["tolerance"], minimum=0.0
+    )
 
+    if problem is not None or tolerance.value is None:
+        raise RuntimeError(
+            "Cannot build repeated-pattern failure details with an unusable tolerance."
+        )
+
+    blocks, matches = _analyse(
+        data,
+        pattern_duration=test["pattern_duration"],
+        tolerance=tolerance.value,
+        grid=grid,
+    )
     qualifying = set(
         _qualifying_indices(matches, minimum_matches=test["minimum_matches"])
     )
@@ -267,12 +321,11 @@ def build_details(
             matches[block_index], key=lambda item: blocks[item[0]].start
         ):
             other = blocks[other_index]
-
             block_matches.append(
                 {
                     "start": other.start,
                     "end": other.end,
-                    "maximum_absolute_difference": (maximum_difference),
+                    "maximum_absolute_difference": maximum_difference,
                 }
             )
 
@@ -288,7 +341,10 @@ def build_details(
     return {
         "pattern_duration": test["pattern_duration"],
         "minimum_matches": test["minimum_matches"],
-        "tolerance": test["tolerance"],
+        "tolerance": tolerance.value,
+        "tolerance_resolution": value_resolution_details(
+            tolerance, field="tolerance", spec=test["tolerance"]
+        ),
         "matched_block_count": len(failed_blocks),
         "matched_blocks": failed_blocks,
     }

@@ -25,7 +25,7 @@ def _test(*, window_duration: str = "3h", threshold: float = 40) -> dict:
         "name": "level_change",
         "method": "level_shift",
         "window_duration": pd.Timedelta(window_duration),
-        "threshold": threshold,
+        "threshold": {"value_mode": "fixed", "value": threshold},
     }
 
 
@@ -186,3 +186,14 @@ def test_build_details_uses_full_support_region():
 
     assert details["pre_evidence_start"] == pd.Timestamp("2026-01-01T02:00:00Z")
     assert details["post_evidence_end"] == pd.Timestamp("2026-01-01T10:00:00Z")
+
+
+def test_evaluate_level_shift_supports_derived_threshold():
+    """Resolve a level-shift threshold from focal variability."""
+    data = _data([100] * 6 + [150] * 10)
+    test = _test()
+    test["threshold"] = {"value_mode": "standard_deviation", "multiplier": 1.0}
+
+    result = method_mask(evaluate, data, test=test, grid=_grid())
+
+    assert result.index[result["A"]].tolist() == [pd.Timestamp("2026-01-01T06:00:00Z")]
