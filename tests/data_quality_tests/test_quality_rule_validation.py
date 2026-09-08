@@ -1095,3 +1095,120 @@ def test_validate_contextual_profile_accepts_prior_failure_inclusion():
     )
 
     assert result[1]["include_failed_periods_from"] == ["plausible_range"]
+
+
+def test_validate_defaults_peer_aggregation_mode_to_median():
+    """Use median aggregation unless the user explicitly selects another mode."""
+    result = validate_quality_test(
+        {
+            "name": "disagreement",
+            "method": "source_disagreement",
+            "difference_mode": "fixed",
+            "threshold": 10,
+        },
+        grid=_grid(),
+    )
+
+    assert result["difference_mode"] == "fixed"
+    assert result["peer_aggregation_mode"] == "median"
+    assert result["threshold"] == 10
+
+
+def test_validate_accepts_relative_mean_mode():
+    """Accept independent relative-difference and mean-aggregation choices."""
+    result = validate_quality_test(
+        {
+            "name": "disagreement",
+            "method": "source_disagreement",
+            "difference_mode": "relative",
+            "peer_aggregation_mode": "mean",
+            "threshold": 0.1,
+        },
+        grid=_grid(),
+    )
+
+    assert result["difference_mode"] == "relative"
+    assert result["peer_aggregation_mode"] == "mean"
+    assert result["threshold"] == 0.1
+
+
+def test_validate_requires_difference_mode():
+    """Require an explicit fixed or relative difference mode."""
+    with pytest.raises(ValueError, match="Missing keys"):
+        validate_quality_test(
+            {"name": "disagreement", "method": "source_disagreement", "threshold": 10},
+            grid=_grid(),
+        )
+
+
+def test_validate_rejects_unknown_difference_mode():
+    """Reject unsupported difference modes."""
+    with pytest.raises(ValueError, match="difference_mode"):
+        validate_quality_test(
+            {
+                "name": "disagreement",
+                "method": "source_disagreement",
+                "difference_mode": "scaled",
+                "threshold": 10,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_rejects_unknown_peer_aggregation_mode():
+    """Reject unsupported peer aggregation modes."""
+    with pytest.raises(ValueError, match="peer_aggregation_mode"):
+        validate_quality_test(
+            {
+                "name": "disagreement",
+                "method": "source_disagreement",
+                "difference_mode": "fixed",
+                "peer_aggregation_mode": "maximum",
+                "threshold": 10,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_rejects_zero_threshold():
+    """Require a strictly positive disagreement threshold."""
+    with pytest.raises(ValueError, match="must be greater than zero"):
+        validate_quality_test(
+            {
+                "name": "disagreement",
+                "method": "source_disagreement",
+                "difference_mode": "fixed",
+                "threshold": 0,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_rejects_negative_threshold():
+    """Reject negative disagreement thresholds."""
+    with pytest.raises(ValueError, match="greater than or equal to zero"):
+        validate_quality_test(
+            {
+                "name": "disagreement",
+                "method": "source_disagreement",
+                "difference_mode": "fixed",
+                "threshold": -1,
+            },
+            grid=_grid(),
+        )
+
+
+def test_validate_normalizes_failed_period_inclusion():
+    """Allow named preceding failures to be restored to peer evidence."""
+    result = validate_quality_test(
+        {
+            "name": "disagreement",
+            "method": "source_disagreement",
+            "difference_mode": "fixed",
+            "threshold": 10,
+            "include_failed_periods_from": ["earlier"],
+        },
+        grid=_grid(),
+    )
+
+    assert result["include_failed_periods_from"] == ["earlier"]

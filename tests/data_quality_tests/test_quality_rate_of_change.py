@@ -1,7 +1,6 @@
 """Tests for rate-of-change data-quality evaluation."""
 
 import pandas as pd
-
 from _method_helpers import method_details, method_mask
 
 from tclean import TimeGrid

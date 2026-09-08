@@ -13,6 +13,7 @@ from .low_variability import METHOD as LOW_VARIABILITY
 from .range import METHOD as RANGE
 from .rate_of_change import METHOD as RATE_OF_CHANGE
 from .repeated_pattern import METHOD as REPEATED_PATTERN
+from .source_disagreement import METHOD as SOURCE_DISAGREEMENT
 from .value_run import METHOD as VALUE_RUN
 
 
@@ -46,6 +47,7 @@ METHODS = build_method_registry(
         LEVEL_SHIFT,
         CONTEXTUAL_LEVEL,
         CONTEXTUAL_PROFILE,
+        SOURCE_DISAGREEMENT,
     ]
 )
 

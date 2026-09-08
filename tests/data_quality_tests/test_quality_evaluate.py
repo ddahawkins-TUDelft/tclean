@@ -854,3 +854,36 @@ def test_contextual_profile_can_restore_named_preceding_failures():
 
     profile = failure["details"]["profiles"][0]
     assert profile["reference_profiles"] == 4
+
+
+def test_public_evaluate_uses_unselected_sources_as_peers():
+    """Use all supplied sources as peers while source selectors choose focal sources."""
+    sources = {
+        "primary": _source({"A": [150, 150, 150, 150, 150, 150]}),
+        "peer_one": _source({"A": [100, 100, 100, 100, 100, 100]}),
+        "peer_two": _source({"A": [102, 102, 102, 102, 102, 102]}),
+    }
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "disagreement",
+                "method": "source_disagreement",
+                "sources": ["primary"],
+                "difference_mode": "fixed",
+                "threshold": 20,
+            }
+        ],
+        grid=_grid(),
+    )
+
+    assert len(result.failures) == 1
+
+    failure = result.failures.iloc[0]
+
+    assert failure["source"] == "primary"
+    assert failure["context"] == "A"
+    assert failure["method"] == "source_disagreement"
+    assert failure["start"] == _grid().target_index[0]
+    assert failure["end"] == pd.Timestamp(_grid().end)
