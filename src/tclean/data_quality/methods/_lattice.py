@@ -5,6 +5,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
+import numpy as np
 import pandas as pd
 
 from tclean.data_quality._validation_helpers import (
@@ -31,6 +32,22 @@ class ReferenceOrder:
 
     period: ReferencePeriod
     radius: int
+
+
+@dataclass(frozen=True)
+class ReferenceLattice:
+    """Precomputed reference positions for an ordered set of targets."""
+
+    targets: pd.DatetimeIndex
+    offsets: np.ndarray
+    positions: np.ndarray
+
+    def positions_for(self, target_number: int) -> np.ndarray:
+        """Return reference-index positions for one target."""
+        start = int(self.offsets[target_number])
+        end = int(self.offsets[target_number + 1])
+
+        return self.positions[start:end]
 
 
 def _normalize_reference_period(
@@ -169,3 +186,44 @@ def reference_timestamps(
     available = [timestamp for timestamp in centres if timestamp in available_index]
 
     return pd.DatetimeIndex(sorted(available))
+
+
+def build_reference_lattice(
+    targets: pd.DatetimeIndex,
+    *,
+    orders: Sequence[ReferenceOrder],
+    available_index: pd.DatetimeIndex,
+) -> ReferenceLattice:
+    """Precompute available reference positions for multiple targets."""
+    targets = pd.DatetimeIndex(targets)
+    available_index = pd.DatetimeIndex(available_index)
+
+    offsets = np.zeros(len(targets) + 1, dtype=np.int64)
+    position_chunks: list[np.ndarray] = []
+
+    for target_number, target in enumerate(targets):
+        timestamps = reference_timestamps(
+            target, orders=orders, available_index=available_index
+        )
+
+        positions = available_index.get_indexer(timestamps)
+
+        if np.any(positions < 0):
+            raise RuntimeError(
+                "Reference lattice contains timestamps outside the available index."
+            )
+
+        positions = positions.astype(np.intp, copy=False)
+        position_chunks.append(positions)
+
+        offsets[target_number + 1] = offsets[target_number] + len(positions)
+
+    if position_chunks:
+        positions = np.concatenate(position_chunks)
+    else:
+        positions = np.empty(0, dtype=np.intp)
+
+    offsets.setflags(write=False)
+    positions.setflags(write=False)
+
+    return ReferenceLattice(targets=targets, offsets=offsets, positions=positions)

@@ -14,6 +14,7 @@ from tclean.data_quality._method import (
     MethodResult,
     MethodSpec,
 )
+from tclean.data_quality._parallel import ordered_thread_map
 from tclean.data_quality._progress import ProgressTracker
 from tclean.data_quality._validation_helpers import (
     finite_real,
@@ -24,6 +25,8 @@ from tclean.data_quality._validation_helpers import (
     validate_keys,
 )
 from tclean.data_quality.methods._lattice import (
+    ReferenceLattice,
+    build_reference_lattice,
     normalize_reference_orders,
     reference_timestamps,
 )
@@ -45,6 +48,7 @@ class _Profile:
 
 
 _ProfileCache = dict[pd.Timestamp, _Profile | None]
+_PositionProfileCache = dict[int, _Profile | None]
 
 
 @dataclass(frozen=True)
@@ -90,6 +94,16 @@ class _ContextualProfileEvidence:
     def evaluable(self) -> bool:
         """Return whether at least one configured criterion was evaluable."""
         return self.robust is not None or self.predictive is not None
+
+
+@dataclass(frozen=True)
+class _ContextEvaluation:
+    """Evaluation output for one contextual-profile context."""
+
+    context_name: str
+    mask: np.ndarray
+    issues: tuple[MethodIssue, ...]
+    failure_details: dict[pd.Timestamp, dict[str, Any]]
 
 
 def validate(test: Mapping[str, Any], *, grid: TimeGrid) -> dict[str, Any]:
@@ -275,11 +289,17 @@ def _reference_profiles(
     test: Mapping[str, Any],
     grid: TimeGrid,
     cache: _ProfileCache,
+    candidate_positions: np.ndarray | None = None,
 ) -> list[_Profile]:
     """Build complete non-overlapping contextual reference profiles."""
-    starts = reference_timestamps(
-        target.start, orders=test["reference_orders"], available_index=reference.index
-    )
+    if candidate_positions is None:
+        starts = reference_timestamps(
+            target.start,
+            orders=test["reference_orders"],
+            available_index=reference.index,
+        )
+    else:
+        starts = reference.index[candidate_positions]
 
     profiles: list[_Profile] = []
 
@@ -495,116 +515,6 @@ def _unavailable_criteria(
     return unavailable
 
 
-def evaluate(context: MethodContext) -> MethodResult:
-    """Evaluate contextual profiles and report evaluation limitations."""
-    data = context.target_data
-    reference = context.reference_data(context.source_name)
-    test = context.test
-    grid = context.grid
-
-    progress = ProgressTracker(
-            total=len(data.columns),
-            label=f"{test['name']} [{test['method']}]",
-            logger=logger,
-        )
-
-    mask = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
-    issues: list[MethodIssue] = []
-
-    starts = _target_profile_starts(data.index, test=test, grid=grid)
-    duration = test["profile_duration"]
-
-
-    for context_name in data.columns:
-
-        values = data[context_name]
-        reference_values = reference[context_name]
-        reference_profile_cache: _ProfileCache = {}
-
-        for start in starts:
-            start = pd.Timestamp(start)
-            end = start + duration
-
-            target_values = _profile_values(
-                values, start=start, duration=duration, grid=grid
-            )
-
-            if target_values is None:
-                expected = grid.index_for_period(start=start, end=end)
-                observed = values.reindex(expected)
-                missing_observations = int(observed.isna().sum())
-
-                issues.append(
-                    MethodIssue(
-                        context=context_name,
-                        start=start,
-                        end=end,
-                        severity="not_evaluable",
-                        code="incomplete_target_profile",
-                        details={
-                            "profile_observations": len(expected),
-                            "missing_observations": missing_observations,
-                        },
-                    )
-                )
-                continue
-
-            target = _Profile(
-                start=start,
-                end=end,
-                values=_normalize_profile(target_values.to_numpy(dtype=float)),
-            )
-
-            references = _reference_profiles(
-                reference_values,
-                target=target,
-                test=test,
-                grid=grid,
-                cache=reference_profile_cache,
-            )
-
-            evidence = _contextual_profile_evidence(target, references, test=test)
-            reference_profiles = len(references)
-
-            if not evidence.evaluable:
-                issues.append(
-                    MethodIssue(
-                        context=context_name,
-                        start=start,
-                        end=end,
-                        severity="not_evaluable",
-                        code="insufficient_reference_profiles",
-                        details={
-                            "reference_profiles": reference_profiles,
-                            "configured_criteria": _configured_criteria(test),
-                        },
-                    )
-                )
-                continue
-
-            if evidence.failed:
-                profile_index = grid.index_for_period(start=start, end=end)
-                mask.loc[profile_index, context_name] = True
-
-            for criterion in _unavailable_criteria(evidence, test=test):
-                issues.append(
-                    MethodIssue(
-                        context=context_name,
-                        start=start,
-                        end=end,
-                        severity="warning",
-                        code="criterion_not_evaluable",
-                        details={
-                            "criterion": criterion,
-                            "reference_profiles": reference_profiles,
-                        },
-                    )
-                )
-        progress.complete(context_name)
-
-    return MethodResult(mask=mask, issues=tuple(issues))
-
-
 def _profile_details(
     target: _Profile,
     *,
@@ -655,6 +565,301 @@ def _profile_details(
     return details
 
 
+def _profile_steps(duration: pd.Timedelta, *, grid: TimeGrid) -> int:
+    """Return the integer number of grid observations in one profile."""
+    return int(duration // grid.frequency)
+
+
+def _profile_from_position(
+    values: np.ndarray,
+    index: pd.DatetimeIndex,
+    *,
+    start_position: int,
+    profile_steps: int,
+    duration: pd.Timedelta,
+) -> _Profile | None:
+    """Build one complete normalized profile from contiguous array positions."""
+    if start_position < 0:
+        return None
+
+    end_position = start_position + profile_steps
+
+    if end_position > len(values):
+        return None
+
+    raw = values[start_position:end_position]
+
+    if pd.isna(raw).any():
+        return None
+
+    start = pd.Timestamp(index[start_position])
+
+    return _Profile(start=start, end=start + duration, values=_normalize_profile(raw))
+
+
+def _cached_position_profile(
+    values: np.ndarray,
+    index: pd.DatetimeIndex,
+    *,
+    start_position: int,
+    profile_steps: int,
+    duration: pd.Timedelta,
+    cache: _PositionProfileCache,
+) -> _Profile | None:
+    """Return one normalized positional profile, building it once if needed."""
+    start_position = int(start_position)
+
+    if start_position not in cache:
+        cache[start_position] = _profile_from_position(
+            values,
+            index,
+            start_position=start_position,
+            profile_steps=profile_steps,
+            duration=duration,
+        )
+
+    return cache[start_position]
+
+
+def _reference_profiles_from_positions(
+    reference_values: np.ndarray,
+    reference_index: pd.DatetimeIndex,
+    *,
+    target: _Profile,
+    candidate_positions: np.ndarray,
+    profile_steps: int,
+    duration: pd.Timedelta,
+    cache: _PositionProfileCache,
+) -> list[_Profile]:
+    """Return complete non-overlapping profiles from precomputed positions."""
+    profiles: list[_Profile] = []
+
+    for start_position in candidate_positions:
+        profile = _cached_position_profile(
+            reference_values,
+            reference_index,
+            start_position=int(start_position),
+            profile_steps=profile_steps,
+            duration=duration,
+            cache=cache,
+        )
+
+        if profile is None:
+            continue
+
+        if _profiles_overlap(profile, target.start, target.end):
+            continue
+
+        profiles.append(profile)
+
+    return profiles
+
+
+def _incomplete_target_issue(
+    values: pd.Series,
+    *,
+    context_name: str,
+    start: pd.Timestamp,
+    duration: pd.Timedelta,
+    grid: TimeGrid,
+) -> MethodIssue:
+    """Build an issue describing one incomplete target profile."""
+    end = start + duration
+    expected = grid.index_for_period(start=start, end=end)
+    observed = values.reindex(expected)
+
+    return MethodIssue(
+        context=context_name,
+        start=start,
+        end=end,
+        severity="not_evaluable",
+        code="incomplete_target_profile",
+        details={
+            "profile_observations": len(expected),
+            "missing_observations": int(observed.isna().sum()),
+        },
+    )
+
+
+def _evaluate_context(
+    context_name: str,
+    *,
+    data: pd.DataFrame,
+    reference: pd.DataFrame,
+    starts: pd.DatetimeIndex,
+    target_start_positions: np.ndarray,
+    lattice: ReferenceLattice,
+    test: Mapping[str, Any],
+    grid: TimeGrid,
+    progress: ProgressTracker,
+) -> _ContextEvaluation:
+    """Evaluate one contextual-profile context independently."""
+    duration = test["profile_duration"]
+    profile_steps = _profile_steps(duration, grid=grid)
+
+    values_series = data[context_name]
+    target_values = values_series.to_numpy(dtype=float)
+    reference_values = reference[context_name].to_numpy(dtype=float)
+
+    target_index = data.index
+    reference_index = reference.index
+
+    reference_profile_cache: _PositionProfileCache = {}
+
+    context_mask = np.zeros(len(data.index), dtype=bool)
+    issues: list[MethodIssue] = []
+    failure_details: dict[pd.Timestamp, dict[str, Any]] = {}
+
+    configured_criteria = _configured_criteria(test)
+
+    for target_number, start in enumerate(starts):
+        start = pd.Timestamp(start)
+        end = start + duration
+        start_position = int(target_start_positions[target_number])
+
+        target = _profile_from_position(
+            target_values,
+            target_index,
+            start_position=start_position,
+            profile_steps=profile_steps,
+            duration=duration,
+        )
+
+        if target is None:
+            issues.append(
+                _incomplete_target_issue(
+                    values_series,
+                    context_name=context_name,
+                    start=start,
+                    duration=duration,
+                    grid=grid,
+                )
+            )
+            continue
+
+        references = _reference_profiles_from_positions(
+            reference_values,
+            reference_index,
+            target=target,
+            candidate_positions=lattice.positions_for(target_number),
+            profile_steps=profile_steps,
+            duration=duration,
+            cache=reference_profile_cache,
+        )
+
+        evidence = _contextual_profile_evidence(target, references, test=test)
+        reference_profiles = len(references)
+
+        if not evidence.evaluable:
+            issues.append(
+                MethodIssue(
+                    context=context_name,
+                    start=start,
+                    end=end,
+                    severity="not_evaluable",
+                    code="insufficient_reference_profiles",
+                    details={
+                        "reference_profiles": reference_profiles,
+                        "configured_criteria": configured_criteria,
+                    },
+                )
+            )
+            continue
+
+        if evidence.failed:
+            end_position = start_position + profile_steps
+
+            if start_position >= 0 and end_position <= len(context_mask):
+                context_mask[start_position:end_position] = True
+            else:
+                profile_index = grid.index_for_period(start=start, end=end)
+                profile_positions = data.index.get_indexer(profile_index)
+                profile_positions = profile_positions[profile_positions >= 0]
+                context_mask[profile_positions] = True
+
+            failure_details[start] = _profile_details(
+                target, references=references, evidence=evidence, test=test
+            )
+
+        for criterion in _unavailable_criteria(evidence, test=test):
+            issues.append(
+                MethodIssue(
+                    context=context_name,
+                    start=start,
+                    end=end,
+                    severity="warning",
+                    code="criterion_not_evaluable",
+                    details={
+                        "criterion": criterion,
+                        "reference_profiles": reference_profiles,
+                    },
+                )
+            )
+
+    progress.complete(context_name)
+
+    return _ContextEvaluation(
+        context_name=context_name,
+        mask=context_mask,
+        issues=tuple(issues),
+        failure_details=failure_details,
+    )
+
+
+def evaluate(context: MethodContext) -> MethodResult:
+    """Evaluate contextual profiles and report evaluation limitations."""
+    data = context.target_data
+    reference = context.reference_data(context.source_name)
+    test = context.test
+    grid = context.grid
+
+    starts = _target_profile_starts(data.index, test=test, grid=grid)
+
+    lattice = build_reference_lattice(
+        starts, orders=test["reference_orders"], available_index=reference.index
+    )
+
+    target_start_positions = data.index.get_indexer(starts).astype(np.intp, copy=False)
+
+    progress = ProgressTracker(
+        total=len(data.columns),
+        label=f"{test['name']} [{test['method']}]",
+        logger=logger,
+    )
+
+    def evaluate_context(context_name: str) -> _ContextEvaluation:
+        return _evaluate_context(
+            context_name,
+            data=data,
+            reference=reference,
+            starts=starts,
+            target_start_positions=target_start_positions,
+            lattice=lattice,
+            test=test,
+            grid=grid,
+            progress=progress,
+        )
+
+    results = ordered_thread_map(
+        evaluate_context, list(data.columns), threads=context.threads
+    )
+
+    mask = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
+    issues: list[MethodIssue] = []
+    failure_details: dict[str, dict[pd.Timestamp, dict[str, Any]]] = {}
+
+    for context_result in results:
+        mask[context_result.context_name] = context_result.mask
+        issues.extend(context_result.issues)
+        failure_details[context_result.context_name] = context_result.failure_details
+
+    return MethodResult(
+        mask=mask,
+        issues=tuple(issues),
+        diagnostics={"failure_details": failure_details},
+    )
+
+
 def build_details(
     context: MethodContext,
     result: MethodResult,
@@ -664,52 +869,19 @@ def build_details(
     end: pd.Timestamp,
 ) -> dict[str, Any]:
     """Build evidence for one contextual-profile failure period."""
-    del result
+    duration = context.test["profile_duration"]
+    stored_details = result.diagnostics.get("failure_details", {}).get(context_name, {})
 
-    data = context.target_data[context_name]
-    reference = context.reference_data(context.source_name)[context_name]
-    test = context.test
-    grid = context.grid
+    failed_profiles = [
+        details
+        for profile_start, details in stored_details.items()
+        if profile_start >= start and profile_start + duration <= end
+    ]
 
-    failed_profiles: list[dict[str, Any]] = []
     failed_criteria: list[str] = []
 
-    reference_profile_cache: _ProfileCache = {}
-
-    duration = test["profile_duration"]
-    starts = _target_profile_starts(data.index, test=test, grid=grid)
-
-    for profile_start in starts:
-        profile_start = pd.Timestamp(profile_start)
-        profile_end = profile_start + duration
-
-        if profile_start < start or profile_end > end:
-            continue
-
-        target = _build_profile(data, start=profile_start, duration=duration, grid=grid)
-
-        if target is None:
-            continue
-
-        references = _reference_profiles(
-            reference,
-            target=target,
-            test=test,
-            grid=grid,
-            cache=reference_profile_cache,
-        )
-        evidence = _contextual_profile_evidence(target, references, test=test)
-
-        if not evidence.failed:
-            continue
-
-        failed_profiles.append(
-            _profile_details(
-                target, references=references, evidence=evidence, test=test
-            )
-        )
-
-        for criterion in evidence.failed_criteria:
+    for details in failed_profiles:
+        for criterion in details["failed_criteria"]:
             if criterion not in failed_criteria:
                 failed_criteria.append(criterion)
 
