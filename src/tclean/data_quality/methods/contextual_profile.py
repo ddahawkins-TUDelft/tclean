@@ -478,9 +478,7 @@ def _contextual_profile_evidence(
     failed_criteria: list[str] = []
 
     reference_profiles = len(references)
-    robust_evaluable = (
-        "robust_deviation_threshold" in test and reference_profiles >= 3
-    )
+    robust_evaluable = "robust_deviation_threshold" in test and reference_profiles >= 3
     predictive_evaluable = (
         "maximum_predictive_probability" in test and reference_profiles > 0
     )
