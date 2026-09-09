@@ -380,7 +380,11 @@ def _target_distance(target: _Profile, references: Sequence[_Profile]) -> float:
 
 
 def _robust_profile_deviation(
-    target: _Profile, references: Sequence[_Profile], *, threshold: float
+    target: _Profile,
+    references: Sequence[_Profile],
+    *,
+    threshold: float,
+    distance_matrix: np.ndarray | None = None,
 ) -> _RobustProfileDeviation | None:
     """Evaluate a target profile against robust peer-distance evidence."""
     reference_profiles = len(references)
@@ -388,11 +392,15 @@ def _robust_profile_deviation(
     if reference_profiles < 3:
         return None
 
-    distances = _distance_matrix(references)
-    reference_scores = _peer_distance_scores(distances)
+    if distance_matrix is None:
+        distance_matrix = _distance_matrix([*references, target])
+
+    reference_distances = distance_matrix[:reference_profiles, :reference_profiles]
+    reference_scores = _peer_distance_scores(reference_distances)
     robust_reference = robust_location_scale(reference_scores)
 
-    target_distance = _target_distance(target, references)
+    target_distances = distance_matrix[-1, :reference_profiles]
+    target_distance = float(np.median(target_distances))
     deviation = float(target_distance - robust_reference.median)
 
     if robust_reference.scale == 0:
@@ -421,7 +429,11 @@ def _robust_profile_deviation(
 
 
 def _predictive_profile_probability(
-    target: _Profile, references: Sequence[_Profile], *, maximum_probability: float
+    target: _Profile,
+    references: Sequence[_Profile],
+    *,
+    maximum_probability: float,
+    distance_matrix: np.ndarray | None = None,
 ) -> _PredictiveProfileProbability | None:
     """Evaluate a target with a rank-based contextual predictive probability."""
     reference_profiles = len(references)
@@ -429,9 +441,10 @@ def _predictive_profile_probability(
     if reference_profiles == 0:
         return None
 
-    profiles = [*references, target]
-    distances = _distance_matrix(profiles)
-    scores = _peer_distance_scores(distances)
+    if distance_matrix is None:
+        distance_matrix = _distance_matrix([*references, target])
+
+    scores = _peer_distance_scores(distance_matrix)
 
     target_distance = float(scores[-1])
     at_least_as_nonconforming = (scores > target_distance) | np.isclose(
@@ -441,7 +454,7 @@ def _predictive_profile_probability(
     profiles_at_least_as_nonconforming = int(
         np.count_nonzero(at_least_as_nonconforming)
     )
-    comparison_profiles = len(profiles)
+    comparison_profiles = reference_profiles + 1
     predictive_probability = float(
         profiles_at_least_as_nonconforming / comparison_profiles
     )
@@ -464,9 +477,24 @@ def _contextual_profile_evidence(
     predictive = None
     failed_criteria: list[str] = []
 
+    reference_profiles = len(references)
+    robust_evaluable = (
+        "robust_deviation_threshold" in test and reference_profiles >= 3
+    )
+    predictive_evaluable = (
+        "maximum_predictive_probability" in test and reference_profiles > 0
+    )
+
+    distance_matrix = None
+    if robust_evaluable or predictive_evaluable:
+        distance_matrix = _distance_matrix([*references, target])
+
     if "robust_deviation_threshold" in test:
         robust = _robust_profile_deviation(
-            target, references, threshold=test["robust_deviation_threshold"]
+            target,
+            references,
+            threshold=test["robust_deviation_threshold"],
+            distance_matrix=distance_matrix,
         )
 
         if robust is not None and robust.failed:
@@ -477,6 +505,7 @@ def _contextual_profile_evidence(
             target,
             references,
             maximum_probability=test["maximum_predictive_probability"],
+            distance_matrix=distance_matrix,
         )
 
         if predictive is not None and predictive.failed:
