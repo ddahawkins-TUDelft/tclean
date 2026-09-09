@@ -1,5 +1,6 @@
 """Contextual-profile data-quality testing."""
 
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -13,6 +14,7 @@ from tclean.data_quality._method import (
     MethodResult,
     MethodSpec,
 )
+from tclean.data_quality._progress import ProgressTracker
 from tclean.data_quality._validation_helpers import (
     finite_real,
     nonnegative_timedelta,
@@ -27,6 +29,8 @@ from tclean.data_quality.methods._lattice import (
 )
 from tclean.data_quality.methods._robust import robust_location_scale
 from tclean.time_grid import TimeGrid
+
+logger = logging.getLogger(__name__)
 
 _DISTANCE_ZERO_ATOL = 1e-12
 
@@ -498,13 +502,21 @@ def evaluate(context: MethodContext) -> MethodResult:
     test = context.test
     grid = context.grid
 
+    progress = ProgressTracker(
+            total=len(data.columns),
+            label=f"{test['name']} [{test['method']}]",
+            logger=logger,
+        )
+
     mask = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
     issues: list[MethodIssue] = []
 
     starts = _target_profile_starts(data.index, test=test, grid=grid)
     duration = test["profile_duration"]
 
+
     for context_name in data.columns:
+
         values = data[context_name]
         reference_values = reference[context_name]
         reference_profile_cache: _ProfileCache = {}
@@ -588,6 +600,7 @@ def evaluate(context: MethodContext) -> MethodResult:
                         },
                     )
                 )
+        progress.complete(context_name)
 
     return MethodResult(mask=mask, issues=tuple(issues))
 

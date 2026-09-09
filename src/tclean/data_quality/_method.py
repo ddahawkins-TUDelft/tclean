@@ -48,6 +48,7 @@ class MethodContext:
     contexts: tuple[str, ...]
     test: Mapping[str, Any]
     grid: TimeGrid
+    threads: int = 1
     preceding_failures: tuple[Mapping[str, Any], ...] = ()
     _reference_cache: dict[tuple[str, tuple[str, ...]], pd.DataFrame] = field(
         default_factory=dict, init=False, repr=False

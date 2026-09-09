@@ -1,5 +1,6 @@
 """Contextual-level data-quality testing."""
 
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -14,6 +15,7 @@ from tclean.data_quality._method import (
     MethodResult,
     MethodSpec,
 )
+from tclean.data_quality._progress import ProgressTracker
 from tclean.data_quality._validation_helpers import (
     finite_real,
     normalize_common_selectors,
@@ -26,6 +28,8 @@ from tclean.data_quality.methods._lattice import (
 )
 from tclean.data_quality.methods._robust import robust_location_scale
 from tclean.time_grid import TimeGrid
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -302,10 +306,17 @@ def evaluate(context: MethodContext) -> MethodResult:
     test = context.test
     grid = context.grid
 
+    progress = ProgressTracker(
+        total=len(data.columns),
+        label=f"{test['name']} [{test['method']}]",
+        logger=logger,
+    )
+
     mask = pd.DataFrame(False, index=data.index, columns=data.columns, dtype=bool)
     issues: list[MethodIssue] = []
 
     for context_name in data.columns:
+
         values = data[context_name]
         reference_values = reference[context_name]
 
@@ -357,6 +368,8 @@ def evaluate(context: MethodContext) -> MethodResult:
                         },
                     )
                 )
+
+        progress.complete(context_name)
 
     return MethodResult(mask=mask, issues=tuple(issues))
 

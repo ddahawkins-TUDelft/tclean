@@ -1,7 +1,10 @@
 """Evaluate configured data-quality tests."""
 
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from numbers import Integral
+from time import perf_counter
 from typing import Any
 
 import pandas as pd
@@ -17,6 +20,8 @@ from tclean.data_quality.methods import METHODS
 from tclean.data_quality.rule_validation import validate_quality_tests
 from tclean.time_grid import TimeGrid
 from tclean.validation import validate_time_series
+
+logger = logging.getLogger(__name__)
 
 _FAILURE_COLUMNS = [
     "context",
@@ -103,6 +108,19 @@ def _validate_sources(
         validated[source_name] = validate_time_series(data, grid=grid)
 
     return validated
+
+
+def _validate_threads(threads: int) -> int:
+    """Validate and normalize the available thread count."""
+    if isinstance(threads, bool) or not isinstance(threads, Integral):
+        raise TypeError("threads must be an integer.")
+
+    threads = int(threads)
+
+    if threads < 1:
+        raise ValueError("threads must be at least 1.")
+
+    return threads
 
 
 def _selected_source_names(
@@ -219,6 +237,7 @@ def _evaluate_test_for_source(
     test: Mapping[str, Any],
     grid: TimeGrid,
     preceding_failures: Sequence[Mapping[str, Any]],
+    threads: int,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Evaluate one quality test for one focal source."""
     if not contexts:
@@ -232,6 +251,7 @@ def _evaluate_test_for_source(
         contexts=tuple(contexts),
         test=test,
         grid=grid,
+        threads=threads,
         preceding_failures=tuple(preceding_failures),
     )
 
@@ -315,6 +335,7 @@ def evaluate(
     *,
     tests: Sequence[Mapping[str, Any]],
     grid: TimeGrid,
+    threads: int = 1,
 ) -> QualityEvaluation:
     """Evaluate configured data-quality tests across named sources.
 
@@ -329,6 +350,9 @@ def evaluate(
         tests: Ordered data-quality test configurations.
         grid: Temporal grid against which sources and failure periods are
             evaluated.
+        threads: Maximum number of threads available to data-quality methods.
+            Methods may use fewer threads when parallel execution would not
+            be beneficial. Defaults to 1.
 
     Returns:
         Quality failures and evaluation issues.
@@ -340,13 +364,29 @@ def evaluate(
         pandera.errors.SchemaErrors: If source or result frames violate
             canonical T-Clean schemas.
     """
+    threads = _validate_threads(threads)
     validated_sources = _validate_sources(sources, grid=grid)
     validated_tests = validate_quality_tests(tests, grid=grid)
+
+    logger.info(
+        "Tclean data-quality evaluation: tests=%d | threads=%d",
+        len(validated_tests),
+        threads,
+    )
 
     failure_rows: list[dict[str, Any]] = []
     issue_rows: list[dict[str, Any]] = []
 
-    for test in validated_tests:
+    for test_number, test in enumerate(validated_tests, start=1):
+        test_started = perf_counter()
+
+        logger.debug(
+            "Starting data-quality test %d/%d: %s [%s]",
+            test_number,
+            len(validated_tests),
+            test["name"],
+            test["method"],
+        )
         preceding_failures = tuple(failure_rows)
         current_test_failure_rows: list[dict[str, Any]] = []
         current_test_issue_rows: list[dict[str, Any]] = []
@@ -368,6 +408,7 @@ def evaluate(
                 test=test,
                 grid=grid,
                 preceding_failures=preceding_failures,
+                threads=threads,
             )
 
             current_test_failure_rows.extend(source_failures)
@@ -375,6 +416,15 @@ def evaluate(
 
         failure_rows.extend(current_test_failure_rows)
         issue_rows.extend(current_test_issue_rows)
+
+        logger.debug(
+            "Completed data-quality test %d/%d: %s [%s] in %.2fs",
+            test_number,
+            len(validated_tests),
+            test["name"],
+            test["method"],
+            perf_counter() - test_started,
+        )
 
     failures = validate_quality_failures(_build_failure_frame(failure_rows), grid=grid)
     issues = validate_quality_issues(_build_issue_frame(issue_rows), grid=grid)

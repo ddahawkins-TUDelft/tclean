@@ -1,5 +1,7 @@
 """Tests for high-level data-quality evaluation."""
 
+import logging
+
 import pandas as pd
 import pytest
 
@@ -1023,3 +1025,120 @@ def test_evaluate_derived_value_can_reinclude_preceding_failures():
     derived = result.failures[result.failures["test_name"] == "derived_maximum"]
 
     assert derived.empty
+
+
+def test_evaluate_accepts_thread_count():
+    """Accept an explicit thread budget without changing evaluation results."""
+    sources = {"primary": _source({"A": [1, -2, 3, 4, 5, 6]})}
+
+    result = evaluate(
+        sources,
+        tests=[
+            {
+                "name": "non_negative",
+                "method": "range",
+                "minimum": {"value_mode": "fixed", "value": 0},
+            }
+        ],
+        grid=_grid(),
+        threads=2,
+    )
+
+    assert len(result.failures) == 1
+
+
+@pytest.mark.parametrize("threads", [0, -1])
+def test_evaluate_requires_positive_thread_count(threads):
+    """Reject thread counts below one."""
+    sources = {"primary": _source({"A": [1, 2, 3, 4, 5, 6]})}
+
+    with pytest.raises(ValueError, match="threads must be at least 1"):
+        evaluate(
+            sources,
+            tests=[
+                {
+                    "name": "non_negative",
+                    "method": "range",
+                    "minimum": {"value_mode": "fixed", "value": 0},
+                }
+            ],
+            grid=_grid(),
+            threads=threads,
+        )
+
+
+@pytest.mark.parametrize("threads", [1.5, "2", True])
+def test_evaluate_requires_integer_thread_count(threads):
+    """Reject non-integer thread counts."""
+    sources = {"primary": _source({"A": [1, 2, 3, 4, 5, 6]})}
+
+    with pytest.raises(TypeError, match="threads must be an integer"):
+        evaluate(
+            sources,
+            tests=[
+                {
+                    "name": "non_negative",
+                    "method": "range",
+                    "minimum": {"value_mode": "fixed", "value": 0},
+                }
+            ],
+            grid=_grid(),
+            threads=threads,
+        )
+
+
+def test_evaluate_logs_single_info_summary(caplog):
+    """Report one concise INFO summary when evaluation starts."""
+    sources = {"primary": _source({"A": [1, 2, 3, 4, 5, 6]})}
+
+    with caplog.at_level(logging.INFO, logger="tclean.data_quality"):
+        evaluate(
+            sources,
+            tests=[
+                {
+                    "name": "non_negative",
+                    "method": "range",
+                    "minimum": {"value_mode": "fixed", "value": 0},
+                }
+            ],
+            grid=_grid(),
+            threads=3,
+        )
+
+    messages = [
+        record.getMessage()
+        for record in caplog.records
+        if record.name.startswith("tclean.data_quality")
+        and record.levelno == logging.INFO
+    ]
+
+    assert messages == ["Tclean data-quality evaluation: tests=1 | threads=3"]
+
+
+def test_evaluate_logs_debug_test_timing(caplog):
+    """Report test lifecycle details at DEBUG level."""
+    sources = {"primary": _source({"A": [1, 2, 3, 4, 5, 6]})}
+
+    with caplog.at_level(logging.DEBUG, logger="tclean.data_quality"):
+        evaluate(
+            sources,
+            tests=[
+                {
+                    "name": "non_negative",
+                    "method": "range",
+                    "minimum": {"value_mode": "fixed", "value": 0},
+                }
+            ],
+            grid=_grid(),
+        )
+
+    messages = [record.getMessage() for record in caplog.records]
+
+    assert any(
+        "Starting data-quality test 1/1: non_negative [range]" in message
+        for message in messages
+    )
+    assert any(
+        "Completed data-quality test 1/1: non_negative [range] in" in message
+        for message in messages
+    )
