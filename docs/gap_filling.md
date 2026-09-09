@@ -265,11 +265,7 @@ validated = validate_basic_rules(basic_rules, grid=grid)
 Fills eligible bounded gaps using time-based linear interpolation.
 
 ```python
-{
-    "name": "interpolate_short_gaps",
-    "method": "linear_interpolation",
-    "max_gap": "3h",
-}
+{"name": "interpolate_short_gaps", "method": "linear_interpolation", "max_gap": "3h"}
 ```
 
 ### Configuration
@@ -487,9 +483,7 @@ Scope is separate from rule activation. An advanced rule can belong to the targe
 from tclean.gap_filling import select_active_advanced_rules
 
 active = select_active_advanced_rules(
-    advanced_rules,
-    target_contexts=["A", "B"],
-    grid=grid,
+    advanced_rules, target_contexts=["A", "B"], grid=grid
 )
 ```
 
@@ -588,10 +582,7 @@ validated = validate_source_periods(source_periods, grid=grid)
 from tclean.gap_filling import build_auxiliary_acquisition_requirements
 
 requirements = build_auxiliary_acquisition_requirements(
-    [source_periods],
-    basic_rules=basic_rules,
-    grid=grid,
-    basic_cleaning_enabled=True,
+    [source_periods], basic_rules=basic_rules, grid=grid, basic_cleaning_enabled=True
 )
 ```
 
@@ -643,10 +634,7 @@ Example:
 
 ```python
 source_capabilities = pd.DataFrame(
-    {
-        "source": ["provider_a", "provider_b"],
-        "context": [pd.NA, "special_context"],
-    }
+    {"source": ["provider_a", "provider_b"], "context": [pd.NA, "special_context"]}
 )
 ```
 
@@ -656,9 +644,7 @@ Map requirements to source requests with:
 from tclean.gap_filling import build_auxiliary_source_requests
 
 requests = build_auxiliary_source_requests(
-    requirements,
-    source_capabilities=source_capabilities,
-    grid=grid,
+    requirements, source_capabilities=source_capabilities, grid=grid
 )
 ```
 
@@ -685,10 +671,7 @@ The returned request table describes what the application should acquire. T-Clea
 from tclean.gap_filling import construct_from_sources
 
 profile = construct_from_sources(
-    auxiliary_data,
-    target_index=target_index,
-    sources=source_periods,
-    grid=grid,
+    auxiliary_data, target_index=target_index, sources=source_periods, grid=grid
 )
 ```
 
@@ -845,10 +828,7 @@ T-Clean deliberately does not decide where external profile files live. The cons
 Human-readable `cleaning_method` labels can be mapped to deterministic integer ranks for plotting or compact downstream representation.
 
 ```python
-from tclean.gap_filling import (
-    build_cleaning_method_ranks,
-    derive_cleaning_method_rank,
-)
+from tclean.gap_filling import build_cleaning_method_ranks, derive_cleaning_method_rank
 
 ranks = build_cleaning_method_ranks(
     ["primary", "secondary"],
@@ -856,10 +836,7 @@ ranks = build_cleaning_method_ranks(
     advanced_rule_names=["replace_bad_period"],
 )
 
-rank_frame = derive_cleaning_method_rank(
-    cleaning_method=cleaning_method,
-    ranks=ranks,
-)
+rank_frame = derive_cleaning_method_rank(cleaning_method=cleaning_method, ranks=ranks)
 ```
 
 Rank order is:

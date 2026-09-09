@@ -48,21 +48,13 @@ from tclean.data_quality import QualityEvaluation, evaluate, validate_quality_te
 The high-level entry point is:
 
 ```python
-evaluation = evaluate(
-    sources,
-    tests=tests,
-    grid=grid,
-    threads=1,
-)
+evaluation = evaluate(sources, tests=tests, grid=grid, threads=1)
 ```
 
 It returns:
 
 ```python
-QualityEvaluation(
-    failures=evaluation.failures,
-    issues=evaluation.issues,
-)
+QualityEvaluation(failures=evaluation.failures, issues=evaluation.issues)
 ```
 
 `evaluate(...)` does **not** modify the supplied source DataFrames.
@@ -124,10 +116,7 @@ For a single test, each focal source is evaluated against the same snapshot of f
 Every test is a mapping with at least:
 
 ```python
-{
-    "name": "unique_test_name",
-    "method": "registered_method",
-}
+{"name": "unique_test_name", "method": "registered_method"}
 ```
 
 `name` must be a non-empty unique string across the ordered test list.
@@ -208,10 +197,7 @@ tests = [
         "name": "large_change",
         "method": "rate_of_change",
         "difference_mode": "fixed",
-        "threshold": {
-            "value_mode": "median_absolute_increment",
-            "multiplier": 10,
-        },
+        "threshold": {"value_mode": "median_absolute_increment", "multiplier": 10},
     },
 ]
 ```
@@ -227,10 +213,7 @@ A later test can explicitly keep failed periods from selected **preceding** test
     "name": "large_change",
     "method": "rate_of_change",
     "difference_mode": "fixed",
-    "threshold": {
-        "value_mode": "median_absolute_increment",
-        "multiplier": 10,
-    },
+    "threshold": {"value_mode": "median_absolute_increment", "multiplier": 10},
     "include_failed_periods_from": ["negative_values"],
 }
 ```
@@ -301,11 +284,7 @@ Use the median of eligible observations:
 Use one quantile between 0 and 1:
 
 ```python
-{
-    "value_mode": "quantile",
-    "quantile": 0.99,
-    "multiplier": 1.0,
-}
+{"value_mode": "quantile", "quantile": 0.99, "multiplier": 1.0}
 ```
 
 ## `quantile_range`
@@ -330,10 +309,7 @@ The lower quantile must be strictly less than the upper quantile.
 Use the population standard deviation (`ddof=0`) of eligible observations:
 
 ```python
-{
-    "value_mode": "standard_deviation",
-    "multiplier": 6.0,
-}
+{"value_mode": "standard_deviation", "multiplier": 6.0}
 ```
 
 ## `mean_absolute_increment`
@@ -341,10 +317,7 @@ Use the population standard deviation (`ddof=0`) of eligible observations:
 Calculate absolute adjacent increments from eligible data and use their mean:
 
 ```python
-{
-    "value_mode": "mean_absolute_increment",
-    "multiplier": 10.0,
-}
+{"value_mode": "mean_absolute_increment", "multiplier": 10.0}
 ```
 
 ## `median_absolute_increment`
@@ -352,10 +325,7 @@ Calculate absolute adjacent increments from eligible data and use their mean:
 Calculate absolute adjacent increments from eligible data and use their median:
 
 ```python
-{
-    "value_mode": "median_absolute_increment",
-    "multiplier": 10.0,
-}
+{"value_mode": "median_absolute_increment", "multiplier": 10.0}
 ```
 
 ## Derived values that cannot be resolved
@@ -502,11 +472,7 @@ If both are derived, or one is derived, the resolved values are checked independ
     "name": "plausible_range",
     "method": "range",
     "minimum": {"value_mode": "fixed", "value": 0},
-    "maximum": {
-        "value_mode": "quantile",
-        "quantile": 0.999,
-        "multiplier": 1.2,
-    },
+    "maximum": {"value_mode": "quantile", "quantile": 0.999, "multiplier": 1.2},
 }
 ```
 
@@ -772,10 +738,7 @@ Flags adjacent observed transitions whose change exceeds a configured fixed or r
     "name": "large_absolute_change",
     "method": "rate_of_change",
     "difference_mode": "fixed",
-    "threshold": {
-        "value_mode": "median_absolute_increment",
-        "multiplier": 10,
-    },
+    "threshold": {"value_mode": "median_absolute_increment", "multiplier": 10},
 }
 ```
 
@@ -797,10 +760,7 @@ The threshold may be fixed or derived.
     "method": "rate_of_change",
     "difference_mode": "relative",
     "threshold": {"value_mode": "fixed", "value": 0.5},
-    "reference_magnitude_threshold": {
-        "value_mode": "fixed",
-        "value": 1.0,
-    },
+    "reference_magnitude_threshold": {"value_mode": "fixed", "value": 1.0},
 }
 ```
 
@@ -853,10 +813,7 @@ A fixed threshold must be positive.
     "name": "persistent_level_shift",
     "method": "level_shift",
     "window_duration": "24h",
-    "threshold": {
-        "value_mode": "standard_deviation",
-        "multiplier": 2,
-    },
+    "threshold": {"value_mode": "standard_deviation", "multiplier": 2},
 }
 ```
 
@@ -907,10 +864,7 @@ At least one of `robust_deviation_threshold` or `maximum_predictive_probability`
 {
     "name": "unusual_level",
     "method": "contextual_level",
-    "reference_orders": [
-        {"period": "7D", "radius": 4},
-        {"period": "1Y", "radius": 2},
-    ],
+    "reference_orders": [{"period": "7D", "radius": 4}, {"period": "1Y", "radius": 2}],
     "robust_deviation_threshold": 6,
 }
 ```
@@ -1031,10 +985,7 @@ At least one criterion must be configured.
     "method": "contextual_profile",
     "profile_duration": "24h",
     "profile_offset": "0h",
-    "reference_orders": [
-        {"period": "7D", "radius": 4},
-        {"period": "1Y", "radius": 10},
-    ],
+    "reference_orders": [{"period": "7D", "radius": 4}, {"period": "1Y", "radius": 10}],
     "robust_deviation_threshold": 6,
 }
 ```
@@ -1318,10 +1269,7 @@ For each target timestamp, T-Clean constructs combinations of coefficients from 
 With:
 
 ```python
-[
-    {"period": "7D", "radius": 1},
-    {"period": "1Y", "radius": 1},
-]
+[{"period": "7D", "radius": 1}, {"period": "1Y", "radius": 1}]
 ```
 
 references can include the same weekly neighbourhood around the equivalent timestamp in the previous year, current year, and next year, subject to data availability and removal of the focal target itself.
@@ -1341,7 +1289,7 @@ Consequently, a lattice timestamp can exist while its value/profile is unavailab
 `evaluate(...)` accepts:
 
 ```python
-threads=1
+threads = 1
 ```
 
 `threads` must be an integer of at least 1.
@@ -1351,7 +1299,7 @@ It represents the maximum number of Python worker threads available to data-qual
 The default is deliberately conservative:
 
 ```python
-threads=1
+threads = 1
 ```
 
 When the supplied thread count is 1, contextual method execution uses the serial path and does not create a `ThreadPoolExecutor`.

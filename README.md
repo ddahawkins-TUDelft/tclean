@@ -121,28 +121,13 @@ import pandas as pd
 
 from tclean import TimeGrid
 
-index = pd.date_range(
-    "2026-01-01",
-    periods=48,
-    freq="1h",
-    tz="UTC",
-    name="timestamp",
-)
+index = pd.date_range("2026-01-01", periods=48, freq="1h", tz="UTC", name="timestamp")
 
 grid = TimeGrid(
-    start="2026-01-01T00:00:00Z",
-    end="2026-01-03T00:00:00Z",
-    frequency="1h",
+    start="2026-01-01T00:00:00Z", end="2026-01-03T00:00:00Z", frequency="1h"
 )
 
-primary = pd.DataFrame(
-    {
-        "A": range(48),
-        "B": range(100, 148),
-    },
-    index=index,
-    dtype=float,
-)
+primary = pd.DataFrame({"A": range(48), "B": range(100, 148)}, index=index, dtype=float)
 ```
 
 ## Evaluate data quality
@@ -160,11 +145,7 @@ quality = evaluate(
             "method": "range",
             "minimum": {"value_mode": "fixed", "value": 0},
         },
-        {
-            "name": "flatline_6h",
-            "method": "flatline",
-            "minimum_duration": "6h",
-        },
+        {"name": "flatline_6h", "method": "flatline", "minimum_duration": "6h"},
     ],
     grid=grid,
 )
@@ -186,10 +167,7 @@ secondary = primary.copy()
 primary.loc[index[10:12], "A"] = float("nan")
 
 filled, data_source, cleaning_method = fill_gaps(
-    {
-        "primary": primary,
-        "secondary": secondary,
-    },
+    {"primary": primary, "secondary": secondary},
     basic_rules=[
         {
             "name": "interpolate_short_gaps",
@@ -223,9 +201,7 @@ Every operation is anchored to a `TimeGrid`.
 from tclean import TimeGrid
 
 grid = TimeGrid(
-    start="2026-01-01T00:30:00Z",
-    end="2026-01-02T00:30:00Z",
-    frequency="1h",
+    start="2026-01-01T00:30:00Z", end="2026-01-02T00:30:00Z", frequency="1h"
 )
 ```
 
@@ -286,10 +262,7 @@ T-Clean treats context labels as opaque identifiers and does not interpret their
 A source is a named provider of time-series values.
 
 ```python
-sources = {
-    "primary": primary_data,
-    "secondary": secondary_data,
-}
+sources = {"primary": primary_data, "secondary": secondary_data}
 ```
 
 The meaning of source order depends on the operation:
@@ -432,10 +405,7 @@ Data-quality evaluation is **diagnostic**: it does not modify the supplied sourc
 Configured tests run in order and return:
 
 ```python
-QualityEvaluation(
-    failures=...,
-    issues=...,
-)
+QualityEvaluation(failures=..., issues=...)
 ```
 
 A **failure** means a test was evaluable and identified suspicious data according to its configured criterion.
